@@ -109,8 +109,8 @@ MOPS 是 Vue SPA，必須用 browser evaluate 呼叫內部 API：
 
 ```
 tasks/stock-research/
-├── progress.json    # 進度追蹤
-├── report.md        # 最終報告
+├── progress.json           # 進度追蹤
+├── report_YYYYMMDD.md      # 最終報告（依執行日期命名，如 report_20260204.md）
 └── raw/
     ├── mops/*.json
     ├── cnyes/*.json
@@ -119,6 +119,20 @@ tasks/stock-research/
     └── goodinfo/*.json
 ```
 
+## 報告檔名規則
+
+- 檔名格式：`report_YYYYMMDD.md`（例如 `report_20260204.md`）
+- YYYYMMDD 為**執行當日**日期（台灣時間）
+- 每次執行產生獨立檔案，歷史報告皆保留
+- 報告開頭須包含：
+  ```markdown
+  # 台股調研報告（民國年/MM/DD）
+
+  > 調研日期：昨日 (MM/DD) + 今日 (MM/DD)
+  > 執行時間：YYYY-MM-DD HH:MM (台灣時間)
+  > 來源：MOPS (公開資訊觀測站)、鉅亨網、財報狗、MoneyDJ、Goodinfo
+  ```
+
 ## 快速執行
 
 ```
@@ -126,5 +140,5 @@ tasks/stock-research/
 1. 建立 tasks/stock-research/ 目錄
 2. 序列派發 5 個 sub-agent（每個間隔 5 秒）
 3. 等待全部完成
-4. 讀取 raw/*.json 彙整 report.md
+4. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（YYYYMMDD = 執行當日）
 ```
