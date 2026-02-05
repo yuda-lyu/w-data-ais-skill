@@ -97,3 +97,46 @@ Weekly              10%      90%        120.0h
 - `ChatGPT-Account-Id` header 是必須的，否則 API 會回傳錯誤
 - Account ID 可從 access token 的 JWT payload 中提取
 - OpenAI Codex 目前只有一個模型，不像 Antigravity 有多模型配額
+
+## 📝 錯誤紀錄機制（必要）
+
+執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
+
+### 紀錄格式
+
+```json
+{
+  "timestamp": "2026-02-05T13:50:00+08:00",
+  "date": "20260205",
+  "source": "check-codex-quota",
+  "phase": "fetch",
+  "error": {
+    "type": "http_401",
+    "message": "Token expired or invalid",
+    "details": "Bearer token rejected by ChatGPT API"
+  },
+  "attempts": [
+    {"action": "refresh token via openclaw", "result": "pending"}
+  ],
+  "resolution": "failed",
+  "notes": "Need to run 'openclaw login openai-codex'"
+}
+```
+
+### 錯誤類型
+
+| type | 說明 |
+|------|------|
+| `http_401` | Token 過期或無效 |
+| `http_403` | Account ID 錯誤或權限不足 |
+| `http_429` | Rate limit，已達配額上限 |
+| `network` | 網路連線失敗 |
+| `timeout` | 請求逾時 |
+| `parse` | 回應解析失敗 |
+
+### 何時紀錄
+
+1. API 請求失敗（任何 HTTP 錯誤）
+2. Token 過期
+3. Account ID 無效
+4. 回應格式異常

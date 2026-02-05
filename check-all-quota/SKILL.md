@@ -84,25 +84,6 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
 
 未列出的模型會排在最後。
 
-## 模型排序
-
-各帳號的模型額度按以下順序顯示：
-
-1. claude-opus-4-5-thinking
-2. claude-sonnet-4-5-thinking
-3. claude-sonnet-4-5
-4. gemini-3-pro-high
-5. gemini-3-pro-low
-6. gemini-3-pro-image
-7. gemini-3-flash
-8. gemini-2.5-pro
-9. gemini-2.5-flash
-10. gemini-2.5-flash-thinking
-11. gemini-2.5-flash-lite
-12. gpt-oss-120b-medium
-
-未列出的模型會排在最後。
-
 ## 自動偵測帳號
 
 腳本會自動讀取 `auth-profiles.json` 並根據 `provider` 欄位分類：
@@ -166,3 +147,58 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
 - **錯誤資訊**: 查詢失敗時提供明確錯誤訊息
 - **平行查詢**: 使用 ThreadPoolExecutor 同時查詢（最多 8 並行）
 - **多 Provider**: 支援 Google Antigravity 和 OpenAI Codex
+
+## 📝 錯誤紀錄機制（必要）
+
+執行過程中遭遇的錯誤須記錄至調用方或輸出中。
+
+### 錯誤資訊結構
+
+每個帳號的錯誤資訊包含在回傳結果中：
+
+```json
+{
+  "provider": "google-antigravity",
+  "email": "firsemisphere6@gmail.com",
+  "error": "Token expired",
+  "quotas": []
+}
+```
+
+### 錯誤類型
+
+| type | 說明 |
+|------|------|
+| `Token expired` | Access token 過期，需重新認證 |
+| `HTTP 401` | Token 無效 |
+| `HTTP 403` | 帳號需驗證或被停用 |
+| `HTTP 429` | Rate limit，請求過於頻繁 |
+| `HTTP 503` | 服務暫時不可用 |
+| `Network error` | 網路連線失敗 |
+
+### 錯誤處理原則
+
+1. **獨立查詢**：每個帳號獨立查詢，單一帳號失敗不影響其他帳號
+2. **錯誤回傳**：失敗帳號的 `error` 欄位會包含錯誤訊息
+3. **空 quotas**：失敗帳號的 `quotas` 為空陣列
+4. **統計錯誤**：Summary 會統計總錯誤數量
+
+### 調用方錯誤紀錄（建議）
+
+若此技能被其他技能調用，建議將錯誤記錄至 `error_log.jsonl`：
+
+```json
+{
+  "timestamp": "2026-02-05T13:50:00+08:00",
+  "date": "20260205",
+  "source": "check-all-quota",
+  "phase": "fetch",
+  "error": {
+    "type": "token_expired",
+    "message": "5 accounts have expired tokens",
+    "details": ["firsemisphere@gmail.com", "firsemisphere2@gmail.com", ...]
+  },
+  "resolution": "partial",
+  "notes": "Run 'openclaw login google-antigravity' to refresh tokens"
+}
+```
