@@ -152,6 +152,31 @@ MOPS 是 Vue SPA，必須用 browser evaluate 呼叫內部 API：
 
 ## Goodinfo 表格抓取
 
+**⚠️ Anti-bot 處理（必要）**
+
+Goodinfo 有 JavaScript-based anti-bot 防護，會在首次訪問時設定 cookie 並重定向。**必須**按以下步驟處理：
+
+```
+步驟 1：開啟頁面（觸發 anti-bot）
+  browser open → https://goodinfo.tw/tw/StockList.asp?MARKET_CAT=智慧選股&INDUSTRY_CAT=三大法人持股籌碼%40買賣超彙總
+
+步驟 2：等待重定向完成（關鍵！）
+  等待 3-5 秒，讓瀏覽器完成 JavaScript 執行和 cookie 設定
+  browser snapshot → 確認頁面已載入完成（檢查是否有表格內容）
+
+步驟 3：若仍在重定向頁面，手動導航
+  如果 snapshot 顯示只有 JavaScript 重定向代碼，執行：
+  browser navigate → 同一網址（此時 cookie 已設定，會正常載入）
+  再次等待 2-3 秒
+
+步驟 4：抓取資料
+  browser act evaluate → 執行下方 JavaScript
+```
+
+**錯誤處理**：
+- 若連續 3 次嘗試後仍無法載入，標記「Goodinfo 資料擷取受限」並繼續
+- 不要讓 Goodinfo 失敗阻擋整體報告產出
+
 **標題日期格式**：`Goodinfo 三大法人買賣超（YYY/MM/DD）`（民國年/月/日，避免跨年顯示不清）
 
 ```javascript
