@@ -84,6 +84,25 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
 
 未列出的模型會排在最後。
 
+## 模型排序
+
+各帳號的模型額度按以下順序顯示：
+
+1. claude-opus-4-5-thinking
+2. claude-sonnet-4-5-thinking
+3. claude-sonnet-4-5
+4. gemini-3-pro-high
+5. gemini-3-pro-low
+6. gemini-3-pro-image
+7. gemini-3-flash
+8. gemini-2.5-pro
+9. gemini-2.5-flash
+10. gemini-2.5-flash-thinking
+11. gemini-2.5-flash-lite
+12. gpt-oss-120b-medium
+
+未列出的模型會排在最後。
+
 ## 自動偵測帳號
 
 腳本會自動讀取 `auth-profiles.json` 並根據 `provider` 欄位分類：
