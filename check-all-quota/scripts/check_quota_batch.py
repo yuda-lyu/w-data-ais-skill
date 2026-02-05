@@ -23,6 +23,29 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 ANTIGRAVITY_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels"
 CODEX_URL = "https://chatgpt.com/backend-api/wham/usage"
 
+# Model display order (models not in list will appear at the end)
+MODEL_ORDER = [
+    "claude-opus-4-5-thinking",
+    "claude-sonnet-4-5-thinking",
+    "claude-sonnet-4-5",
+    "gemini-3-pro-high",
+    "gemini-3-pro-low",
+    "gemini-3-pro-image",
+    "gemini-3-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-thinking",
+    "gemini-2.5-flash-lite",
+    "gpt-oss-120b-medium",
+]
+
+def get_model_sort_key(model_name: str) -> int:
+    """Get sort key for model based on MODEL_ORDER."""
+    try:
+        return MODEL_ORDER.index(model_name)
+    except ValueError:
+        return len(MODEL_ORDER)  # Unknown models go to the end
+
 def parse_reset_time(reset_time_str):
     """Parse reset time from ISO string or epoch."""
     if not reset_time_str:
@@ -94,7 +117,8 @@ def extract_antigravity_quotas(data: dict) -> list:
             "reset_hours": reset_hours
         })
     
-    results.sort(key=lambda x: x["used_pct"], reverse=True)
+    # Sort by predefined model order
+    results.sort(key=lambda x: get_model_sort_key(x["model"]))
     return results
 
 def query_antigravity_account(account: dict) -> dict:
@@ -179,7 +203,7 @@ def extract_codex_quotas(data: dict) -> list:
             "reset_hours": reset_hours
         })
     
-    results.sort(key=lambda x: x["used_pct"], reverse=True)
+    # Keep order: session-5h first, then weekly (no sorting needed, already in order)
     return results
 
 def query_codex_account(account: dict) -> dict:
