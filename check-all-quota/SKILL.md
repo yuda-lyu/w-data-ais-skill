@@ -1,11 +1,14 @@
 ---
-name: check-all-quota-batch
+name: check-all-quota
 description: 批次查詢所有 AI 帳號的模型額度（Google Antigravity + OpenAI Codex）。自動偵測 auth-profiles.json 中的所有帳號並平行查詢。適用於：(1) 一次查看所有帳號額度、(2) 找出可用額度最多的帳號、(3) 規劃帳號輪替策略、(4) 監控所有 AI 服務配額狀態。
 ---
 
-# Check All Quota (Batch)
+# Check All Quota
 
-批次查詢所有 AI 帳號的模型額度，支援：
+批次查詢所有 AI 帳號的**全部模型額度**。
+
+## 支援 Provider
+
 - **Google Antigravity**: Claude, Gemini, GPT-OSS 等模型
 - **OpenAI Codex**: 5 小時 session 配額和週配額
 
@@ -15,9 +18,16 @@ description: 批次查詢所有 AI 帳號的模型額度（Google Antigravity + 
 # 預設格式化輸出
 python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.json
 
-# JSON 輸出
+# JSON 輸出（完整結構化資料）
 python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.json --json
 ```
+
+## 輸出要求
+
+執行後**必須回傳**：
+1. 全部帳號的全部模型額度
+2. 每個模型的使用百分比、剩餘百分比、重置時間
+3. 若查詢失敗，必須提供該帳號的錯誤資訊
 
 ## 輸出範例
 
@@ -32,10 +42,10 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
    claude-opus-4-5-thinking              0.0%  100.0%       5h
    claude-sonnet-4-5                      0.0%  100.0%       5h
    gemini-2.5-pro                         0.0%  100.0%       5h
+   ...（顯示全部模型）
 
-📧 firsemisphere@gmail.com
-   claude-opus-4-5-thinking            100.0%    0.0%      83h
-   ...
+📧 firsemisphere6@gmail.com
+   ❌ Error: Token expired
 
 ============================================================
 🤖 OpenAI Codex Accounts
@@ -52,7 +62,7 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
    Google Antigravity: 6 accounts
    OpenAI Codex: 1 accounts
    Total: 7 accounts
-   Errors: 0
+   Errors: 1
 ```
 
 ## 自動偵測帳號
@@ -63,13 +73,20 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
 
 新增或移除帳號後，腳本會自動偵測變更，無需修改程式碼。
 
-## 特性
+## 錯誤處理
 
-- **自動偵測**: 根據 auth-profiles.json 動態載入所有帳號
-- **平行查詢**: 使用 ThreadPoolExecutor 同時查詢多帳號（最多 8 並行）
-- **多 Provider**: 支援 Google Antigravity 和 OpenAI Codex
-- **Token 檢查**: 自動檢測過期 token
-- **統一格式**: 所有 provider 輸出格式一致
+每個帳號獨立查詢，若某帳號查詢失敗：
+- 該帳號會顯示 `❌ Error: <錯誤訊息>`
+- 不影響其他帳號的查詢
+- Summary 會統計錯誤數量
+
+常見錯誤：
+| 錯誤 | 說明 |
+|------|------|
+| Token expired | 需執行 `openclaw login <provider>` 重新認證 |
+| HTTP 403 | 帳號需驗證或被停用 |
+| HTTP 429 | Rate limit |
+| Network error | 網路連線問題 |
 
 ## JSON 輸出格式
 
@@ -80,8 +97,15 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
     "email": "firsemisphere5@gmail.com",
     "project_id": "...",
     "quotas": [
-      {"model": "claude-opus-4-5-thinking", "remaining_pct": 100, "used_pct": 0, ...}
+      {"model": "claude-opus-4-5-thinking", "remaining_pct": 100, "used_pct": 0, "reset_time": "...", "reset_hours": 5.0},
+      {"model": "gemini-2.5-pro", "remaining_pct": 100, "used_pct": 0, ...}
     ]
+  },
+  {
+    "provider": "google-antigravity",
+    "email": "firsemisphere6@gmail.com",
+    "error": "Token expired",
+    "quotas": []
   },
   {
     "provider": "openai-codex",
@@ -90,16 +114,17 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
     "plan_type": "plus",
     "limit_reached": false,
     "quotas": [
-      {"model": "codex-session-5h", "remaining_pct": 100, "used_pct": 0, ...}
+      {"model": "codex-session-5h", "remaining_pct": 100, "used_pct": 0, ...},
+      {"model": "codex-weekly", "remaining_pct": 65, "used_pct": 35, ...}
     ]
   }
 ]
 ```
 
-## 常見錯誤
+## 特性
 
-| 錯誤 | 說明 |
-|------|------|
-| Token expired | 需執行 `openclaw login <provider>` 重新認證 |
-| HTTP 403 | 帳號需驗證或被停用 |
-| HTTP 429 | Rate limit，減少並行數或稍後重試 |
+- **自動偵測**: 根據 auth-profiles.json 動態載入所有帳號
+- **完整回傳**: 回傳每個帳號的全部模型額度
+- **錯誤資訊**: 查詢失敗時提供明確錯誤訊息
+- **平行查詢**: 使用 ThreadPoolExecutor 同時查詢（最多 8 並行）
+- **多 Provider**: 支援 Google Antigravity 和 OpenAI Codex
