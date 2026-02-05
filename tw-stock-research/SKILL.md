@@ -97,6 +97,8 @@ MOPS 是 Vue SPA，必須用 browser evaluate 呼叫內部 API：
 
 ## Goodinfo 表格抓取
 
+**標題日期格式**：`Goodinfo 三大法人買賣超（YYY/MM/DD）`（民國年/月/日，避免跨年顯示不清）
+
 ```javascript
 // 抓取法人買超 Top 10
 [...document.querySelectorAll('#divStockList tr')]
