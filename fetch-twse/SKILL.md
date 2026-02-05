@@ -221,3 +221,62 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 - 3481 群創
 輸出開盤價、收盤價、漲跌幅
 ```
+
+## 📝 錯誤紀錄機制（必要）
+
+執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
+
+### 紀錄格式
+
+```json
+{
+  "timestamp": "2026-02-05T15:30:00+08:00",
+  "date": "20260205",
+  "source": "twse",
+  "phase": "fetch",
+  "error": {
+    "type": "timeout",
+    "message": "API request timeout",
+    "details": "ETIMEDOUT on /exchangeReport/STOCK_DAY"
+  },
+  "attempts": [
+    {"action": "retry after 5s", "result": "failed"},
+    {"action": "retry after 10s", "result": "success"}
+  ],
+  "resolution": "success",
+  "notes": "TWSE API may be slow during 14:30-15:00"
+}
+```
+
+### 錯誤類型
+
+| type | 說明 |
+|------|------|
+| `network` | 網路連線失敗 |
+| `timeout` | API 請求逾時 |
+| `not-found` | 股票代碼不存在（可能為上櫃） |
+| `non-trading` | 非交易日 |
+| `parse` | JSON 解析失敗 |
+| `rate-limit` | 請求過於頻繁被封鎖 |
+
+### 何時紀錄
+
+1. API 請求失敗或逾時
+2. 股票代碼查無資料（需嘗試 TPEX）
+3. 回傳資料格式異常
+4. 每次重試嘗試
+
+### 特殊處理
+
+若查詢的股票在 TWSE 查無資料，記錄後應建議改用 TPEX API：
+
+```json
+{
+  "source": "twse",
+  "error": {
+    "type": "not-found",
+    "message": "Stock 6510 not found in TWSE"
+  },
+  "notes": "Suggest try TPEX API for OTC stocks"
+}
+```

@@ -122,10 +122,54 @@ description: 抓取鉅亨網（Anue）台股即時新聞。支援指定日期範
 }
 ```
 
+## 📝 錯誤紀錄機制（必要）
+
+執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
+
+### 紀錄格式
+
+```json
+{
+  "timestamp": "2026-02-05T08:15:30+08:00",
+  "date": "20260205",
+  "source": "cnyes",
+  "phase": "fetch",
+  "error": {
+    "type": "timeout",
+    "message": "Page load timeout",
+    "details": "Browser timeout after 30s waiting for JS render"
+  },
+  "attempts": [
+    {"action": "refresh page", "result": "failed"},
+    {"action": "close and reopen browser", "result": "success"}
+  ],
+  "resolution": "success",
+  "notes": "cnyes requires longer wait time for JS rendering"
+}
+```
+
+### 錯誤類型
+
+| type | 說明 |
+|------|------|
+| `timeout` | 頁面載入逾時 |
+| `browser` | 瀏覽器操作失敗 |
+| `parse` | 內容解析失敗 |
+| `empty` | 無法找到新聞列表 |
+| `blocked` | 被網站封鎖 |
+
+### 何時紀錄
+
+1. 頁面載入失敗或逾時
+2. JavaScript 渲染未完成
+3. 找不到新聞元素
+4. 重試嘗試（成功或失敗皆記錄）
+
 ## 快速執行
 
 ```
 請使用 fetch-cnyes 技能抓取鉅亨網新聞：
 - 日期範圍：昨日 + 今日
 - 輸出：JSON 格式，含個股影響判斷
+- 錯誤須記錄至 error_log.jsonl
 ```

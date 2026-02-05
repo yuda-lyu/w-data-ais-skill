@@ -136,10 +136,54 @@ Goodinfo 有 JavaScript-based anti-bot 防護，會在首次訪問時設定 cook
 
 **重要**：Goodinfo 失敗時，標記「資料擷取受限」並繼續，不要讓它阻擋整體報告產出。
 
+## 📝 錯誤紀錄機制（必要）
+
+執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
+
+### 紀錄格式
+
+```json
+{
+  "timestamp": "2026-02-05T08:15:30+08:00",
+  "date": "20260205",
+  "source": "goodinfo",
+  "phase": "fetch",
+  "error": {
+    "type": "anti-bot",
+    "message": "JavaScript redirect detected",
+    "details": "setCookie('CLIENT_KEY', ...); window.location.replace(...)"
+  },
+  "attempts": [
+    {"action": "wait 3s then navigate", "result": "failed", "message": "Still redirect page"},
+    {"action": "wait 5s then navigate", "result": "success", "message": "Page loaded"}
+  ],
+  "resolution": "success",
+  "notes": "Goodinfo anti-bot requires 5s wait"
+}
+```
+
+### 錯誤類型
+
+| type | 說明 |
+|------|------|
+| `anti-bot` | Anti-bot 防護未能繞過 |
+| `timeout` | 頁面載入逾時 |
+| `browser` | 瀏覽器操作失敗 |
+| `parse` | 表格解析失敗 |
+| `empty` | 表格無資料 |
+
+### 何時紀錄
+
+1. Anti-bot 重定向未能繞過
+2. 頁面載入失敗
+3. 表格元素找不到
+4. 每次重試嘗試（**特別重要**，用於優化 anti-bot 策略）
+
 ## 快速執行
 
 ```
 請使用 fetch-goodinfo 技能抓取三大法人買賣超：
 - 資料日期：前一交易日
 - 輸出：JSON 格式，含買超 Top 10
+- 錯誤須記錄至 error_log.jsonl
 ```

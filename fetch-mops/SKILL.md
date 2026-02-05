@@ -123,10 +123,54 @@ MOPS 是 Vue SPA，**必須**用 browser evaluate 呼叫內部 API，無法用 w
 }
 ```
 
+## 📝 錯誤紀錄機制（必要）
+
+執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
+
+### 紀錄格式
+
+```json
+{
+  "timestamp": "2026-02-05T08:15:30+08:00",
+  "date": "20260205",
+  "source": "mops",
+  "phase": "fetch",
+  "error": {
+    "type": "network",
+    "message": "API request timeout",
+    "details": "POST /mops/api/home_page/t05sr01_1 timeout after 30s"
+  },
+  "attempts": [
+    {"action": "retry after 5s", "result": "failed"},
+    {"action": "retry after 10s", "result": "success"}
+  ],
+  "resolution": "success",
+  "notes": "MOPS API may be slow during market open hours"
+}
+```
+
+### 錯誤類型
+
+| type | 說明 |
+|------|------|
+| `network` | 網路連線失敗 |
+| `timeout` | 請求逾時 |
+| `parse` | JSON 解析失敗 |
+| `empty` | API 回傳空資料 |
+| `browser` | 瀏覽器操作失敗 |
+
+### 何時紀錄
+
+1. API 請求失敗或逾時
+2. 瀏覽器無法開啟/evaluate 失敗
+3. 回傳資料格式異常
+4. 重試嘗試（成功或失敗皆記錄）
+
 ## 快速執行
 
 ```
 請使用 fetch-mops 技能抓取 MOPS 重大公告：
 - 日期範圍：昨日 + 今日
 - 輸出：JSON 格式
+- 錯誤須記錄至 error_log.jsonl
 ```
