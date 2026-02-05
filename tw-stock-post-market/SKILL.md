@@ -13,13 +13,12 @@ description: 台股盤後總結技能。收盤後執行，比對盤前調研報�
 
 ### 檢查方式
 
-使用證交所 API 檢查當日是否有交易資料：
+使用 `fetch-twse` 技能的交易日檢查功能，或直接呼叫：
 
 ```bash
-# 檢查當日是否為交易日
 curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYYMMDD&type=IND" | jq '.stat'
-# 回傳 "OK" = 交易日
-# 回傳 "很抱歉..." = 非交易日
+# "OK" = 交易日
+# "很抱歉..." = 非交易日
 ```
 
 ### 非交易日處理
@@ -32,9 +31,20 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 - **建議時間**：14:30 ~ 17:30（收盤後，法人資料更新後）
 - **資料來源**：證交所收盤資料、Goodinfo 三大法人買賣超
 
+## 📦 資料來源與抓取技能
+
+本技能透過調用專職抓取技能取得資料：
+
+| 資料 | 抓取技能 | 說明 |
+|------|----------|------|
+| 開收盤價 | `fetch-twse` | 證交所股票收盤資料 |
+| 法人買賣超 | `fetch-goodinfo` | Goodinfo 三大法人資料 |
+
+> **技術細節**請參閱各抓取技能的 SKILL.md
+
 ## 輸入格式
 
-須傳入「個股影響總表」JSON 陣列：
+須從盤前調研報告提取「個股影響總表」JSON 陣列：
 
 ```json
 [
@@ -59,24 +69,18 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 - `impact`：`利多` / `利空` / `中性`
 - `reason`：研判理由
 
-## 資料抓取
-
-### 1. 證交所收盤資料
+## 執行流程
 
 ```
-https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=YYYYMMDD&stockNo=XXXX
+1. 檢查是否為交易日
+2. 讀取今日盤前調研報告的個股影響總表
+3. 調用 fetch-twse 技能抓取各股開收盤價
+4. 調用 fetch-goodinfo 技能抓取三大法人買賣超
+5. 比對研判結果
+6. 分析符合/誤判原因
+7. 產出 report_YYYYMMDD.md
+8. 推送至 GitHub
 ```
-
-或使用全市場 API：
-```
-https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYYMMDD&type=ALLBUT0999
-```
-
-### 2. Goodinfo 三大法人買賣超
-
-使用 browser evaluate 抓取：
-- 網址：`https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=XXXX`
-- 切換至「法人買賣超」頁籤
 
 ## 研判比對邏輯
 
@@ -96,8 +100,8 @@ tasks/stock-post-market/
 ├── error_log.jsonl         # 錯誤紀錄（累積式，每行一筆）
 └── raw/
     ├── input.json          # 輸入的個股影響總表
-    ├── prices.json         # 抓取的開收盤價
-    └── institutional.json  # 三大法人買賣超
+    ├── prices.json         # 抓取的開收盤價（來自 fetch-twse）
+    └── institutional.json  # 三大法人買賣超（來自 fetch-goodinfo）
 ```
 
 ## 📝 錯誤紀錄機制（必要）
@@ -146,33 +150,13 @@ tasks/stock-post-market/
 | `phase` | ✅ | 階段：init / fetch / parse / compare / report / push |
 | `error.type` | ✅ | 錯誤類型：network / timeout / anti-bot / parse / not-found / unknown |
 | `error.message` | ✅ | 簡短錯誤訊息 |
-| `error.details` | ❌ | 詳細錯誤內容（堆疊、回應內容等） |
-| `attempts` | ❌ | 嘗試修復的紀錄（陣列） |
-| `attempts[].action` | ✅ | 嘗試的動作 |
-| `attempts[].result` | ✅ | success / failed |
-| `attempts[].message` | ❌ | 結果說明 |
 | `resolution` | ✅ | 最終結果：success / failed / skipped |
-| `notes` | ❌ | 額外備註（供未來改進參考） |
-
-### 何時紀錄
-
-1. **遭遇錯誤時**：API 錯誤、找不到盤前報告、解析失敗等
-2. **嘗試修復時**：每次重試都記錄結果
-3. **找不到個股資料時**：記錄代碼和原因（可能下市、暫停交易等）
-4. **自動修復成功時**：記錄成功方法，作為未來參考
-
-### 紀錄指令
-
-```bash
-# 追加一筆錯誤紀錄
-echo '{"timestamp":"2026-02-05T15:30:00+08:00",...}' >> tasks/stock-post-market/error_log.jsonl
-```
 
 ### 定期回顧
 
 每週應回顧 `error_log.jsonl`：
 1. 分析常見錯誤模式
-2. 更新技能說明
+2. 更新相關抓取技能說明
 3. 調整 API 使用策略
 
 ## 報告結構
@@ -247,10 +231,12 @@ echo '{"timestamp":"2026-02-05T15:30:00+08:00",...}' >> tasks/stock-post-market/
 
 ```
 請執行台股盤後總結任務：
-1. 讀取今日盤前調研報告的個股影響總表
-2. 抓取各股開收盤價（證交所 API）
-3. 抓取三大法人買賣超（Goodinfo）
-4. 比對研判結果
-5. 分析符合/誤判原因
-6. 產出 report_YYYYMMDD.md
+1. 檢查是否為交易日
+2. 讀取今日盤前調研報告的個股影響總表
+3. 調用 fetch-twse 技能抓取各股開收盤價
+4. 調用 fetch-goodinfo 技能抓取三大法人買賣超
+5. 比對研判結果
+6. 分析符合/誤判原因
+7. 產出 report_YYYYMMDD.md
+8. 推送至 GitHub
 ```
