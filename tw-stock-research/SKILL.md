@@ -193,6 +193,7 @@ Goodinfo 有 JavaScript-based anti-bot 防護，會在首次訪問時設定 cook
 tasks/stock-research/
 ├── progress.json           # 進度追蹤
 ├── report_YYYYMMDD.md      # 最終報告（依執行日期命名，如 report_20260204.md）
+├── error_log.jsonl         # 錯誤紀錄（累積式，每行一筆）
 └── raw/
     ├── mops/*.json
     ├── cnyes/*.json
@@ -200,6 +201,85 @@ tasks/stock-research/
     ├── moneydj/*.json
     └── goodinfo/*.json
 ```
+
+## 📝 錯誤紀錄機制（必要）
+
+執行過程中遭遇的**所有錯誤**和**嘗試修復**都須記錄至 `error_log.jsonl`，供未來排錯和改進技能參考。
+
+### 紀錄格式
+
+每行一筆 JSON，追加寫入（不覆蓋）：
+
+```json
+{
+  "timestamp": "2026-02-05T08:15:30+08:00",
+  "date": "20260205",
+  "source": "goodinfo",
+  "phase": "fetch",
+  "error": {
+    "type": "anti-bot",
+    "message": "JavaScript redirect detected, page not loaded",
+    "details": "setCookie('CLIENT_KEY', ...); window.location.replace(...)"
+  },
+  "attempts": [
+    {
+      "action": "wait 3s then navigate",
+      "result": "failed",
+      "message": "Still showing redirect page"
+    },
+    {
+      "action": "wait 5s then navigate again",
+      "result": "success",
+      "message": "Page loaded, table visible"
+    }
+  ],
+  "resolution": "success",
+  "notes": "Goodinfo anti-bot requires 5s wait instead of 3s"
+}
+```
+
+### 欄位說明
+
+| 欄位 | 必要 | 說明 |
+|------|------|------|
+| `timestamp` | ✅ | ISO 8601 格式，含時區 |
+| `date` | ✅ | 執行日期（YYYYMMDD） |
+| `source` | ✅ | 來源：mops / cnyes / statementdog / moneydj / goodinfo / system |
+| `phase` | ✅ | 階段：init / fetch / parse / report / push |
+| `error.type` | ✅ | 錯誤類型：network / timeout / anti-bot / parse / quota / auth / unknown |
+| `error.message` | ✅ | 簡短錯誤訊息 |
+| `error.details` | ❌ | 詳細錯誤內容（堆疊、回應內容等） |
+| `attempts` | ❌ | 嘗試修復的紀錄（陣列） |
+| `attempts[].action` | ✅ | 嘗試的動作 |
+| `attempts[].result` | ✅ | success / failed |
+| `attempts[].message` | ❌ | 結果說明 |
+| `resolution` | ✅ | 最終結果：success / failed / skipped |
+| `notes` | ❌ | 額外備註（供未來改進參考） |
+
+### 何時紀錄
+
+1. **遭遇錯誤時**：網路錯誤、timeout、anti-bot、解析失敗等
+2. **嘗試修復時**：每次重試都記錄結果
+3. **跳過來源時**：記錄原因
+4. **自動修復成功時**：記錄成功方法，作為未來參考
+
+### 紀錄指令
+
+Sub-agent 可使用以下方式追加紀錄：
+
+```bash
+# 追加一筆錯誤紀錄
+echo '{"timestamp":"2026-02-05T08:15:30+08:00",...}' >> tasks/stock-research/error_log.jsonl
+```
+
+或透過 write tool 追加內容。
+
+### 定期回顧
+
+每週（或累積 10+ 筆錯誤後）應回顧 `error_log.jsonl`：
+1. 分析常見錯誤模式
+2. 更新技能說明（如 Goodinfo anti-bot 處理）
+3. 調整重試策略
 
 ## 報告檔名規則
 

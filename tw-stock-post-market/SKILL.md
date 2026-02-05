@@ -93,11 +93,87 @@ https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYYMMDD&type
 ```
 tasks/stock-post-market/
 ├── report_YYYYMMDD.md      # 盤後總結報告（依執行日期命名）
+├── error_log.jsonl         # 錯誤紀錄（累積式，每行一筆）
 └── raw/
     ├── input.json          # 輸入的個股影響總表
     ├── prices.json         # 抓取的開收盤價
     └── institutional.json  # 三大法人買賣超
 ```
+
+## 📝 錯誤紀錄機制（必要）
+
+執行過程中遭遇的**所有錯誤**和**嘗試修復**都須記錄至 `error_log.jsonl`，供未來排錯和改進技能參考。
+
+### 紀錄格式
+
+每行一筆 JSON，追加寫入（不覆蓋）：
+
+```json
+{
+  "timestamp": "2026-02-05T15:30:00+08:00",
+  "date": "20260205",
+  "source": "twse",
+  "phase": "fetch",
+  "error": {
+    "type": "network",
+    "message": "Connection timeout after 30s",
+    "details": "ETIMEDOUT on https://www.twse.com.tw/..."
+  },
+  "attempts": [
+    {
+      "action": "retry after 5s",
+      "result": "failed",
+      "message": "Still timeout"
+    },
+    {
+      "action": "retry after 10s",
+      "result": "success",
+      "message": "Data fetched successfully"
+    }
+  ],
+  "resolution": "success",
+  "notes": "TWSE API may be slow during high traffic hours"
+}
+```
+
+### 欄位說明
+
+| 欄位 | 必要 | 說明 |
+|------|------|------|
+| `timestamp` | ✅ | ISO 8601 格式，含時區 |
+| `date` | ✅ | 執行日期（YYYYMMDD） |
+| `source` | ✅ | 來源：twse / tpex / goodinfo / report / system |
+| `phase` | ✅ | 階段：init / fetch / parse / compare / report / push |
+| `error.type` | ✅ | 錯誤類型：network / timeout / anti-bot / parse / not-found / unknown |
+| `error.message` | ✅ | 簡短錯誤訊息 |
+| `error.details` | ❌ | 詳細錯誤內容（堆疊、回應內容等） |
+| `attempts` | ❌ | 嘗試修復的紀錄（陣列） |
+| `attempts[].action` | ✅ | 嘗試的動作 |
+| `attempts[].result` | ✅ | success / failed |
+| `attempts[].message` | ❌ | 結果說明 |
+| `resolution` | ✅ | 最終結果：success / failed / skipped |
+| `notes` | ❌ | 額外備註（供未來改進參考） |
+
+### 何時紀錄
+
+1. **遭遇錯誤時**：API 錯誤、找不到盤前報告、解析失敗等
+2. **嘗試修復時**：每次重試都記錄結果
+3. **找不到個股資料時**：記錄代碼和原因（可能下市、暫停交易等）
+4. **自動修復成功時**：記錄成功方法，作為未來參考
+
+### 紀錄指令
+
+```bash
+# 追加一筆錯誤紀錄
+echo '{"timestamp":"2026-02-05T15:30:00+08:00",...}' >> tasks/stock-post-market/error_log.jsonl
+```
+
+### 定期回顧
+
+每週應回顧 `error_log.jsonl`：
+1. 分析常見錯誤模式
+2. 更新技能說明
+3. 調整 API 使用策略
 
 ## 報告結構
 
