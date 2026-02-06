@@ -37,7 +37,8 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 | 資料 | 抓取技能 | 說明 |
 |------|----------|------|
-| 開收盤價 | `fetch-twse` | 證交所股票收盤資料 |
+| 開收盤價（上市） | `fetch-twse` | 證交所股票收盤資料（上市） |
+| 開收盤價（上櫃） | `fetch-tpex` | 櫃買中心股票收盤資料（上櫃；若 fetch-twse 查無資料則改用） |
 | 法人買賣超 | `fetch-goodinfo` | Goodinfo 三大法人資料 |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
@@ -74,7 +75,8 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 ```
 1. 檢查是否為交易日
 2. 讀取今日盤前調研報告的個股影響總表
-3. 調用 fetch-twse 技能抓取各股開收盤價
+3. 調用 fetch-twse 技能抓取各股開收盤價（上市）
+   - 若 TWSE 查無資料（not-found / 該代碼不在回傳表內），改用 fetch-tpex 抓取（上櫃）
 4. 調用 fetch-goodinfo 技能抓取三大法人買賣超
 5. 比對研判結果
 6. 分析符合/誤判原因
@@ -233,7 +235,7 @@ tasks/stock-post-market/
 請執行台股盤後總結任務：
 1. 檢查是否為交易日
 2. 讀取今日盤前調研報告的個股影響總表
-3. 調用 fetch-twse 技能抓取各股開收盤價
+3. 調用 fetch-twse 技能抓取各股開收盤價（上市）；若查無資料則改用 fetch-tpex（上櫃）
 4. 調用 fetch-goodinfo 技能抓取三大法人買賣超
 5. 比對研判結果
 6. 分析符合/誤判原因
