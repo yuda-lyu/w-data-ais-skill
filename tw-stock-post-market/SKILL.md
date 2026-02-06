@@ -40,7 +40,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 | 開收盤價（上市） | `fetch-twse` | 證交所股票收盤資料（上市） |
 | 開收盤價（上櫃） | `fetch-tpex` | 櫃買中心股票收盤資料（上櫃；若 fetch-twse 查無資料則改用） |
 | 開收盤價（興櫃） | `fetch-emerging` | 興櫃個股 OHLC（Goodinfo K 線日表；若 TWSE/TPEX 皆查無資料則改用） |
-| 法人買賣超（逐檔） | `fetch-goodinfo` | 以 TWSE + TPEX 官方資料抓指定日期、指定代碼三大法人買賣超（外資/投信/自營/合計） |
+| 法人買賣超（逐檔） | `fetch-institutional-net-buy-sell` | 以 TWSE + TPEX 官方資料抓指定日期、指定代碼三大法人買賣超（外資/投信/自營/合計） |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
 
@@ -79,7 +79,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 3. 調用 fetch-twse 技能抓取各股開收盤價（上市）
    - 若 TWSE 查無資料（not-found / 該代碼不在回傳表內），改用 fetch-tpex 抓取（上櫃）
    - 若 TPEX 仍查無資料（該代碼不在回傳表內），改用 fetch-emerging 抓取（興櫃）
-4. 調用 fetch-goodinfo 技能抓取三大法人買賣超（逐檔、指定日期；官方 TWSE+TPEX）
+4. 調用 fetch-institutional-net-buy-sell 技能抓取三大法人買賣超（逐檔、指定日期；官方 TWSE+TPEX）
 5. 比對研判結果
 6. 分析符合/誤判原因
 7. 產出 report_YYYYMMDD.md
@@ -238,7 +238,7 @@ tasks/stock-post-market/
 1. 檢查是否為交易日
 2. 讀取今日盤前調研報告的個股影響總表
 3. 調用 fetch-twse 技能抓取各股開收盤價（上市）；若查無資料則改用 fetch-tpex（上櫃）；若仍查無資料則改用 fetch-emerging（興櫃）
-4. 調用 fetch-goodinfo 技能抓取三大法人買賣超（逐檔、指定日期；官方 TWSE+TPEX）
+4. 調用 fetch-institutional-net-buy-sell 技能抓取三大法人買賣超（逐檔、指定日期；官方 TWSE+TPEX）
 5. 比對研判結果
 6. 分析符合/誤判原因
 7. 產出 report_YYYYMMDD.md

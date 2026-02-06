@@ -1,9 +1,9 @@
 ---
-name: fetch-goodinfo
+name: fetch-institutional-net-buy-sell
 description: 抓取台股「三大法人買賣超」指定日期、指定個股的明細資料（外資/投信/自營/合計）。優先使用官方來源（TWSE + TPEX）以確保穩定性與可指定日期。適用於：(1) 盤後報告逐檔補齊法人買賣超、(2) 驗證盤前研判（法人買超/賣超）是否延續、(3) 需要可重複、可追溯的法人資料抓取流程。
 ---
 
-# fetch-goodinfo（法人買賣超；官方版）
+# fetch-institutional-net-buy-sell（法人買賣超；官方版）
 
 > 歷史版本曾使用 Goodinfo 網頁榜單抓取（Top10），但無法覆蓋「每一檔個股」且受 anti-bot 影響。
 > 目前此技能改為 **官方來源優先**（TWSE + TPEX），支援「指定日期 + 指定代碼」穩定抓取。
@@ -22,9 +22,9 @@ description: 抓取台股「三大法人買賣超」指定日期、指定個股�
 執行腳本：
 
 ```bash
-python3 fetch-goodinfo/scripts/fetch_institutional.py --date 20260205 --codes 3481 6770 2303
+python3 fetch-institutional-net-buy-sell/scripts/fetch_institutional.py --date 20260205 --codes 3481 6770 2303
 # 或單檔
-python3 fetch-goodinfo/scripts/fetch_institutional.py --date 20260205 --code 3481
+python3 fetch-institutional-net-buy-sell/scripts/fetch_institutional.py --date 20260205 --code 3481
 ```
 
 ## 輸出格式

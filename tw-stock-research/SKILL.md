@@ -42,7 +42,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 | 鉅亨網 | `fetch-cnyes` | 即時新聞 | 昨日+今日 |
 | 財報狗 | `fetch-statementdog` | 產業分析 | 昨日+今日 |
 | MoneyDJ | `fetch-moneydj` | 法說/營收 | 昨日+今日 |
-| Goodinfo | `fetch-goodinfo` | 法人籌碼 | 前一交易日 |
+| 法人買賣超（官方） | `fetch-institutional-net-buy-sell` | 三大法人買賣超（外資/投信/自營/合計）；可指定日期 | 指定日期（盤後建議用當日或前一交易日） |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
 
@@ -62,7 +62,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
   │     ↓ sleep 5s
   ├─ spawn → MoneyDJ agent（使用 fetch-moneydj 技能）→ 等待完成
   │     ↓ sleep 5s
-  └─ spawn → Goodinfo agent（使用 fetch-goodinfo 技能）→ 等待完成
+  └─ spawn → 法人買賣超 agent（使用 fetch-institutional-net-buy-sell 技能）→ 等待完成
        ↓
   彙整報告
 ```
@@ -253,7 +253,7 @@ tasks/stock-research/
    - fetch-cnyes
    - fetch-statementdog
    - fetch-moneydj
-   - fetch-goodinfo
+   - fetch-institutional-net-buy-sell
 4. 等待全部完成
 5. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（YYYYMMDD = 執行當日）
 6. 推送至 GitHub
