@@ -16,15 +16,20 @@ description: 抓取 Goodinfo 台灣股市資訊網三大法人買賣超資料。
 | 抓取方式 | browser evaluate |
 | 更新頻率 | 每日 16:30-17:00 更新前一交易日資料 |
 
-## ⚠️ Anti-bot 處理（必要）
+## ⚠️ Anti-bot / 空資料處理（必要）
 
-Goodinfo 有 JavaScript-based anti-bot 防護，會在首次訪問時設定 cookie 並重定向。**必須**按以下步驟處理：
+Goodinfo 有 JavaScript-based anti-bot 防護，會在首次訪問時設定 cookie 並重定向。
+此外，部分舊網址在未帶足夠條件時會回 **「查無資料!!」**（屬於「查詢條件不成立/頁面路徑變更」，不是等待就會好）。
+
+**必須**按以下步驟處理：
 
 ### 抓取步驟
 
 ```
 步驟 1：開啟頁面（觸發 anti-bot）
-  browser open → https://goodinfo.tw/tw/StockList.asp?MARKET_CAT=智慧選股&INDUSTRY_CAT=三大法人持股籌碼%40買賣超彙總
+  browser open →
+  - 買超榜：https://goodinfo.tw/tw/StockList.asp?MARKET_CAT=%E7%86%B1%E9%96%80%E6%8E%92%E8%A1%8C&INDUSTRY_CAT=%E4%B8%89%E5%A4%A7%E6%B3%95%E4%BA%BA%E7%B4%AF%E8%A8%88%E8%B2%B7%E8%B6%85%E5%BC%B5%E6%95%B8+%E2%80%93+%E7%95%B6%E6%97%A5%40%40%E4%B8%89%E5%A4%A7%E6%B3%95%E4%BA%BA%E7%B4%AF%E8%A8%88%E8%B2%B7%E8%B6%85%40%40%E4%B8%89%E5%A4%A7%E6%B3%95%E4%BA%BA%E8%B2%B7%E8%B6%85%E5%BC%B5%E6%95%B8+%E2%80%93+%E7%95%B6%E6%97%A5
+  - 賣超榜：https://goodinfo.tw/tw/StockList.asp?MARKET_CAT=%E7%86%B1%E9%96%80%E6%8E%92%E8%A1%8C&INDUSTRY_CAT=%E4%B8%89%E5%A4%A7%E6%B3%95%E4%BA%BA%E7%B4%AF%E8%A8%88%E8%B3%A3%E8%B6%85%E5%BC%B5%E6%95%B8+%E2%80%93+%E7%95%B6%E6%97%A5%40%40%E4%B8%89%E5%A4%A7%E6%B3%95%E4%BA%BA%E7%B4%AF%E8%A8%88%E8%B3%A3%E8%B6%85%40%40%E4%B8%89%E5%A4%A7%E6%B3%95%E4%BA%BA%E8%B3%A3%E8%B6%85%E5%BC%B5%E6%95%B8+%E2%80%93+%E7%95%B6%E6%97%A5
 
 步驟 2：等待重定向完成（關鍵！）
   等待 3-5 秒，讓瀏覽器完成 JavaScript 執行和 cookie 設定
@@ -46,45 +51,62 @@ Goodinfo 有 JavaScript-based anti-bot 防護，會在首次訪問時設定 cook
 - `window.location.replace`
 - 頁面幾乎沒有其他內容
 
-### 抓取腳本
+### 抓取腳本（建議流程/判斷原則）
+
+> 核心判斷：**一定要抓到 `#divStockList` 且列數足夠**。
+> - `document.querySelectorAll('#divStockList tr').length >= 20` 才算成功（避免拿到空頁/導轉頁/查無資料頁）。
+> - 若 `main` 出現「查無資料!!」：代表**該網址/條件本身無資料**，不是單純等更久就會好；應改用「熱門排行」的買超/賣超榜單 URL。
 
 ```javascript
-// 抓取法人買超 Top 10
-[...document.querySelectorAll('#divStockList tr')]
-  .slice(2, 12)
-  .map(r => [...r.querySelectorAll('td')].map(c => c.innerText.trim()).join('|'))
-  .join('\n')
+(() => {
+  const msg = document.querySelector('main')?.innerText?.trim() || '';
+  const rows = [...document.querySelectorAll('#divStockList tr')];
+  return {
+    msg: msg.slice(0, 120),
+    rowCount: rows.length,
+    top10: rows.slice(2, 12).map(r => [...r.querySelectorAll('td')].map(c => c.innerText.trim()))
+  };
+})();
 ```
 
-### 結構化抓取
+### 結構化抓取（Top 10）
+
+> 注意：Goodinfo 欄位偶爾會調整，建議用「欄位名稱 + 動態索引」方式解析。
+> 若你只要 Top 10（買超/賣超），可先直接用固定欄位序抓取，並在解析失敗時記錄 `parse` error。
 
 ```javascript
-// 抓取為結構化資料
+// 以表格欄位順序抽取（Top 10）
 [...document.querySelectorAll('#divStockList tr')]
   .slice(2, 12)
   .map(r => {
-    const cells = [...r.querySelectorAll('td')];
+    const cells = [...r.querySelectorAll('td')].map(c => c.innerText.trim());
     return {
-      code: cells[0]?.innerText.trim(),
-      name: cells[1]?.innerText.trim(),
-      price: cells[2]?.innerText.trim(),
-      change: cells[3]?.innerText.trim(),
-      volume: cells[4]?.innerText.trim(),
-      foreignBuy: cells[5]?.innerText.trim(),
-      investBuy: cells[6]?.innerText.trim(),
-      dealerBuy: cells[7]?.innerText.trim(),
-      totalBuy: cells[8]?.innerText.trim()
+      code: cells[0],
+      name: cells[1],
+      price: cells[2],
+      change: cells[3],
+      volume: cells[4],
+      foreignBuy: cells[5],
+      investBuy: cells[6],
+      dealerBuy: cells[7],
+      totalBuy: cells[8]
     };
   })
 ```
 
-## 常用頁面
+## 常用頁面（✅ 已驗證可正常出表格）
+
+> 2026-02-06 實測：原本使用的「智慧選股/三大法人持股籌碼@買賣超彙總」在未帶更多條件時會直接回 **「查無資料!!」**。
+> 因此本技能改採 Goodinfo 站內「熱門排行」的法人買賣榜單頁，能穩定取得 `#divStockList` 表格。
 
 | 頁面 | 網址 |
 |------|------|
-| 三大法人買超 | `StockList.asp?MARKET_CAT=智慧選股&INDUSTRY_CAT=三大法人持股籌碼%40買賣超彙總` |
+| 三大法人累計買超張數（當日排名） | `StockList.asp?MARKET_CAT=熱門排行&INDUSTRY_CAT=三大法人累計買超張數 – 當日@@三大法人累計買超@@三大法人買超張數 – 當日` |
+| 三大法人累計賣超張數（當日排名） | `StockList.asp?MARKET_CAT=熱門排行&INDUSTRY_CAT=三大法人累計賣超張數 – 當日@@三大法人累計賣超@@三大法人賣超張數 – 當日` |
 | 融資融券 | `StockList.asp?MARKET_CAT=智慧選股&INDUSTRY_CAT=融資融券%40融資融券增減` |
 | 董監持股 | `StockList.asp?MARKET_CAT=智慧選股&INDUSTRY_CAT=董監持股%40最新董監持股` |
+
+> 註：網址中的 `–` 與 `@@` 為 Goodinfo 用來描述選單路徑的字串；實務上建議用瀏覽器直接貼上 URL，或用程式做 URL encode。
 
 ## 輸出格式
 
