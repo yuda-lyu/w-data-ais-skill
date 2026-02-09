@@ -253,24 +253,6 @@ tasks/stock-research/
 - 各來源新聞精選
 - 投資決策重點
 
-## 🔧 常見問題與排除
-
-### 1. 鉅亨網/MoneyDJ/Goodinfo 抓取失敗 (Browser Error)
-
-**症狀**：
-- `error_log.jsonl` 出現 `No connected browser-capable nodes` 或 `無 Brave Search API key`。
-- 這些來源需要 JavaScript 渲染，若 OpenClaw 瀏覽器服務未啟動，會嘗試降級使用 Search API，若無 Key 則報錯。
-
-**解決方法**：
-重啟瀏覽器服務：
-```bash
-openclaw browser start
-```
-檢查狀態：
-```bash
-openclaw browser status
-```
-
 ## 快速執行
 
 ```
