@@ -166,6 +166,24 @@ MOPS 是 Vue SPA，**必須**用 browser evaluate 呼叫內部 API，無法用 w
 3. 回傳資料格式異常
 4. 重試嘗試（成功或失敗皆記錄）
 
+## 🔧 常見問題與排除
+
+### 1. 抓取失敗 (Browser Error)
+
+**症狀**：
+- `error_log.jsonl` 出現 `No connected browser-capable nodes` 或 `無 Brave Search API key`。
+- 本技能需要 browser context 呼叫內部 API，若 OpenClaw 瀏覽器服務未啟動，會嘗試降級使用 Search API，若無 Key 則報錯。
+
+**解決方法**：
+重啟瀏覽器服務：
+```bash
+openclaw browser start
+```
+檢查狀態：
+```bash
+openclaw browser status
+```
+
 ## 快速執行
 
 ```

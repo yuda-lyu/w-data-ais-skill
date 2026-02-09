@@ -165,6 +165,24 @@ description: 抓取鉅亨網（Anue）台股即時新聞。支援指定日期範
 3. 找不到新聞元素
 4. 重試嘗試（成功或失敗皆記錄）
 
+## 🔧 常見問題與排除
+
+### 1. 抓取失敗 (Browser Error)
+
+**症狀**：
+- `error_log.jsonl` 出現 `No connected browser-capable nodes` 或 `無 Brave Search API key`。
+- 本技能需要 JavaScript 渲染，若 OpenClaw 瀏覽器服務未啟動，會嘗試降級使用 Search API，若無 Key 則報錯。
+
+**解決方法**：
+重啟瀏覽器服務：
+```bash
+openclaw browser start
+```
+檢查狀態：
+```bash
+openclaw browser status
+```
+
 ## 快速執行
 
 ```
