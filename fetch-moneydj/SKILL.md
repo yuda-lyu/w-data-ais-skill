@@ -22,7 +22,7 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞。支援指定日�
 
 ### 前置需求
 1. 確保環境已安裝 Node.js。
-2. 在工作區安裝依賴：`npm install axios`。
+2. 在工作區安裝依賴：`npm install axios cheerio`。
 
 ### 執行方式
 
@@ -33,7 +33,7 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞。支援指定日�
 ```bash
 # 範例
 cp /path/to/skill/scripts/fetch_moneydj.mjs .
-npm install axios
+npm install axios cheerio
 node fetch_moneydj.mjs
 ```
 

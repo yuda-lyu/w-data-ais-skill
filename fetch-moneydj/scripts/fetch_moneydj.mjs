@@ -1,11 +1,12 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import * as cheerio from 'cheerio'; // 使用 cheerio 解析 HTML
 
 /**
  * MoneyDJ 新聞抓取程式
  * 目的：抓取 MoneyDJ 台股新聞 (MB06) 前 50 頁
- * 依賴：axios
+ * 依賴：axios, cheerio
  */
 
 const domain = 'https://www.moneydj.com';
@@ -16,32 +17,43 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchPage(pageIndex) {
     const url = `${baseUrl}${pageIndex}`;
-    // console.log(`Fetching page ${pageIndex}: ${url}`);
-
+    
     try {
         const response = await axios.get(url, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
+            },
+            responseType: 'arraybuffer'
         });
-        const html = response.data;
+        
+        const decoder = new TextDecoder('utf-8');
+        const html = decoder.decode(response.data);
+        const $ = cheerio.load(html);
         const newsItems = [];
 
-        // Regex: 尋找時間、連結與標題
-        // MB06 頁面結構特徵：td width="100" 包含時間，後續有 a href 包含連結與標題
-        const regex = /<td width="100"[^>]*>[\s\S]*?(\d{2}\/\d{2}\s+\d{2}:\d{2})[\s\S]*?<\/font><\/td>[\s\S]*?<a href='([^']+)' title="([^"]+)">/g;
+        // 使用 CSS Selector 抓取
+        // 觀察 MoneyDJ 結構，新聞列表通常在 table.forumgrid 或類似結構中
+        // 策略：遍歷所有 tr，檢查是否包含時間與連結
+        $('tr').each((i, el) => {
+            const $row = $(el);
+            // 假設第一欄是時間，第二欄是標題
+            const timeText = $row.find('td').eq(0).text().trim();
+            const $link = $row.find('td').eq(1).find('a');
+            
+            // 簡單驗證時間格式 (MM/DD HH:mm)
+            if (timeText && /^\d{2}\/\d{2}\s+\d{2}:\d{2}$/.test(timeText) && $link.length > 0) {
+                const title = $link.attr('title') || $link.text().trim();
+                const linkRel = $link.attr('href');
+                
+                if (linkRel) {
+                    const link = linkRel.startsWith('http') ? linkRel : domain + linkRel;
+                    newsItems.push({ time: timeText, title, link });
+                }
+            }
+        });
 
-        let match;
-        while ((match = regex.exec(html)) !== null) {
-            const time = match[1].trim();
-            const linkRel = match[2].trim();
-            const title = match[3].trim();
-
-            // 組合完整連結
-            const link = linkRel.startsWith('http') ? linkRel : domain + linkRel;
-            newsItems.push({ time, title, link });
-        }
         return newsItems;
+
     } catch (error) {
         console.error(`Error fetching page ${pageIndex}:`, error.message);
         return [];
@@ -51,14 +63,13 @@ async function fetchPage(pageIndex) {
 async function main() {
     console.log('Starting to fetch 50 pages from MoneyDJ (MB06)...');
     let allNewsItems = [];
-    const totalPages = 50; // 抓取 50 頁
+    const totalPages = 50;
 
     for (let i = 1; i <= totalPages; i++) {
         const items = await fetchPage(i);
         console.log(`Page ${i}/${totalPages}: Found ${items.length} items`);
         allNewsItems = allNewsItems.concat(items);
 
-        // 隨機延遲 1-3 秒，避免被封鎖
         if (i < totalPages) {
             const waitTime = Math.floor(Math.random() * 2000) + 1000;
             await delay(waitTime);
@@ -67,7 +78,7 @@ async function main() {
 
     console.log(`Total fetched: ${allNewsItems.length} items.`);
 
-    // 輸出 JSON 到 stdout，供 OpenClaw 讀取 (包在標記中)
+    // 輸出 JSON 到 stdout (包在標記中)
     console.log('JSON_OUTPUT_START');
     console.log(JSON.stringify(allNewsItems, null, 2));
     console.log('JSON_OUTPUT_END');
@@ -75,7 +86,6 @@ async function main() {
     // 本地備份 (可選)
     try {
         fs.writeFileSync('moneydj_data.json', JSON.stringify(allNewsItems, null, 2), 'utf8');
-        // console.log('Saved data to moneydj_data.json');
     } catch (err) {
         console.error('Error saving file:', err);
     }
