@@ -39,15 +39,6 @@ description: 抓取台股「三大法人買賣超」指定日期、指定個股�
 - `twse_t86_YYYYMMDD.json`
 - `tpex_3insti_YYYYMMDD.json`
 
----
-
-## 舊版 Python 腳本 (Legacy)
-
-執行腳本：
-```bash
-python3 fetch-institutional-net-buy-sell/scripts/fetch_institutional.py --date 20260205 --codes 3481 6770 2303
-```
-
 ## 輸出格式
 
 ```json
