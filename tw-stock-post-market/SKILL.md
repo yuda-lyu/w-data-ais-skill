@@ -29,7 +29,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 ## ⏰ 執行時機
 
 - **建議時間**：14:30 ~ 17:30（收盤後，法人資料更新後）
-- **資料來源**：證交所收盤資料、Goodinfo 三大法人買賣超
+- **資料來源**：證交所收盤資料、櫃買中心收盤資料、官方三大法人買賣超
 
 ## 📦 資料來源與抓取技能
 
@@ -39,7 +39,6 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 |------|----------|------|
 | 開收盤價（上市） | `fetch-twse` | 證交所股票收盤資料（上市） |
 | 開收盤價（上櫃） | `fetch-tpex` | 櫃買中心股票收盤資料（上櫃；若 fetch-twse 查無資料則改用） |
-| 開收盤價（興櫃） | `fetch-emerging` | 興櫃個股 OHLC（Goodinfo K 線日表；若 TWSE/TPEX 皆查無資料則改用） |
 | 法人買賣超（逐檔） | `fetch-institutional-net-buy-sell` | 以 TWSE + TPEX 官方資料抓指定日期、指定代碼三大法人買賣超（外資/投信/自營/合計） |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
@@ -78,7 +77,6 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 2. 讀取今日盤前調研報告的個股影響總表
 3. 調用 fetch-twse 技能抓取各股開收盤價（上市）
    - 若 TWSE 查無資料（not-found / 該代碼不在回傳表內），改用 fetch-tpex 抓取（上櫃）
-   - 若 TPEX 仍查無資料（該代碼不在回傳表內），改用 fetch-emerging 抓取（興櫃）
 4. 調用 fetch-institutional-net-buy-sell 技能抓取三大法人買賣超（逐檔、指定日期；官方 TWSE+TPEX）
 5. 比對研判結果
 6. 分析符合/誤判原因
@@ -263,7 +261,6 @@ npm install axios cheerio puppeteer-core lodash-es
 4. 依序調用抓取技能（使用 Node.js 腳本）：
    - fetch-twse (上市價格)
    - fetch-tpex (上櫃價格)
-   - fetch-emerging (興櫃價格，Fallback)
    - fetch-institutional-net-buy-sell (法人買賣超)
 5. 比對研判結果並分析原因
 6. 產出 report_YYYYMMDD.md 並推送至 GitHub
