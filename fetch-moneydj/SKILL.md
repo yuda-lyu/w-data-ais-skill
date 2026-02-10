@@ -49,29 +49,7 @@ node fetch_moneydj.mjs
 
 ## 技術說明（Legacy）
 
-MoneyDJ 新聞頁為靜態 HTML，可直接用 web_fetch 抓取。
-
-### 抓取步驟
-
-```
-步驟 1：使用 web_fetch 抓取頁面
-  web_fetch → https://www.moneydj.com/kmdj/news/newsreallist.aspx?a=MB06
-  extractMode: markdown
-
-步驟 2：解析 markdown 內容
-  提取新聞標題、連結、時間
-
-步驟 3：日期篩選
-  只保留昨日+今日的新聞
-```
-
-### 常用分類
-
-| 分類代碼 | 說明 |
-|----------|------|
-| MB06 | 台股新聞（推薦） |
-| MB07 | 產業新聞 |
-| MB010 | 法說會 |
+MoneyDJ 新聞頁為靜態 HTML，可直接用 web_fetch 抓取。但建議優先使用上述 JS 腳本，以獲得更好的穩定性與自動分頁功能。
 
 ## 輸出格式
 
