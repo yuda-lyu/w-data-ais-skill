@@ -43,54 +43,6 @@ node scripts/fetch_mops.mjs
 - 依序抓取上市、上櫃、興櫃、公開發行四類公告。
 - 輸出結構化 JSON。
 
----
-
-## 技術說明（Legacy）
-
-MOPS 是 Vue SPA，**必須**用 browser evaluate 呼叫內部 API，無法用 web_fetch。
-
-### 抓取步驟
-
-```
-步驟 1：開啟 MOPS 首頁
-  browser open → https://mops.twse.com.tw
-
-步驟 2：等待頁面載入
-  等待 2-3 秒
-
-步驟 3：呼叫內部 API（透過 browser evaluate）
-  browser act evaluate → 執行下方 JavaScript
-```
-
-### API 呼叫（IIFE 格式）
-
-```javascript
-// 取得最新公告列表
-(async () => {
-  const r = await fetch('https://mops.twse.com.tw/mops/api/home_page/t05sr01_1', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ count: '0', marketKind: '' })
-  });
-  return r.json();
-})()
-```
-
-### API 參數說明
-
-| 參數 | 說明 |
-|------|------|
-| `count` | '0' = 取得所有（或指定數量如 '50'） |
-| `marketKind` | '' = 全部, 'sii' = 上市, 'otc' = 上櫃 |
-
-### 其他 API 端點
-
-| 端點 | 用途 |
-|------|------|
-| `/mops/api/home_page/t05sr01_1` | 重大訊息列表 |
-| `/mops/api/home_page/t146sb01_1` | 營收公告 |
-| `/mops/api/home_page/t108sb01_1` | 庫藏股 |
-
 ## 輸出格式
 
 ```json
@@ -197,27 +149,31 @@ MOPS 是 Vue SPA，**必須**用 browser evaluate 呼叫內部 API，無法用 w
 
 ## 🔧 常見問題與排除
 
-### 1. 抓取失敗 (Browser Error)
+### 1. 執行錯誤 (Module not found)
 
 **症狀**：
-- `error_log.jsonl` 出現 `No connected browser-capable nodes` 或 `無 Brave Search API key`。
-- 本技能需要 browser context 呼叫內部 API，若 OpenClaw 瀏覽器服務未啟動，會嘗試降級使用 Search API，若無 Key 則報錯。
+- `Cannot find module 'puppeteer-core'` 或 `lodash-es`
 
 **解決方法**：
-重啟瀏覽器服務：
+確保在工作區執行了依賴安裝：
 ```bash
-openclaw browser start
+npm install puppeteer-core lodash-es
 ```
-檢查狀態：
-```bash
-openclaw browser status
-```
+
+### 2. 瀏覽器未找到
+
+**症狀**：
+- 腳本輸出 `錯誤：找不到 Chrome 或 Edge 瀏覽器`
+
+**解決方法**：
+- 確認系統已安裝 Chrome/Chromium。
+- 或手動修改腳本中的 `executablePath` 指向正確路徑。
 
 ## 快速執行
 
 ```
-請使用 fetch-mops 技能抓取 MOPS 重大公告：
-- 日期範圍：昨日 + 今日
-- 輸出：JSON 格式
-- 錯誤須記錄至 error_log.jsonl
+請使用 fetch-mops 技能抓取 MOPS 重大公告（使用 Puppeteer 腳本）：
+1. 確保 npm 依賴已安裝
+2. 執行 scripts/fetch_mops.mjs
+3. 讀取並解析 JSON 輸出
 ```
