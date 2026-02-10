@@ -114,6 +114,8 @@ node fetch_cnyes.mjs
 
 ### 紀錄格式
 
+每行一筆 JSON，追加寫入（不覆蓋）：
+
 ```json
 {
   "timestamp": "2026-02-05T08:15:30+08:00",
@@ -121,18 +123,31 @@ node fetch_cnyes.mjs
   "source": "cnyes",
   "phase": "fetch",
   "error": {
-    "type": "timeout",
-    "message": "Page load timeout",
-    "details": "Browser timeout after 30s waiting for JS render"
+    "type": "network",
+    "message": "API request failed",
+    "details": "HTTP 503 Service Unavailable"
   },
   "attempts": [
-    {"action": "refresh page", "result": "failed"},
-    {"action": "close and reopen browser", "result": "success"}
+    {"action": "retry after 5s", "result": "failed"}
   ],
-  "resolution": "success",
-  "notes": "cnyes requires longer wait time for JS rendering"
+  "resolution": "failed",
+  "notes": "API unstable"
 }
 ```
+
+### 欄位說明
+
+| 欄位 | 必要 | 說明 |
+|------|------|------|
+| `timestamp` | ✅ | ISO 8601 格式，含時區 |
+| `date` | ✅ | 執行日期（YYYYMMDD） |
+| `source` | ✅ | 固定為 `cnyes` |
+| `phase` | ✅ | 階段：fetch / parse |
+| `error.type` | ✅ | network / timeout / parse / empty / blocked |
+| `error.message` | ✅ | 簡短錯誤訊息 |
+| `attempts` | ❌ | 重試紀錄（選填） |
+| `resolution` | ✅ | success / failed |
+
 
 ### 錯誤類型
 
