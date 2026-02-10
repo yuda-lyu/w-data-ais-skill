@@ -48,33 +48,35 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 ## 執行模式
 
-### 序列模式（推薦）
+### 循序執行模式（推薦）
 
-使用 `sessions_spawn` **一次派發 1 個** sub-agent，間隔 5 秒：
+由當前 Agent **自行依序執行**各項抓取任務，不使用 `sessions_spawn` 派發子 Agent。
+
+執行流程：
 
 ```
 主控 Agent
-  ├─ spawn → MOPS agent（使用 fetch-mops 技能）→ 等待完成
-  │     ↓ sleep 5s
-  ├─ spawn → 鉅亨網 agent（使用 fetch-cnyes 技能）→ 等待完成
-  │     ↓ sleep 5s
-  ├─ spawn → 財報狗 agent（使用 fetch-statementdog 技能）→ 等待完成
-  │     ↓ sleep 5s
-  ├─ spawn → MoneyDJ agent（使用 fetch-moneydj 技能）→ 等待完成
-  │     ↓ sleep 5s
-  └─ spawn → 法人買賣超 agent（使用 fetch-institutional-net-buy-sell 技能）→ 等待完成
-       ↓
-  彙整報告
+  │
+  ├─ 1. 執行 MOPS 抓取（參閱 fetch-mops 技能）
+  │     └─ 產出 raw/mops.json
+  │
+  ├─ 2. 執行 鉅亨網 抓取（參閱 fetch-cnyes 技能）
+  │     └─ 產出 raw/cnyes.json
+  │
+  ├─ 3. 執行 財報狗 抓取（參閱 fetch-statementdog 技能）
+  │     └─ 產出 raw/statementdog.json
+  │
+  ├─ 4. 執行 MoneyDJ 抓取（參閱 fetch-moneydj 技能）
+  │     └─ 產出 raw/moneydj.json
+  │
+  └─ 5. 執行 法人買賣超 抓取（參閱 fetch-institutional-net-buy-sell 技能）
+        └─ 產出 raw/institutional.json
 ```
 
-**為什麼用序列模式？**
-- 避免同時 spawn 多個撞到 quota 限制
-- 讓 OpenClaw cooldown 機制自動輪換 auth profile
-- 6 個 Google Antigravity 帳號自動負載均衡
-
-### 並行模式（風險：可能撞 quota）
-
-同時派發 5 個 sub-agent，可能觸發 429 錯誤。
+**注意事項**：
+- 每個步驟間建議間隔 2-3 秒，避免過於頻繁的請求。
+- 若某個來源抓取失敗，應記錄錯誤至 `error_log.jsonl`，並**繼續執行下一個來源**，不可中斷整個任務。
+- 所有抓取完成後，再統一讀取 `raw/*.json` 進行彙整。
 
 ## 篩選標準
 
@@ -256,16 +258,15 @@ tasks/stock-research/
 ## 快速執行
 
 ```
-請執行台股盤前調研任務（序列模式）：
+請執行台股盤前調研任務（循序模式）：
 1. 檢查是否為交易日
 2. 建立 tasks/stock-research/ 目錄
-3. 序列調用 5 個抓取技能（每個間隔 5 秒）：
+3. 依序執行 5 個抓取任務（由本 Agent 自行執行，不 spawn）：
    - fetch-mops
    - fetch-cnyes
    - fetch-statementdog
    - fetch-moneydj
    - fetch-institutional-net-buy-sell
-4. 等待全部完成
-5. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（YYYYMMDD = 執行當日）
-6. 推送至 GitHub
+4. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（YYYYMMDD = 執行當日）
+5. 推送至 GitHub
 ```
