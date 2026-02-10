@@ -16,9 +16,38 @@ description: 抓取鉅亨網（Anue）台股即時新聞。支援指定日期範
 | 抓取方式 | browser evaluate（JS 渲染頁面） |
 | 更新頻率 | 即時 |
 
-## 技術說明
+## 最佳實踐：使用 Axios Script（推薦）
 
-鉅亨網使用 JavaScript 渲染，**必須**用 browser，無法用 web_fetch。
+建議使用本技能附帶的 Node.js 腳本進行抓取，該腳本直接呼叫鉅亨網 API，比瀏覽器渲染更快速且穩定。
+
+### 前置需求
+1. 確保環境已安裝 Node.js。
+2. 在工作區安裝依賴：`npm install axios`。
+
+### 執行方式
+
+1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_cnyes.mjs`。
+2. **執行腳本**：使用 `node` 執行該腳本。
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。
+
+```bash
+# 範例
+cp /path/to/skill/scripts/fetch_cnyes.mjs .
+npm install axios
+node fetch_cnyes.mjs
+```
+
+### 腳本邏輯摘要
+- 使用 `axios` 呼叫鉅亨網官方 API (`https://api.cnyes.com/media/api/v1/newslist/category/tw_stock`)。
+- 內建分頁邏輯，自動翻頁抓取最近 100 筆新聞。
+- 自動處理日期格式與連結。
+- 輸出結構化 JSON。
+
+---
+
+## 技術說明（Legacy）
+
+舊版可使用 `browser` tool 渲染頁面抓取，但速度較慢。
 
 ### 抓取步驟
 
@@ -167,27 +196,22 @@ description: 抓取鉅亨網（Anue）台股即時新聞。支援指定日期範
 
 ## 🔧 常見問題與排除
 
-### 1. 抓取失敗 (Browser Error)
+### 1. 執行錯誤 (Module not found)
 
 **症狀**：
-- `error_log.jsonl` 出現 `No connected browser-capable nodes` 或 `無 Brave Search API key`。
-- 本技能需要 JavaScript 渲染，若 OpenClaw 瀏覽器服務未啟動，會嘗試降級使用 Search API，若無 Key 則報錯。
+- `Cannot find module 'axios'`
 
 **解決方法**：
-重啟瀏覽器服務：
+確保在工作區執行了依賴安裝：
 ```bash
-openclaw browser start
-```
-檢查狀態：
-```bash
-openclaw browser status
+npm install axios
 ```
 
 ## 快速執行
 
 ```
-請使用 fetch-cnyes 技能抓取鉅亨網新聞：
-- 日期範圍：昨日 + 今日
-- 輸出：JSON 格式，含個股影響判斷
-- 錯誤須記錄至 error_log.jsonl
+請使用 fetch-cnyes 技能抓取鉅亨網新聞（使用 Axios 腳本）：
+1. 確保 npm 依賴已安裝
+2. 執行 scripts/fetch_cnyes.mjs
+3. 讀取並解析 JSON 輸出
 ```
