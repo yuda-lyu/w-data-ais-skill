@@ -47,10 +47,6 @@ node fetch_moneydj.mjs
 
 ---
 
-## 技術說明（Legacy）
-
-舊版可使用 `web_fetch` 抓取單頁靜態 HTML，但缺乏自動化能力。建議優先使用上述 JS 腳本，以獲得更好的穩定性與自動分頁功能。
-
 ## 輸出格式
 
 ```json
