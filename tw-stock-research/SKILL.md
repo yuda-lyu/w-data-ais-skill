@@ -255,18 +255,41 @@ tasks/stock-research/
 - 各來源新聞精選
 - 投資決策重點
 
+## 🔧 常見問題與排除
+
+### 1. 執行錯誤 (Module not found)
+
+**症狀**：
+- `Cannot find module 'axios'`, `cheerio`, `puppeteer-core`
+
+**解決方法**：
+確保在工作區執行了所有依賴安裝：
+```bash
+npm install axios cheerio puppeteer-core lodash-es
+```
+
+### 2. 瀏覽器未找到
+
+**症狀**：
+- 腳本輸出 `Error: Browser not found.` (fetch-mops/fetch-emerging)
+
+**解決方法**：
+- 確認系統已安裝 Chrome/Chromium。
+- 或手動修改腳本中的 `executablePath` 指向正確路徑。
+
 ## 快速執行
 
 ```
 請執行台股盤前調研任務（循序模式）：
 1. 檢查是否為交易日
 2. 建立 tasks/stock-research/ 目錄
-3. 依序執行 5 個抓取任務（由本 Agent 自行執行，不 spawn）：
-   - fetch-mops
-   - fetch-cnyes
-   - fetch-statementdog
-   - fetch-moneydj
-   - fetch-institutional-net-buy-sell
-4. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（YYYYMMDD = 執行當日）
-5. 推送至 GitHub
+3. 安裝依賴：npm install axios cheerio puppeteer-core lodash-es
+4. 依序執行 5 個抓取任務（由本 Agent 自行執行，不 spawn）：
+   - fetch-mops (node fetch_mops.mjs)
+   - fetch-cnyes (node fetch_cnyes.mjs)
+   - fetch-statementdog (node fetch_statementdog.mjs)
+   - fetch-moneydj (node fetch_moneydj.mjs)
+   - fetch-institutional-net-buy-sell (node fetch_all.mjs)
+5. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（YYYYMMDD = 執行當日）
+6. 推送至 GitHub
 ```
