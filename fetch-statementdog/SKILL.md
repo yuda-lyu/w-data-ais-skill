@@ -16,31 +16,34 @@ description: 抓取財報狗（Statementdog）產業分析與個股新聞。支�
 | 抓取方式 | web_fetch（靜態頁面） |
 | 更新頻率 | 每日更新 |
 
-## 技術說明
+## 最佳實踐：使用 Axios Script（推薦）
 
-財報狗新聞頁為靜態 HTML，可直接用 web_fetch 抓取。
+建議使用本技能附帶的 Node.js 腳本進行抓取，該腳本直接呼叫財報狗最新新聞頁面，並使用 Cheerio 解析內容。
 
-### 抓取步驟
+### 前置需求
+1. 確保環境已安裝 Node.js。
+2. 在工作區安裝依賴：`npm install axios cheerio`。
 
+### 執行方式
+
+1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_statementdog.mjs`。
+2. **執行腳本**：使用 `node` 執行該腳本。
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。
+
+```bash
+# 範例
+cp /path/to/skill/scripts/fetch_statementdog.mjs .
+npm install axios cheerio
+node fetch_statementdog.mjs
 ```
-步驟 1：使用 web_fetch 抓取頁面
-  web_fetch → https://statementdog.com/news
-  extractMode: markdown
 
-步驟 2：解析 markdown 內容
-  提取新聞標題、連結、日期
+### 腳本邏輯摘要
+- 使用 `axios` 請求 `https://statementdog.com/news/latest`。
+- 加入 User-Agent 偽裝以避免簡單的 Anti-bot 阻擋。
+- 使用 `cheerio` 解析 HTML，提取新聞標題、連結與日期。
+- 輸出結構化 JSON。
 
-步驟 3：日期篩選
-  只保留昨日+今日的新聞
-```
-
-### 頁面結構
-
-新聞列表通常包含：
-- 標題（含股票名稱）
-- 發布日期
-- 摘要
-- 連結
+---
 
 ## 輸出格式
 
@@ -140,16 +143,29 @@ description: 抓取財報狗（Statementdog）產業分析與個股新聞。支�
 
 ### 何時紀錄
 
-1. web_fetch 請求失敗
+1. HTTP 請求失敗 (Axios Error)
 2. 回傳內容無法解析
 3. 找不到預期的新聞結構
 4. 重試嘗試
 
+## 🔧 常見問題與排除
+
+### 1. 執行錯誤 (Module not found)
+
+**症狀**：
+- `Cannot find module 'axios'` 或 `cheerio`
+
+**解決方法**：
+確保在工作區執行了依賴安裝：
+```bash
+npm install axios cheerio
+```
+
 ## 快速執行
 
 ```
-請使用 fetch-statementdog 技能抓取財報狗新聞：
-- 日期範圍：昨日 + 今日
-- 輸出：JSON 格式
-- 錯誤須記錄至 error_log.jsonl
+請使用 fetch-statementdog 技能抓取財報狗新聞（使用 Axios 腳本）：
+1. 確保 npm 依賴已安裝
+2. 執行 scripts/fetch_statementdog.mjs
+3. 讀取並解析 JSON 輸出
 ```
