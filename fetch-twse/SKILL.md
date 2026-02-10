@@ -16,7 +16,33 @@ description: 抓取證交所（TWSE）股票收盤資料。支援個股或全市
 | 抓取方式 | API（JSON 格式） |
 | 更新時間 | 每日 14:30 後（收盤後） |
 
-## API 端點
+## 最佳實踐：使用 Axios Script（推薦）
+
+建議使用本技能附帶的 Node.js 腳本進行抓取，穩定性高且支援單檔與全市場模式。
+
+### 前置需求
+1. 確保環境已安裝 Node.js。
+2. 在工作區安裝依賴：`npm install axios`。
+
+### 執行方式
+
+1. **複製腳本**：從技能目錄讀取 `scripts/fetch_twse.mjs`。
+2. **執行腳本**：使用 `node` 執行該腳本，可帶入日期與股票代碼參數。
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 標記中）。
+
+```bash
+# 範例：抓取全市場 (ALLBUT0999)
+node fetch_twse.mjs 20260210 ALL
+
+# 範例：抓取個股 (台積電)
+node fetch_twse.mjs 20260210 2330
+```
+
+---
+
+## API 端點 (Legacy)
+
+以下說明為直接呼叫 API 的方式，僅供參考。
 
 ### 1. 個股日成交資訊
 
@@ -202,24 +228,34 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 | `network` | 網路錯誤 | 重試 2-3 次 |
 | `timeout` | 逾時 | 重試或稍後再試 |
 
+## 🔧 常見問題與排除
+
+### 1. 執行錯誤 (Module not found)
+
+**症狀**：
+- `Cannot find module 'axios'`
+
+**解決方法**：
+確保在工作區執行了依賴安裝：
+```bash
+npm install axios
+```
+
+### 2. 查無資料 (很抱歉，沒有符合條件的資料!)
+
+**原因**：
+- 該日為非交易日（假日）。
+- 尚未開盤或尚未收盤（資料未產生）。
+- 股票代碼錯誤或已下市。
+- 該股票為「上櫃」而非「上市」（請改用 `fetch-tpex`）。
+
 ## 快速執行
 
 ```
-請使用 fetch-twse 技能抓取證交所收盤資料：
-- 日期：今日（YYYYMMDD）
-- 股票代碼：2330, 2317, 2454（或指定清單）
-- 輸出：JSON 格式
-```
-
-### 批次查詢範例
-
-```
-請使用 fetch-twse 技能查詢以下個股今日收盤資料：
-- 2330 台積電
-- 2317 鴻海
-- 2454 聯發科
-- 3481 群創
-輸出開盤價、收盤價、漲跌幅
+請使用 fetch-twse 技能抓取證交所資料（使用 Axios 腳本）：
+1. 確保 npm 依賴已安裝
+2. 執行 scripts/fetch_twse.mjs [日期] [代碼/ALL]
+3. 讀取並解析 JSON 輸出
 ```
 
 ## 📝 錯誤紀錄機制（必要）
@@ -227,6 +263,8 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
 
 ### 紀錄格式
+
+每行一筆 JSON，追加寫入（不覆蓋）：
 
 ```json
 {
@@ -240,13 +278,26 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
     "details": "ETIMEDOUT on /exchangeReport/STOCK_DAY"
   },
   "attempts": [
-    {"action": "retry after 5s", "result": "failed"},
-    {"action": "retry after 10s", "result": "success"}
+    {"action": "retry after 5s", "result": "failed"}
   ],
-  "resolution": "success",
+  "resolution": "failed",
   "notes": "TWSE API may be slow during 14:30-15:00"
 }
 ```
+
+### 欄位說明
+
+| 欄位 | 必要 | 說明 |
+|------|------|------|
+| `timestamp` | ✅ | ISO 8601 格式，含時區 |
+| `date` | ✅ | 執行日期（YYYYMMDD） |
+| `source` | ✅ | 固定為 `twse` |
+| `phase` | ✅ | 階段：fetch / parse |
+| `error.type` | ✅ | network / timeout / parse / empty / blocked / not-found |
+| `error.message` | ✅ | 簡短錯誤訊息 |
+| `attempts` | ❌ | 重試紀錄（選填） |
+| `resolution` | ✅ | success / failed |
+
 
 ### 錯誤類型
 
