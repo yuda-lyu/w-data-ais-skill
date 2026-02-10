@@ -16,7 +16,36 @@ description: 抓取 MOPS（公開資訊觀測站）重大公告。支援指定�
 | 抓取方式 | browser evaluate + 內部 API |
 | 更新頻率 | 即時 |
 
-## 技術說明
+## 最佳實踐：使用 Puppeteer Script（推薦）
+
+由於 MOPS 網站結構複雜（Vue SPA + Anti-bot），建議直接使用本技能附帶的 Puppeteer 腳本進行抓取，穩定性最高。
+
+### 前置需求
+1. 確保環境已安裝 Chrome/Chromium (`/usr/bin/google-chrome` 或類似路徑)。
+2. 在工作區安裝依賴：`npm install puppeteer-core lodash-es`。
+
+### 執行方式
+
+1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_mops.mjs`。
+2. **執行腳本**：使用 `node` 執行該腳本。
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。
+
+```bash
+# 範例
+node scripts/fetch_mops.mjs
+```
+
+### 腳本邏輯摘要
+- 自動偵測系統瀏覽器路徑。
+- 啟動 Headless Chrome。
+- 前往 MOPS 頁面取得 Session/Referer。
+- 使用 `page.evaluate` 於瀏覽器環境內發送 API 請求。
+- 依序抓取上市、上櫃、興櫃、公開發行四類公告。
+- 輸出結構化 JSON。
+
+---
+
+## 技術說明（Legacy）
 
 MOPS 是 Vue SPA，**必須**用 browser evaluate 呼叫內部 API，無法用 web_fetch。
 
