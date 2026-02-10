@@ -16,7 +16,38 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞。支援指定日�
 | 抓取方式 | web_fetch（靜態頁面） |
 | 更新頻率 | 即時 |
 
-## 技術說明
+## 最佳實踐：使用 Axios Script（推薦）
+
+建議使用本技能附帶的 Node.js 腳本進行抓取，支持分頁與延遲，穩定性較高。
+
+### 前置需求
+1. 確保環境已安裝 Node.js。
+2. 在工作區安裝依賴：`npm install axios`。
+
+### 執行方式
+
+1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_moneydj.mjs`。
+2. **執行腳本**：使用 `node` 執行該腳本。
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。
+
+```bash
+# 範例
+cp /path/to/skill/scripts/fetch_moneydj.mjs .
+npm install axios
+node fetch_moneydj.mjs
+```
+
+### 腳本邏輯摘要
+- 使用 `axios` 發送 HTTP GET 請求。
+- 加入 User-Agent 偽裝以避免簡單的 Anti-bot 阻擋。
+- 支援 `mb06` (台股新聞) 分頁抓取（預設抓取 50 頁）。
+- 加入隨機延遲 (1-3秒) 避免請求過快。
+- 使用 Regex 解析 HTML 提取新聞標題、時間與連結。
+- 輸出結構化 JSON。
+
+---
+
+## 技術說明（Legacy）
 
 MoneyDJ 新聞頁為靜態 HTML，可直接用 web_fetch 抓取。
 
@@ -148,11 +179,24 @@ MoneyDJ 時間格式：
 3. 找不到預期的新聞結構
 4. 重試嘗試
 
+## 🔧 常見問題與排除
+
+### 1. 執行錯誤 (Module not found)
+
+**症狀**：
+- `Cannot find module 'axios'`
+
+**解決方法**：
+確保在工作區執行了依賴安裝：
+```bash
+npm install axios
+```
+
 ## 快速執行
 
 ```
-請使用 fetch-moneydj 技能抓取 MoneyDJ 新聞：
-- 日期範圍：昨日 + 今日
-- 輸出：JSON 格式
-- 錯誤須記錄至 error_log.jsonl
+請使用 fetch-moneydj 技能抓取 MoneyDJ 新聞（使用 Axios 腳本）：
+1. 確保 npm 依賴已安裝
+2. 執行 scripts/fetch_moneydj.mjs
+3. 讀取並解析 JSON 輸出
 ```
