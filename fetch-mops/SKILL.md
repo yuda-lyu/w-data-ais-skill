@@ -26,13 +26,16 @@ description: 抓取 MOPS（公開資訊觀測站）重大公告。支援指定�
 
 ### 執行方式
 
-1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_mops.mjs`。
-2. **執行腳本**：使用 `node` 執行該腳本。
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。
+1. **複製腳本**：將技能目錄下的 `scripts/fetch_mops.mjs` 複製到當前 Agent 的 Workspace。
+2. **安裝依賴**：在 Workspace 執行 `npm install puppeteer-core lodash-es`。
+3. **執行腳本**：使用 `node fetch_mops.mjs` 執行（在 Workspace 內）。
+4. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。
 
 ```bash
 # 範例
-node scripts/fetch_mops.mjs
+cp /path/to/skill/scripts/fetch_mops.mjs .
+npm install puppeteer-core lodash-es
+node fetch_mops.mjs
 ```
 
 ### 腳本邏輯摘要
