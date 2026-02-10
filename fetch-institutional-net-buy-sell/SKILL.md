@@ -17,14 +17,35 @@ description: 抓取台股「三大法人買賣超」指定日期、指定個股�
 
 > 興櫃通常不在上述兩個市場的「三大法人」明細內；若遇興櫃代碼，可能會落在 `missing`。
 
-## 使用方式
+## 最佳實踐：使用 Node.js Axios Scripts
+
+建議使用本技能附帶的 Node.js 腳本進行抓取，穩定性高且支援完整資料解析。
+
+### 前置需求
+1. 確保環境已安裝 Node.js。
+2. 在工作區安裝依賴：`npm install axios`。
+
+### 執行方式
+
+1. **複製腳本**：將 `scripts/` 下的所有 `.mjs` 檔案複製到工作區。
+2. **安裝依賴**：`npm install axios`。
+3. **執行抓取**：
+   - 抓取上市 (TWSE)：`node fetch_twse_t86.mjs`
+   - 抓取上櫃 (TPEX)：`node fetch_tpex_3insti.mjs`
+   - **一次抓取兩者**：`node fetch_all.mjs`
+
+### 輸出結果
+腳本會輸出 JSON 格式資料（包在 `JSON_OUTPUT_START` 標記中），並在工作區產生備份檔案：
+- `twse_t86_YYYYMMDD.json`
+- `tpex_3insti_YYYYMMDD.json`
+
+---
+
+## 舊版 Python 腳本 (Legacy)
 
 執行腳本：
-
 ```bash
 python3 fetch-institutional-net-buy-sell/scripts/fetch_institutional.py --date 20260205 --codes 3481 6770 2303
-# 或單檔
-python3 fetch-institutional-net-buy-sell/scripts/fetch_institutional.py --date 20260205 --code 3481
 ```
 
 ## 輸出格式
