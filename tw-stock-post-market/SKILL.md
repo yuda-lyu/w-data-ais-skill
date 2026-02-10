@@ -231,16 +231,40 @@ tasks/stock-post-market/
 | 預期落差 | 實際數據不如預期 |
 | 籌碼面壓力 | 融資過高、大戶出貨 |
 
+## 🔧 常見問題與排除
+
+### 1. 抓取失敗 (Module not found)
+
+**症狀**：
+- 調用子技能 (`fetch-twse`, `fetch-tpex` 等) 時報錯 `Cannot find module`。
+
+**解決方法**：
+確保在工作區執行了所有子技能所需的依賴：
+```bash
+npm install axios cheerio puppeteer-core lodash-es
+```
+
+### 2. 找不到盤前報告
+
+**症狀**：
+- `error_log.jsonl` 出現 `Report not found`。
+
+**解決方法**：
+- 確認今日盤前調研是否已成功執行並產出報告。
+- 確認報告路徑是否為 `tasks/stock-research/report_YYYYMMDD.md`。
+
 ## 快速執行
 
 ```
-請執行台股盤後總結任務：
+請執行台股盤後總結任務（循序模式）：
 1. 檢查是否為交易日
-2. 讀取今日盤前調研報告的個股影響總表
-3. 調用 fetch-twse 技能抓取各股開收盤價（上市）；若查無資料則改用 fetch-tpex（上櫃）；若仍查無資料則改用 fetch-emerging（興櫃）
-4. 調用 fetch-institutional-net-buy-sell 技能抓取三大法人買賣超（逐檔、指定日期；官方 TWSE+TPEX）
-5. 比對研判結果
-6. 分析符合/誤判原因
-7. 產出 report_YYYYMMDD.md
-8. 推送至 GitHub
+2. 確保 npm 依賴已安裝 (axios cheerio puppeteer-core lodash-es)
+3. 讀取今日盤前調研報告的個股影響總表
+4. 依序調用抓取技能（使用 Node.js 腳本）：
+   - fetch-twse (上市價格)
+   - fetch-tpex (上櫃價格)
+   - fetch-emerging (興櫃價格，Fallback)
+   - fetch-institutional-net-buy-sell (法人買賣超)
+5. 比對研判結果並分析原因
+6. 產出 report_YYYYMMDD.md 並推送至 GitHub
 ```
