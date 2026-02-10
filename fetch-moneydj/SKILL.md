@@ -13,7 +13,7 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞。支援指定日�
 |------|------|
 | 網址 | https://www.moneydj.com/kmdj/news/newsreallist.aspx?a=MB06 |
 | 資料類型 | 法說會、營收公告、產業新聞 |
-| 抓取方式 | web_fetch（靜態頁面） |
+| 抓取方式 | Node.js Axios Script（支援分頁與延遲） |
 | 更新頻率 | 即時 |
 
 ## 最佳實踐：使用 Axios Script（推薦）
@@ -49,7 +49,7 @@ node fetch_moneydj.mjs
 
 ## 技術說明（Legacy）
 
-MoneyDJ 新聞頁為靜態 HTML，可直接用 web_fetch 抓取。但建議優先使用上述 JS 腳本，以獲得更好的穩定性與自動分頁功能。
+舊版可使用 `web_fetch` 抓取單頁靜態 HTML，但缺乏自動化能力。建議優先使用上述 JS 腳本，以獲得更好的穩定性與自動分頁功能。
 
 ## 輸出格式
 
