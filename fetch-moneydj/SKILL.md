@@ -158,12 +158,12 @@ MoneyDJ 時間格式：
 ### 1. 執行錯誤 (Module not found)
 
 **症狀**：
-- `Cannot find module 'axios'`
+- `Cannot find module 'axios'` 或 `cheerio`
 
 **解決方法**：
 確保在工作區執行了依賴安裝：
 ```bash
-npm install axios
+npm install axios cheerio
 ```
 
 ## 快速執行
