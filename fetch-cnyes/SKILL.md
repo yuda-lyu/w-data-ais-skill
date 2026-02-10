@@ -13,7 +13,7 @@ description: 抓取鉅亨網（Anue）台股即時新聞。支援指定日期範
 |------|------|
 | 網址 | https://news.cnyes.com/news/cat/tw_stock |
 | 資料類型 | 即時新聞（產業動態、法人買賣、個股消息） |
-| 抓取方式 | browser evaluate（JS 渲染頁面） |
+| 抓取方式 | Node.js Axios Script（支援分頁與延遲） |
 | 更新頻率 | 即時 |
 
 ## 最佳實踐：使用 Axios Script（推薦）
@@ -44,49 +44,6 @@ node fetch_cnyes.mjs
 - 輸出結構化 JSON。
 
 ---
-
-## 技術說明（Legacy）
-
-舊版可使用 `browser` tool 渲染頁面抓取，但速度較慢。
-
-### 抓取步驟
-
-```
-步驟 1：開啟新聞列表頁
-  browser open → https://news.cnyes.com/news/cat/tw_stock
-
-步驟 2：等待頁面載入
-  等待 3-5 秒（確保 JS 渲染完成）
-
-步驟 3：確認頁面載入
-  browser snapshot → 檢查是否有新聞列表
-
-步驟 4：抓取新聞資料
-  browser act evaluate → 執行下方 JavaScript
-```
-
-### 抓取腳本
-
-```javascript
-// 抓取新聞列表
-[...document.querySelectorAll('a[href*="/news/id/"]')]
-  .slice(0, 30)
-  .map(a => {
-    const time = a.closest('div')?.querySelector('time')?.innerText || '';
-    return {
-      title: a.innerText.trim(),
-      url: a.href,
-      time: time
-    };
-  })
-  .filter(n => n.title.length > 5)
-```
-
-### 日期篩選
-
-抓取後需檢查新聞時間戳記，只保留昨日+今日的新聞：
-- 時間格式可能為：`2 小時前`、`昨天 15:30`、`02/04 09:00`
-- 超過兩天的新聞跳過
 
 ## 輸出格式
 
@@ -189,10 +146,10 @@ node fetch_cnyes.mjs
 
 ### 何時紀錄
 
-1. 頁面載入失敗或逾時
-2. JavaScript 渲染未完成
-3. 找不到新聞元素
-4. 重試嘗試（成功或失敗皆記錄）
+1. HTTP 請求失敗 (Axios Error)
+2. 回傳內容無法解析
+3. 找不到預期的新聞結構
+4. 重試嘗試
 
 ## 🔧 常見問題與排除
 
