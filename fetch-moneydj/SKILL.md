@@ -117,6 +117,8 @@ MoneyDJ 時間格式：
 
 ### 紀錄格式
 
+每行一筆 JSON，追加寫入（不覆蓋）：
+
 ```json
 {
   "timestamp": "2026-02-05T08:15:30+08:00",
@@ -135,6 +137,20 @@ MoneyDJ 時間格式：
   "notes": ""
 }
 ```
+
+### 欄位說明
+
+| 欄位 | 必要 | 說明 |
+|------|------|------|
+| `timestamp` | ✅ | ISO 8601 格式，含時區 |
+| `date` | ✅ | 執行日期（YYYYMMDD） |
+| `source` | ✅ | 固定為 `moneydj` |
+| `phase` | ✅ | 階段：fetch / parse |
+| `error.type` | ✅ | network / timeout / parse / empty / blocked |
+| `error.message` | ✅ | 簡短錯誤訊息 |
+| `attempts` | ❌ | 重試紀錄（選填） |
+| `resolution` | ✅ | success / failed |
+
 
 ### 錯誤類型
 
