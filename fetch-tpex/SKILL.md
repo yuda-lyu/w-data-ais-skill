@@ -105,23 +105,11 @@ https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_resu
 ```json
 {
   "source": "tpex",
-  "fetchTime": "2026-02-06T04:50:00+08:00",
   "date": "20260205",
-  "dateROC": "115/02/05",
-  "stocks": [
-    {
-      "code": "6499",
-      "name": "...",
-      "open": 0.0,
-      "high": 0.0,
-      "low": 0.0,
-      "close": 0.0,
-      "change": 0.0,
-      "changePercent": 0.0,
-      "volume": 0
-    }
-  ],
-  "error": null
+  "count": 800,
+  "data": [
+    ["6499", "益安", "45.00", "46.00", "44.50", "45.50", "+0.50", ...]
+  ]
 }
 ```
 

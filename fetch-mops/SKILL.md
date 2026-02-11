@@ -53,26 +53,26 @@ node fetch_mops.mjs ./data/mops.json
 ## 輸出格式
 
 ```json
-{
-  "source": "mops",
-  "fetchTime": "2026-02-05T08:00:00+08:00",
-  "dateRange": {
-    "from": "2026-02-04",
-    "to": "2026-02-05"
-  },
-  "items": [
-    {
-      "code": "2330",
-      "name": "台積電",
-      "date": "2026-02-05",
-      "time": "07:30",
-      "title": "本公司董事會決議股利分派",
-      "type": "股利",
-      "url": "https://mops.twse.com.tw/..."
-    }
-  ],
-  "error": null
-}
+[
+  {
+    "market": "上市",
+    "marketKind": "sii",
+    "data": {
+      "code": 200,
+      "message": "查詢成功",
+      "result": [
+        {
+          "data": [
+            ["2330", "台積電", "115/02/05", 1, "本公司董事會決議股利分派", "", "..."]
+          ],
+          "header": "決定分派股息及紅利或其他利益之基準日公告",
+          "titles": ["公司代號", "公司簡稱", "公告日期", ...]
+        }
+      ]
+    },
+    "timestamp": "2026-02-05T08:00:00.000Z"
+  }
+]
 ```
 
 ## 篩選標準

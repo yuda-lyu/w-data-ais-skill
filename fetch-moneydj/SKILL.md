@@ -54,27 +54,13 @@ node fetch_moneydj.mjs ./data/moneydj.json
 ## 輸出格式
 
 ```json
-{
-  "source": "moneydj",
-  "fetchTime": "2026-02-05T08:00:00+08:00",
-  "dateRange": {
-    "from": "2026-02-04",
-    "to": "2026-02-05"
-  },
-  "items": [
-    {
-      "title": "台積電法說會：2025 年資本支出上看 320 億美元",
-      "url": "https://www.moneydj.com/kmdj/news/...",
-      "time": "08:30",
-      "date": "2026-02-05",
-      "code": "2330",
-      "name": "台積電",
-      "impact": "利多",
-      "reason": "資本支出擴大，展望正向"
-    }
-  ],
-  "error": null
-}
+[
+  {
+    "time": "02/05 08:30",
+    "title": "台積電法說會：2025 年資本支出上看 320 億美元",
+    "link": "https://www.moneydj.com/kmdj/news/..."
+  }
+]
 ```
 
 ## 篩選標準

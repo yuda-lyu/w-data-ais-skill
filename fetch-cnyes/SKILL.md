@@ -52,26 +52,13 @@ node fetch_cnyes.mjs ./data/cnyes.json
 ## 輸出格式
 
 ```json
-{
-  "source": "cnyes",
-  "fetchTime": "2026-02-05T08:00:00+08:00",
-  "dateRange": {
-    "from": "2026-02-04",
-    "to": "2026-02-05"
-  },
-  "items": [
-    {
-      "title": "台積電法說會釋正向展望 外資連三買",
-      "url": "https://news.cnyes.com/news/id/...",
-      "time": "今天 07:45",
-      "code": "2330",
-      "name": "台積電",
-      "impact": "利多",
-      "reason": "法說會正向展望"
-    }
-  ],
-  "error": null
-}
+[
+  {
+    "time": "2026-02-05 07:45:00",
+    "title": "台積電法說會釋正向展望 外資連三買",
+    "href": "https://news.cnyes.com/news/id/..."
+  }
+]
 ```
 
 ## 篩選標準

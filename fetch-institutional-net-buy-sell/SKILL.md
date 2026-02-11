@@ -49,32 +49,37 @@ node fetch_tpex_3insti.mjs 6499,6610
 
 ## 輸出格式
 
+### TWSE (上市 T86)
+
 ```json
 {
-  "source": "twse+tpex",
+  "source": "twse",
   "date": "20260205",
-  "dateROC": "115/02/05",
-  "items": [
+  "data": [
     {
-      "code": "3481",
-      "name": "群創",
-      "market": "TWSE",
-      "foreignNet": -124462,
-      "investNet": 0,
-      "dealerNet": 0,
-      "totalNet": -124462,
-      "raw": {
-        "foreignBuy": 0,
-        "foreignSell": 0,
-        "investBuy": 0,
-        "investSell": 0,
-        "dealerBuy": 0,
-        "dealerSell": 0
-      }
+      "證券代號": "2330",
+      "證券名稱": "台積電",
+      "外陸資買進股數(不含外資自營商)": "...",
+      "三大法人買賣超股數": "..."
     }
-  ],
-  "missing": ["6610"],
-  "error": null
+  ]
+}
+```
+
+### TPEX (上櫃 3Insti)
+
+```json
+{
+  "source": "tpex",
+  "date": "20260205",
+  "data": [
+    {
+      "代號": "6499",
+      "名稱": "益安",
+      "外資及陸資(不含外資自營商)-買進股數": "...",
+      "三大法人買賣超股數合計": "..."
+    }
+  ]
 }
 ```
 

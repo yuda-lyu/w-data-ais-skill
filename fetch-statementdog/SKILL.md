@@ -52,26 +52,13 @@ node fetch_statementdog.mjs ./data/statementdog.json
 ## 輸出格式
 
 ```json
-{
-  "source": "statementdog",
-  "fetchTime": "2026-02-05T08:00:00+08:00",
-  "dateRange": {
-    "from": "2026-02-04",
-    "to": "2026-02-05"
-  },
-  "items": [
-    {
-      "title": "台積電 2024 Q4 財報分析：營收創高，毛利率維持",
-      "url": "https://statementdog.com/news/...",
-      "date": "2026-02-05",
-      "code": "2330",
-      "name": "台積電",
-      "impact": "利多",
-      "reason": "財報優於預期"
-    }
-  ],
-  "error": null
-}
+[
+  {
+    "time": "2026-02-05",
+    "title": "台積電 2024 Q4 財報分析：營收創高，毛利率維持",
+    "link": "https://statementdog.com/news/..."
+  }
+]
 ```
 
 ## 篩選標準
