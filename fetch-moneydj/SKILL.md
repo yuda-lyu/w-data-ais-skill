@@ -20,11 +20,24 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞。支援指定日�
 
 建議使用本技能附帶的 Node.js 腳本進行抓取，支持分頁與延遲，穩定性較高。
 
-### 前置需求
-1. 確保環境已安裝 Node.js。
-2. 在工作區安裝依賴：`npm install axios cheerio`。
+**⚠️ 注意事項：**
+由於腳本需抓取 50 頁且包含 Anti-bot 延遲機制，執行時間約需 **1.5 ~ 3 分鐘**。
+調用 `exec` 執行此腳本時，**必須設定足夠的逾時時間 (timeout)** 或使用 **背景執行 (background)**，避免 Process 被提早 Kill。
 
-### 執行方式
+### 執行方式 (OpenClaw)
+
+若使用 `exec` 工具，建議使用 `background` 參數，或確保環境逾時設定大於 10 分鐘 (600000 ms)。
+
+```json
+// Example Tool Call
+{
+  "tool": "exec",
+  "command": "node fetch_moneydj.mjs ./data/moneydj.json",
+  "background": true
+}
+```
+
+### 執行方式 (CLI)
 
 1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_moneydj.mjs`。
 2. **執行腳本**：使用 `node` 執行該腳本。
