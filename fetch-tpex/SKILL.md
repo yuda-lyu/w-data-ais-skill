@@ -25,14 +25,18 @@ description: 抓取櫃買中心（TPEX）上櫃股票收盤資料。支援指定
 
 1. **複製腳本**：從技能目錄讀取 `scripts/fetch_tpex.mjs`。
 2. **執行腳本**：使用 `node` 執行該腳本，可帶入日期與篩選代碼。
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 標記中）。
+   - **參數**：`node fetch_tpex.mjs [stockCode|all] [outputPath]`。
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 標記中），若指定 outputPath 則會寫入檔案。
 
 ```bash
-# 範例：抓取全市場
-node fetch_tpex.mjs 20260210
+# 範例：抓取全市場，輸出至 stdout
+node fetch_tpex.mjs all
 
-# 範例：抓取特定個股 (篩選)
-node fetch_tpex.mjs 20260210 6499 6610
+# 範例：抓取全市場，輸出至檔案
+node fetch_tpex.mjs all ./data/tpex.json
+
+# 範例：抓取特定個股，輸出至 stdout
+node fetch_tpex.mjs 6499,6610
 ```
 
 ---

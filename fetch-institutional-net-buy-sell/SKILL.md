@@ -31,9 +31,17 @@ description: 抓取台股「三大法人買賣超」指定日期、指定個股�
 1. **複製腳本**：將 `scripts/` 下的所有 `.mjs` 檔案複製到工作區。
 2. **安裝依賴**：`npm install axios`。
 3. **執行抓取**：
-   - 抓取上市 (TWSE)：`node fetch_twse_t86.mjs`
-   - 抓取上櫃 (TPEX)：`node fetch_tpex_3insti.mjs`
-   - **一次抓取兩者**：`node fetch_all.mjs`
+   - **TWSE (上市)**: `node fetch_twse_t86.mjs [stockCode|all] [outputPath]`
+   - **TPEX (上櫃)**: `node fetch_tpex_3insti.mjs [stockCode|all] [outputPath]`
+   - **一次抓取兩者**: `node fetch_all.mjs` (僅支援 stdout)
+
+```bash
+# 範例：抓取 TWSE 全市場，輸出至檔案
+node fetch_twse_t86.mjs all ./data/twse_t86.json
+
+# 範例：抓取 TPEX 特定個股，輸出至 stdout
+node fetch_tpex_3insti.mjs 6499,6610
+```
 
 ### 輸出結果
 腳本會輸出 JSON 格式資料（包在 `JSON_OUTPUT_START` 標記中），並在工作區產生備份檔案：

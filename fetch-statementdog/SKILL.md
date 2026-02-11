@@ -28,13 +28,17 @@ description: 抓取財報狗（Statementdog）產業分析與個股新聞。支�
 
 1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_statementdog.mjs`。
 2. **執行腳本**：使用 `node` 執行該腳本。
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。
+   - **可選參數**：指定輸出檔案路徑 `node fetch_statementdog.mjs [outputPath]`。
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間），若指定 outputPath 則會寫入檔案。
 
 ```bash
-# 範例
+# 範例：輸出至 stdout
 cp /path/to/skill/scripts/fetch_statementdog.mjs .
 npm install axios cheerio
 node fetch_statementdog.mjs
+
+# 範例：輸出至檔案
+node fetch_statementdog.mjs ./data/statementdog.json
 ```
 
 ### 腳本邏輯摘要
