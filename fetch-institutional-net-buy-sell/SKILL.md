@@ -33,7 +33,6 @@ description: 抓取台股「三大法人買賣超」指定日期、指定個股�
 3. **執行抓取**：
    - **TWSE (上市)**: `node fetch_twse_t86.mjs [stockCode|all] [outputPath]`
    - **TPEX (上櫃)**: `node fetch_tpex_3insti.mjs [stockCode|all] [outputPath]`
-   - **一次抓取兩者**: `node fetch_all.mjs` (僅支援 stdout)
 
 ```bash
 # 範例：抓取 TWSE 全市場，輸出至檔案
