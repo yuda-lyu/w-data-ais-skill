@@ -129,7 +129,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 ## 輸出結構
 
 ```
-stock-research/
+tw-stock-research/
 └── YYYYMMDD/
     ├── report_YYYYMMDD.md      # 最終報告（依執行日期命名）
     ├── error_log.jsonl         # 錯誤紀錄
