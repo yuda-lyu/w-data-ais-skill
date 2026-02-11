@@ -87,9 +87,12 @@ node fetch_tpex_3insti.mjs 6499,6610
 
 執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
 
-### 紀錄格式
+### 紀錄規則
+當 Node.js 腳本執行失敗（Exit Code != 0）或標準錯誤輸出（stderr）包含錯誤訊息時，Agent 應捕捉錯誤並寫入 Log。
 
-每行一筆 JSON，追加寫入（不覆蓋）：
+### 紀錄格式 (JSONL)
+
+每行一筆 JSON，追加寫入：
 
 ```json
 {
@@ -102,26 +105,19 @@ node fetch_tpex_3insti.mjs 6499,6610
     "message": "API request failed",
     "details": "TWSE T86 API returned status: 很抱歉，沒有符合條件的資料!"
   },
-  "attempts": [
-    {"action": "retry after 5s", "result": "failed"}
-  ],
   "resolution": "failed",
   "notes": "Possibly a holiday or data not yet available"
 }
 ```
 
-### 欄位說明
+### 常見錯誤類型 (type)
 
-| 欄位 | 必要 | 說明 |
-|------|------|------|
-| `timestamp` | ✅ | ISO 8601 格式，含時區 |
-| `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 固定為 `institutional` |
-| `phase` | ✅ | 階段：fetch / parse |
-| `error.type` | ✅ | network / timeout / parse / empty / blocked |
-| `error.message` | ✅ | 簡短錯誤訊息 |
-| `attempts` | ❌ | 重試紀錄（選填） |
-| `resolution` | ✅ | success / failed |
+| type | 說明 | 觸發場景 |
+|---|---|---|
+| `network` | 網路錯誤 | HTTP 狀態碼非 200、連線逾時 |
+| `empty` | 查無資料 | 非交易日、下午 3 點前資料未更新 |
+| `parse` | 解析錯誤 | 回傳 JSON 格式異常 |
+| `io` | 存檔錯誤 | 指定的 `outputPath` 無法寫入 |
 
 ## 🔧 常見問題與排除
 

@@ -217,9 +217,12 @@ npm install axios
 
 執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
 
-### 紀錄格式
+### 紀錄規則
+當 Node.js 腳本執行失敗（Exit Code != 0）或標準錯誤輸出（stderr）包含錯誤訊息時，Agent 應捕捉錯誤並寫入 Log。
 
-每行一筆 JSON，追加寫入（不覆蓋）：
+### 紀錄格式 (JSONL)
+
+每行一筆 JSON，追加寫入：
 
 ```json
 {
@@ -232,57 +235,17 @@ npm install axios
     "message": "API request timeout",
     "details": "ETIMEDOUT on /exchangeReport/STOCK_DAY"
   },
-  "attempts": [
-    {"action": "retry after 5s", "result": "failed"}
-  ],
   "resolution": "failed",
   "notes": "TWSE API may be slow during 14:30-15:00"
 }
 ```
 
-### 欄位說明
+### 常見錯誤類型 (type)
 
-| 欄位 | 必要 | 說明 |
-|------|------|------|
-| `timestamp` | ✅ | ISO 8601 格式，含時區 |
-| `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 固定為 `twse` |
-| `phase` | ✅ | 階段：fetch / parse |
-| `error.type` | ✅ | network / timeout / parse / empty / blocked / not-found |
-| `error.message` | ✅ | 簡短錯誤訊息 |
-| `attempts` | ❌ | 重試紀錄（選填） |
-| `resolution` | ✅ | success / failed |
-
-
-### 錯誤類型
-
-| type | 說明 |
-|------|------|
-| `network` | 網路連線失敗 |
-| `timeout` | API 請求逾時 |
-| `not-found` | 股票代碼不存在（可能為上櫃） |
-| `non-trading` | 非交易日 |
-| `parse` | JSON 解析失敗 |
-| `rate-limit` | 請求過於頻繁被封鎖 |
-
-### 何時紀錄
-
-1. API 請求失敗或逾時
-2. 股票代碼查無資料（需嘗試 TPEX）
-3. 回傳資料格式異常
-4. 每次重試嘗試
-
-### 特殊處理
-
-若查詢的股票在 TWSE 查無資料，記錄後應建議改用 TPEX API：
-
-```json
-{
-  "source": "twse",
-  "error": {
-    "type": "not-found",
-    "message": "Stock 6510 not found in TWSE"
-  },
-  "notes": "Suggest try TPEX API for OTC stocks"
-}
-```
+| type | 說明 | 觸發場景 |
+|---|---|---|
+| `network` | 網路錯誤 | HTTP 狀態碼非 200、連線逾時 |
+| `empty` | 查無資料 | 非交易日、盤中資料尚未更新、股票代碼錯誤 (或屬上櫃股票) |
+| `parse` | 解析錯誤 | 回傳 JSON 格式異常 |
+| `not-found` | 找不到 | 該股票代碼不存在於上市市場 |
+| `io` | 存檔錯誤 | 指定的 `outputPath` 無法寫入 |

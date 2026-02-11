@@ -90,9 +90,12 @@ MoneyDJ 時間格式：
 
 執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
 
-### 紀錄格式
+### 紀錄規則
+當 Node.js 腳本執行失敗（Exit Code != 0）或標準錯誤輸出（stderr）包含錯誤訊息時，Agent 應捕捉錯誤並寫入 Log。
 
-每行一筆 JSON，追加寫入（不覆蓋）：
+### 紀錄格式 (JSONL)
+
+每行一筆 JSON，追加寫入：
 
 ```json
 {
@@ -101,48 +104,22 @@ MoneyDJ 時間格式：
   "source": "moneydj",
   "phase": "fetch",
   "error": {
-    "type": "network",
-    "message": "Connection refused",
-    "details": "ECONNREFUSED on moneydj.com"
+    "type": "blocked",
+    "message": "Access denied",
+    "details": "Status code 403 (Anti-bot)"
   },
-  "attempts": [
-    {"action": "retry after 10s", "result": "success"}
-  ],
-  "resolution": "success",
-  "notes": ""
+  "resolution": "failed"
 }
 ```
 
-### 欄位說明
+### 常見錯誤類型 (type)
 
-| 欄位 | 必要 | 說明 |
-|------|------|------|
-| `timestamp` | ✅ | ISO 8601 格式，含時區 |
-| `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 固定為 `moneydj` |
-| `phase` | ✅ | 階段：fetch / parse |
-| `error.type` | ✅ | network / timeout / parse / empty / blocked |
-| `error.message` | ✅ | 簡短錯誤訊息 |
-| `attempts` | ❌ | 重試紀錄（選填） |
-| `resolution` | ✅ | success / failed |
-
-
-### 錯誤類型
-
-| type | 說明 |
-|------|------|
-| `network` | 網路連線失敗 |
-| `timeout` | 請求逾時 |
-| `parse` | 內容解析失敗 |
-| `empty` | 無新聞內容 |
-| `blocked` | 被網站封鎖 |
-
-### 何時紀錄
-
-1. HTTP 請求失敗 (Axios Error)
-2. 回傳內容無法解析
-3. 找不到預期的新聞結構
-4. 重試嘗試
+| type | 說明 | 觸發場景 |
+|---|---|---|
+| `network` | 網路錯誤 | 連線拒絕、逾時 |
+| `blocked` | 封鎖 | HTTP 403/429、被判定為機器人 |
+| `selector` | 解析錯誤 | HTML 結構變更，Cheerio 找不到對應 Class/ID |
+| `io` | 存檔錯誤 | 指定的 `outputPath` 無法寫入 |
 
 ## 🔧 常見問題與排除
 

@@ -98,7 +98,12 @@ node fetch_mops.mjs ./data/mops.json
 
 執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
 
-### 紀錄格式
+### 紀錄規則
+當 Node.js 腳本執行失敗（Exit Code != 0）、標準錯誤輸出（stderr）包含錯誤訊息，或產出的 JSON 包含 `error` 欄位時，Agent 應捕捉錯誤並寫入 Log。
+
+### 紀錄格式 (JSONL)
+
+每行一筆 JSON，追加寫入：
 
 ```json
 {
@@ -107,35 +112,23 @@ node fetch_mops.mjs ./data/mops.json
   "source": "mops",
   "phase": "fetch",
   "error": {
-    "type": "network",
-    "message": "API request timeout",
-    "details": "POST /mops/api/home_page/t05sr01_1 timeout after 30s"
+    "type": "browser",
+    "message": "Puppeteer launch failed",
+    "details": "Error: Failed to launch the browser process..."
   },
-  "attempts": [
-    {"action": "retry after 5s", "result": "failed"},
-    {"action": "retry after 10s", "result": "success"}
-  ],
-  "resolution": "success",
-  "notes": "MOPS API may be slow during market open hours"
+  "resolution": "failed"
 }
 ```
 
-### 錯誤類型
+### 常見錯誤類型 (type)
 
-| type | 說明 |
-|------|------|
-| `network` | 網路連線失敗 |
-| `timeout` | 請求逾時 |
-| `parse` | JSON 解析失敗 |
-| `empty` | API 回傳空資料 |
-| `browser` | 瀏覽器操作失敗 |
-
-### 何時紀錄
-
-1. API 請求失敗或逾時
-2. 瀏覽器無法開啟/evaluate 失敗
-3. 回傳資料格式異常
-4. 重試嘗試（成功或失敗皆記錄）
+| type | 說明 | 觸發場景 |
+|---|---|---|
+| `browser` | 瀏覽器錯誤 | Chrome 未安裝、Puppeteer 啟動失敗 |
+| `anti-bot` | 阻擋機制 | 頁面跳轉驗證、無法取得 Session |
+| `timeout` | 逾時 | 網站回應過慢 (>60s) |
+| `selector` | 解析錯誤 | 網頁改版導致找不到對應 DOM 元素 |
+| `io` | 存檔錯誤 | 指定的 `outputPath` 無法寫入 |
 
 ## 🔧 常見問題與排除
 

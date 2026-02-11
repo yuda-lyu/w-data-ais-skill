@@ -88,9 +88,12 @@ node fetch_cnyes.mjs ./data/cnyes.json
 
 執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
 
-### 紀錄格式
+### 紀錄規則
+當 Node.js 腳本執行失敗（Exit Code != 0）或標準錯誤輸出（stderr）包含錯誤訊息時，Agent 應捕捉錯誤並寫入 Log。
 
-每行一筆 JSON，追加寫入（不覆蓋）：
+### 紀錄格式 (JSONL)
+
+每行一筆 JSON，追加寫入：
 
 ```json
 {
@@ -100,47 +103,21 @@ node fetch_cnyes.mjs ./data/cnyes.json
   "phase": "fetch",
   "error": {
     "type": "network",
-    "message": "API request failed",
-    "details": "HTTP 503 Service Unavailable"
+    "message": "Axios request failed",
+    "details": "Error: Request failed with status code 503"
   },
-  "attempts": [
-    {"action": "retry after 5s", "result": "failed"}
-  ],
-  "resolution": "failed",
-  "notes": "API unstable"
+  "resolution": "failed"
 }
 ```
 
-### 欄位說明
+### 常見錯誤類型 (type)
 
-| 欄位 | 必要 | 說明 |
-|------|------|------|
-| `timestamp` | ✅ | ISO 8601 格式，含時區 |
-| `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 固定為 `cnyes` |
-| `phase` | ✅ | 階段：fetch / parse |
-| `error.type` | ✅ | network / timeout / parse / empty / blocked |
-| `error.message` | ✅ | 簡短錯誤訊息 |
-| `attempts` | ❌ | 重試紀錄（選填） |
-| `resolution` | ✅ | success / failed |
-
-
-### 錯誤類型
-
-| type | 說明 |
-|------|------|
-| `timeout` | 頁面載入逾時 |
-| `browser` | 瀏覽器操作失敗 |
-| `parse` | 內容解析失敗 |
-| `empty` | 無法找到新聞列表 |
-| `blocked` | 被網站封鎖 |
-
-### 何時紀錄
-
-1. HTTP 請求失敗 (Axios Error)
-2. 回傳內容無法解析
-3. 找不到預期的新聞結構
-4. 重試嘗試
+| type | 說明 | 觸發場景 |
+|---|---|---|
+| `network` | 網路錯誤 | HTTP 狀態碼非 200、DNS 解析失敗、API 服務不穩 |
+| `empty` | 資料空白 | API 回傳空陣列或無預期欄位 |
+| `parse` | 解析錯誤 | 回傳格式改變導致無法提取欄位 |
+| `io` | 存檔錯誤 | 指定的 `outputPath` 無法寫入 |
 
 ## 🔧 常見問題與排除
 
