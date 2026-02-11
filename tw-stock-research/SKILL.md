@@ -42,7 +42,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 | 鉅亨網 | `fetch-cnyes` | 即時新聞 | 昨日+今日 |
 | 財報狗 | `fetch-statementdog` | 產業分析 | 昨日+今日 |
 | MoneyDJ | `fetch-moneydj` | 法說/營收 | 昨日+今日 |
-| 法人買賣超（官方） | `fetch-institutional-net-buy-sell` | 三大法人買賣超（外資/投信/自營/合計）；可指定日期 | 昨日或前一交易日（盤後建議用當日或前一交易日） |
+| 法人買賣超（官方） | `fetch-institutional-net-buy-sell` | 三大法人買賣超（外資/投信/自營/合計）；可指定日期 | 昨日或前一交易日 |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
 
