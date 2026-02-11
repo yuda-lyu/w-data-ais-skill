@@ -183,7 +183,7 @@ npm install axios
 ```
 請使用 fetch-twse 技能抓取證交所資料（使用 Axios 腳本）：
 1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_twse.mjs [日期] [代碼/ALL]
+2. 執行 scripts/fetch_twse.mjs [stockCode|all] [date] [outputPath]
 3. 讀取並解析 JSON 輸出
 ```
 

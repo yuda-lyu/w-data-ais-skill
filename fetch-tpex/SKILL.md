@@ -147,6 +147,6 @@ npm install axios
 ```
 請使用 fetch-tpex 技能抓取櫃買中心資料（使用 Axios 腳本）：
 1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_tpex.mjs [日期] [代碼...]
+2. 執行 scripts/fetch_tpex.mjs [stockCode|all] [date] [outputPath]
 3. 讀取並解析 JSON 輸出
 ```

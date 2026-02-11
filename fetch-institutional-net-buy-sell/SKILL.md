@@ -150,6 +150,6 @@ npm install axios
 ```
 請使用 fetch-institutional-net-buy-sell 技能抓取法人買賣超（使用 Axios 腳本）：
 1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_all.mjs
+2. 執行 scripts/fetch_twse_t86.mjs 或 scripts/fetch_tpex_3insti.mjs [stockCode|all] [date] [outputPath]
 3. 讀取並解析 JSON 輸出
 ```
