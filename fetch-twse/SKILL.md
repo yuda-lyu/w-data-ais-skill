@@ -103,34 +103,6 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 # "很抱歉，沒有符合條件的資料!" = 非交易日
 ```
 
-## 抓取步驟
-
-### 單一個股
-
-```
-步驟 1：呼叫 API
-  使用 exec curl 或 web_fetch：
-  curl -s "https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=20260205&stockNo=2330"
-
-步驟 2：解析 JSON
-  提取 data 陣列中的最後一筆（最新日期）
-
-步驟 3：轉換格式
-  輸出結構化資料
-```
-
-### 批次查詢（多個個股）
-
-```
-步驟 1：使用全市場 API
-  curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=20260205&type=ALLBUT0999"
-
-步驟 2：從 data9 欄位提取個股資料
-  data9 包含所有個股的成交資訊
-
-步驟 3：篩選需要的股票代碼
-```
-
 ## 輸出格式
 
 ### 個股查詢 (STOCK_DAY)
