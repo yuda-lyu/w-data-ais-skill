@@ -157,6 +157,6 @@ npm install puppeteer-core lodash-es
 ```
 請使用 fetch-mops 技能抓取 MOPS 重大公告（使用 Puppeteer 腳本）：
 1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_mops.mjs
+2. 執行 scripts/fetch_mops.mjs [outputPath]
 3. 讀取並解析 JSON 輸出
 ```

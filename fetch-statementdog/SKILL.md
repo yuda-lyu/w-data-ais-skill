@@ -134,6 +134,6 @@ npm install axios cheerio
 ```
 請使用 fetch-statementdog 技能抓取財報狗新聞（使用 Axios 腳本）：
 1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_statementdog.mjs
+2. 執行 scripts/fetch_statementdog.mjs [outputPath]
 3. 讀取並解析 JSON 輸出
 ```

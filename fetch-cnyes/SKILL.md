@@ -137,6 +137,6 @@ npm install axios
 ```
 請使用 fetch-cnyes 技能抓取鉅亨網新聞（使用 Axios 腳本）：
 1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_cnyes.mjs
+2. 執行 scripts/fetch_cnyes.mjs [outputPath]
 3. 讀取並解析 JSON 輸出
 ```
