@@ -97,13 +97,14 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 ## 輸出結構
 
 ```
-tasks/stock-post-market/
-├── report_YYYYMMDD.md      # 盤後總結報告（依執行日期命名）
-├── error_log.jsonl         # 錯誤紀錄（累積式，每行一筆）
-└── raw/
-    ├── input.json          # 輸入的個股影響總表
-    ├── prices.json         # 抓取的開收盤價（TWSE/TPEX/興櫃 fallback 後的彙整）
-    └── institutional.json  # 三大法人買賣超（官方 TWSE+TPEX；逐檔、指定日期）
+tw-stock-post-market/
+└── YYYYMMDD/
+    ├── report_YYYYMMDD.md      # 盤後總結報告
+    ├── error_log.jsonl         # 錯誤紀錄
+    └── raw/
+        ├── input.json          # 輸入的個股影響總表
+        ├── prices.json         # 開收盤價
+        └── institutional.json  # 法人買賣超
 ```
 
 ## 📝 錯誤紀錄機制（必要）

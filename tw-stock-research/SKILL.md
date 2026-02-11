@@ -129,16 +129,16 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 ## 輸出結構
 
 ```
-tasks/stock-research/
-├── progress.json           # 進度追蹤
-├── report_YYYYMMDD.md      # 最終報告（依執行日期命名，如 report_20260204.md）
-├── error_log.jsonl         # 錯誤紀錄（累積式，每行一筆）
-└── raw/
-    ├── mops.json
-    ├── cnyes.json
-    ├── statementdog.json
-    ├── moneydj.json
-    └── goodinfo.json
+stock-research/
+└── YYYYMMDD/
+    ├── report_YYYYMMDD.md      # 最終報告（依執行日期命名）
+    ├── error_log.jsonl         # 錯誤紀錄
+    └── raw/
+        ├── mops.json
+        ├── cnyes.json
+        ├── statementdog.json
+        ├── moneydj.json
+        └── institutional.json
 ```
 
 ## 📝 錯誤紀錄機制（必要）
