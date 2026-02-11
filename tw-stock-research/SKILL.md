@@ -278,6 +278,6 @@ npm install axios cheerio puppeteer-core lodash-es
    - fetch-statementdog (node fetch_statementdog.mjs)
    - fetch-moneydj (node fetch_moneydj.mjs)
    - fetch-institutional-net-buy-sell (node fetch_all.mjs)
-5. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（YYYYMMDD = 執行當日）
+5. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（使用 generate_report.mjs，YYYYMMDD = 執行當日）
 6. 推送至 GitHub
 ```
