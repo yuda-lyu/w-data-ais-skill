@@ -93,21 +93,6 @@ node fetch_cnyes.mjs
 - 標題包含「(2330)」→ code: 2330
 - 無法識別時 code 留空
 
-## 錯誤處理
-
-```json
-{
-  "source": "cnyes",
-  "fetchTime": "2026-02-05T08:00:00+08:00",
-  "items": [],
-  "error": {
-    "type": "timeout",
-    "message": "Page load timeout after 30s",
-    "details": "..."
-  }
-}
-```
-
 ## 📝 錯誤紀錄機制（必要）
 
 執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。

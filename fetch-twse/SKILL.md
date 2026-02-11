@@ -203,31 +203,6 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 - 建議間隔 1-2 秒避免被封鎖
 - 大量查詢建議用全市場 API
 
-## 錯誤處理
-
-```json
-{
-  "source": "twse",
-  "fetchTime": "2026-02-05T15:00:00+08:00",
-  "date": "20260205",
-  "stock": null,
-  "error": {
-    "type": "not-found",
-    "message": "Stock 9999 not found in TWSE",
-    "details": "May be OTC stock, try TPEX API"
-  }
-}
-```
-
-### 常見錯誤
-
-| 錯誤類型 | 說明 | 處理方式 |
-|----------|------|----------|
-| `not-found` | 股票不存在或為上櫃 | 改用 TPEX API |
-| `non-trading` | 非交易日 | 回傳空資料 |
-| `network` | 網路錯誤 | 重試 2-3 次 |
-| `timeout` | 逾時 | 重試或稍後再試 |
-
 ## 🔧 常見問題與排除
 
 ### 1. 執行錯誤 (Module not found)
