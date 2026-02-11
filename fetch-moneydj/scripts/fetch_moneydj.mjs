@@ -7,7 +7,17 @@ import * as cheerio from 'cheerio'; // 使用 cheerio 解析 HTML
  * MoneyDJ 新聞抓取程式
  * 目的：抓取 MoneyDJ 台股新聞 (MB06) 前 50 頁
  * 依賴：axios, cheerio
+ * 
+ * 用法:
+ * node fetch_moneydj.mjs [outputPath]
+ * 
+ * 參數:
+ * 1. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/moneydj.json)
  */
+
+// 取得輸入參數
+const args = process.argv.slice(2);
+const outputPath = args[0]; // Arg 1: 儲存路徑
 
 const domain = 'https://www.moneydj.com';
 const baseUrl = 'https://www.moneydj.com/kmdj/news/newsreallist.aspx?a=mb06&index1=';
@@ -79,15 +89,26 @@ async function main() {
     console.log(`Total fetched: ${allNewsItems.length} items.`);
 
     // 輸出 JSON 到 stdout (包在標記中)
+    const jsonOutput = JSON.stringify(allNewsItems, null, 2);
     console.log('JSON_OUTPUT_START');
-    console.log(JSON.stringify(allNewsItems, null, 2));
+    console.log(jsonOutput);
     console.log('JSON_OUTPUT_END');
 
-    // 本地備份 (可選)
-    try {
-        fs.writeFileSync('moneydj_data.json', JSON.stringify(allNewsItems, null, 2), 'utf8');
-    } catch (err) {
-        console.error('Error saving file:', err);
+    // 若有指定儲存路徑，則寫入檔案
+    if (outputPath) {
+        const dir = path.dirname(outputPath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        fs.writeFileSync(outputPath, jsonOutput, 'utf8');
+        console.log(`結果已儲存至: ${outputPath}`);
+    } else {
+        // 本地備份 (預設)
+        try {
+            fs.writeFileSync('moneydj_data.json', jsonOutput, 'utf8');
+        } catch (err) {
+            console.error('Error saving default file:', err);
+        }
     }
 }
 

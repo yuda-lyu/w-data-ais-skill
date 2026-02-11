@@ -8,21 +8,29 @@ import path from 'path';
  * 依賴：axios
  * 
  * 用法:
- * node fetch_twse.mjs [date] [stockNo]
+ * node fetch_twse.mjs [stockCode] [outputPath]
+ * 
+ * 參數:
+ * 1. stockCode (選填): 指定股票代號 (例如: "2330") 或 "all" (預設)。目前 TWSE API 僅支援單檔或全市場，不支援多檔同時篩選。
+ * 2. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/twse.json)。若未提供，則根據日期與代碼自動生成檔名。
  * 
  * 範例:
- * node fetch_twse.mjs 20260210 2330  (抓取台積電)
- * node fetch_twse.mjs 20260210 ALL   (抓取全市場)
+ * node fetch_twse.mjs all ./data/twse_20260210.json
+ * node fetch_twse.mjs 2330
  */
 
 const args = process.argv.slice(2);
-const dateStr = args[0] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const stockNo = args[1] || 'ALL'; // 預設抓全市場 (ALLBUT0999)
+const stockCodeArg = args[0] || 'all'; // Arg 1: stockCode or 'all'
+const outputPath = args[1]; // Arg 2: outputPath
+
+// 取得今日日期 (YYYYMMDD)
+const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
 async function fetchTwse() {
     try {
         let url;
-        let isSingleStock = stockNo !== 'ALL' && stockNo !== 'ALLBUT0999';
+        let isSingleStock = stockCodeArg.toLowerCase() !== 'all';
+        let stockNo = isSingleStock ? stockCodeArg : 'ALLBUT0999'; // TWSE API 全市場參數
 
         if (isSingleStock) {
             // 個股日成交資訊
@@ -53,17 +61,28 @@ async function fetchTwse() {
         }
 
         // 輸出 JSON 到 stdout
+        const jsonOutput = JSON.stringify(data, null, 2);
         console.log('JSON_OUTPUT_START');
-        console.log(JSON.stringify(data, null, 2));
+        console.log(jsonOutput);
         console.log('JSON_OUTPUT_END');
 
-        // 本地備份
-        const filename = isSingleStock 
-            ? `twse_${stockNo}_${dateStr}.json` 
-            : `twse_ALL_${dateStr}.json`;
+        // 決定儲存路徑
+        let filename;
+        if (outputPath) {
+            filename = outputPath;
+            const dir = path.dirname(filename);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+        } else {
+            // 預設檔名
+            filename = isSingleStock 
+                ? `twse_${stockNo}_${dateStr}.json` 
+                : `twse_ALL_${dateStr}.json`;
+        }
         
-        fs.writeFileSync(filename, JSON.stringify(data, null, 2), 'utf-8');
-        // console.log(`Saved to ${filename}`);
+        fs.writeFileSync(filename, jsonOutput, 'utf-8');
+        console.log(`Saved to ${filename}`);
 
     } catch (error) {
         console.error('Error fetching TWSE data:', error.message);

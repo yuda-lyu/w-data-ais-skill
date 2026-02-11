@@ -13,7 +13,7 @@ description: 抓取財報狗（Statementdog）產業分析與個股新聞。支�
 |------|------|
 | 網址 | https://statementdog.com/news |
 | 資料類型 | 產業分析、個股基本面新聞 |
-| 抓取方式 | web_fetch（靜態頁面） |
+| 抓取方式 | Node.js Axios Script |
 | 更新頻率 | 每日更新 |
 
 ## 最佳實踐：使用 Axios Script（推薦）

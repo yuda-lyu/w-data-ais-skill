@@ -8,16 +8,29 @@ import path from 'path';
  * 依賴：axios
  * 
  * 用法:
- * node fetch_tpex.mjs [date] [code1] [code2] ...
+ * node fetch_tpex.mjs [stockCode] [outputPath]
+ * 
+ * 參數:
+ * 1. stockCode (選填): 指定股票代號 (例如: "6499") 或 "all" (預設)。若要篩選多檔，請在代碼間用逗號分隔 (例如: "6499,6610")。
+ * 2. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/tpex.json)。若未提供，則根據日期與代碼自動生成檔名。
  * 
  * 範例:
- * node fetch_tpex.mjs 20260210        (抓取全市場)
- * node fetch_tpex.mjs 20260210 6499   (抓取單檔並篩選)
+ * node fetch_tpex.mjs all ./data/tpex_20260210.json
+ * node fetch_tpex.mjs 6499
  */
 
 const args = process.argv.slice(2);
-const dateStr = args[0] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const targetCodes = args.slice(1); // Optional: filter by codes
+const stockCodeArg = args[0] || 'all'; // Arg 1: stockCode or 'all'
+const outputPath = args[1]; // Arg 2: outputPath
+
+// 取得今日日期 (YYYYMMDD)
+const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
+// 解析目標代碼
+let targetCodes = [];
+if (stockCodeArg.toLowerCase() !== 'all') {
+    targetCodes = stockCodeArg.split(',');
+}
 
 // 轉換西元 -> 民國 (YYYYMMDD -> YYY/MM/DD)
 function toRocDate(yyyymmdd) {
@@ -33,6 +46,7 @@ async function fetchTpex() {
         const url = `https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?l=zh-tw&d=${rocDate}&s=0,asc,0&o=json`;
 
         console.log(`Fetching TPEX data: ${dateStr} (${rocDate})`);
+        console.log(`Target: ${stockCodeArg === 'all' ? 'All Market' : targetCodes.join(', ')}`);
         console.log(`URL: ${url}`);
 
         const response = await axios.get(url, {
@@ -68,14 +82,28 @@ async function fetchTpex() {
         };
 
         // 輸出 JSON 到 stdout
+        const jsonOutput = JSON.stringify(output, null, 2);
         console.log('JSON_OUTPUT_START');
-        console.log(JSON.stringify(output, null, 2));
+        console.log(jsonOutput);
         console.log('JSON_OUTPUT_END');
 
-        // 本地備份
-        const filename = `tpex_${dateStr}.json`;
-        fs.writeFileSync(filename, JSON.stringify(output, null, 2), 'utf-8');
-        // console.log(`Saved to ${filename}`);
+        // 決定儲存路徑
+        let filename;
+        if (outputPath) {
+            filename = outputPath;
+            const dir = path.dirname(filename);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+        } else {
+            // 預設檔名
+            filename = targetCodes.length > 0
+                ? `tpex_${targetCodes.join('_')}_${dateStr}.json`
+                : `tpex_${dateStr}.json`;
+        }
+
+        fs.writeFileSync(filename, jsonOutput, 'utf-8');
+        console.log(`Saved to ${filename}`);
 
     } catch (error) {
         console.error('Error fetching TPEX data:', error.message);

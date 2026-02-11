@@ -5,7 +5,28 @@ import path from 'path';
 /**
  * 櫃買中心 (TPEX) 三大法人買賣超抓取程式
  * 目的：抓取 TPEX 三大法人報表
+ * 
+ * 用法:
+ * node fetch_tpex_3insti.mjs [stockCode] [outputPath]
+ * 
+ * 參數:
+ * 1. stockCode (選填): 指定股票代號 (例如: "6499") 或 "all" (預設)。若要篩選多檔，請在代碼間用逗號分隔 (例如: "6499,6610")。
+ * 2. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/tpex_3insti.json)。
+ * 
+ * 範例:
+ * node fetch_tpex_3insti.mjs all ./data/tpex_3insti_20260210.json
+ * node fetch_tpex_3insti.mjs 6499
  */
+
+const args = process.argv.slice(2);
+const stockCodeArg = args[0] || 'all'; // Arg 1: stockCode or 'all'
+const outputPath = args[1]; // Arg 2: outputPath
+
+// 解析目標代碼
+let targetCodes = [];
+if (stockCodeArg.toLowerCase() !== 'all') {
+    targetCodes = stockCodeArg.split(',');
+}
 
 async function fetchTpex3Insti() {
     const today = new Date();
@@ -22,6 +43,7 @@ async function fetchTpex3Insti() {
 
     const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&t=D&d=${rocDateStr}&o=json`;
     console.log(`Fetching from: ${url}`);
+    console.log(`Target: ${stockCodeArg === 'all' ? 'All Market' : targetCodes.join(', ')}`);
 
     try {
         const response = await axios.get(url, {
@@ -47,10 +69,8 @@ async function fetchTpex3Insti() {
             return;
         }
 
-        console.log(`Fetched ${rawData.length} records.`);
-
         // Map data using dynamic fields
-        const processedData = rawData.map(row => {
+        let processedData = rawData.map(row => {
             const obj = {};
             fields.forEach((field, index) => {
                 let value = row[index];
@@ -62,20 +82,49 @@ async function fetchTpex3Insti() {
             return obj;
         });
 
+        // Filter if target codes specified
+        // 欄位名稱通常包含 "代號"
+        if (targetCodes.length > 0) {
+            const codeField = fields.find(f => f.includes('代號'));
+            if (codeField) {
+                processedData = processedData.filter(item => targetCodes.includes(item[codeField]));
+            } else {
+                console.warn('Cannot filter by code: code field not found in response');
+            }
+        }
+
+        console.log(`Fetched ${processedData.length} records.`);
+
         // Output for OpenClaw
-        console.log('JSON_OUTPUT_START');
-        console.log(JSON.stringify({
+        const jsonOutput = JSON.stringify({
             source: 'tpex',
             date: gregorianDateStr,
             data: processedData
-        }, null, 2));
+        }, null, 2);
+
+        console.log('JSON_OUTPUT_START');
+        console.log(jsonOutput);
         console.log('JSON_OUTPUT_END');
 
-        // Local backup
-        const filename = `tpex_3insti_${gregorianDateStr}.json`;
-        const filepath = path.resolve(process.cwd(), filename);
-        fs.writeFileSync(filepath, JSON.stringify(processedData, null, 2), 'utf8');
-        // console.log(`Saved parsing data to: ${filepath}`);
+        // 決定儲存路徑
+        let filename;
+        if (outputPath) {
+            filename = outputPath;
+            const dir = path.dirname(filename);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+        } else {
+            // 預設檔名
+            filename = targetCodes.length > 0
+                ? `tpex_3insti_${targetCodes.join('_')}_${gregorianDateStr}.json`
+                : `tpex_3insti_${gregorianDateStr}.json`;
+            const cwdFilename = path.resolve(process.cwd(), filename);
+            filename = cwdFilename; // use absolute path for log
+        }
+
+        fs.writeFileSync(filename, jsonOutput, 'utf8');
+        console.log(`Saved parsed data to: ${filename}`);
 
     } catch (error) {
         console.error('Request failed:', error.message);

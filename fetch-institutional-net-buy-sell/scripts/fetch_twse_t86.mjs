@@ -5,7 +5,28 @@ import path from 'path';
 /**
  * 證交所 (TWSE) 三大法人買賣超抓取程式
  * 目的：抓取 TWSE T86 報表
+ * 
+ * 用法:
+ * node fetch_twse_t86.mjs [stockCode] [outputPath]
+ * 
+ * 參數:
+ * 1. stockCode (選填): 指定股票代號 (例如: "2330") 或 "all" (預設)。若要篩選多檔，請在代碼間用逗號分隔 (例如: "2330,2317")。
+ * 2. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/twse_t86.json)。
+ * 
+ * 範例:
+ * node fetch_twse_t86.mjs all ./data/twse_t86_20260210.json
+ * node fetch_twse_t86.mjs 2330
  */
+
+const args = process.argv.slice(2);
+const stockCodeArg = args[0] || 'all'; // Arg 1: stockCode or 'all'
+const outputPath = args[1]; // Arg 2: outputPath
+
+// 解析目標代碼
+let targetCodes = [];
+if (stockCodeArg.toLowerCase() !== 'all') {
+    targetCodes = stockCodeArg.split(',');
+}
 
 async function fetchTwseT86() {
     // Get today's date in YYYYMMDD format
@@ -17,6 +38,7 @@ async function fetchTwseT86() {
 
     const url = `https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date=${dateStr}&selectType=ALL`;
     console.log(`Fetching from: ${url}`);
+    console.log(`Target: ${stockCodeArg === 'all' ? 'All Market' : targetCodes.join(', ')}`);
 
     try {
         const response = await axios.get(url, {
@@ -37,10 +59,8 @@ async function fetchTwseT86() {
         const fields = data.fields;
         const rawData = data.data;
 
-        console.log(`Fetched ${rawData.length} records.`);
-
         // Convert array of arrays to array of objects
-        const parsedData = rawData.map(row => {
+        let parsedData = rawData.map(row => {
             const obj = {};
             fields.forEach((field, index) => {
                 let value = row[index];
@@ -52,20 +72,49 @@ async function fetchTwseT86() {
             return obj;
         });
 
+        // Filter if target codes specified
+        // 欄位名稱通常包含 "證券代號"
+        if (targetCodes.length > 0) {
+            const codeField = fields.find(f => f.includes('證券代號'));
+            if (codeField) {
+                parsedData = parsedData.filter(item => targetCodes.includes(item[codeField]));
+            } else {
+                console.warn('Cannot filter by code: code field not found in response');
+            }
+        }
+
+        console.log(`Fetched ${parsedData.length} records.`);
+
         // Output for OpenClaw
-        console.log('JSON_OUTPUT_START');
-        console.log(JSON.stringify({
+        const jsonOutput = JSON.stringify({
             source: 'twse',
             date: dateStr,
             data: parsedData
-        }, null, 2));
+        }, null, 2);
+
+        console.log('JSON_OUTPUT_START');
+        console.log(jsonOutput);
         console.log('JSON_OUTPUT_END');
 
-        // Local backup
-        const filename = `twse_t86_${dateStr}.json`;
-        const filepath = path.resolve(process.cwd(), filename);
-        fs.writeFileSync(filepath, JSON.stringify(parsedData, null, 2), 'utf8');
-        // console.log(`Saved parsed data to: ${filepath}`);
+        // 決定儲存路徑
+        let filename;
+        if (outputPath) {
+            filename = outputPath;
+            const dir = path.dirname(filename);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+        } else {
+            // 預設檔名
+            filename = targetCodes.length > 0
+                ? `twse_t86_${targetCodes.join('_')}_${dateStr}.json`
+                : `twse_t86_${dateStr}.json`;
+            const cwdFilename = path.resolve(process.cwd(), filename);
+            filename = cwdFilename;
+        }
+
+        fs.writeFileSync(filename, jsonOutput, 'utf8');
+        console.log(`Saved parsed data to: ${filename}`);
 
     } catch (error) {
         console.error('Request failed:', error.message);

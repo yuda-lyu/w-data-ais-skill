@@ -1,11 +1,22 @@
 import axios from 'axios';
 import fs from 'fs';
+import path from 'path';
 
 /**
  * 鉅亨網 (Anue) 新聞抓取程式
  * 目的：抓取台股新聞 (tw_stock) 最近 100 筆
  * 依賴：axios
+ * 
+ * 用法:
+ * node fetch_cnyes.mjs [outputPath]
+ * 
+ * 參數:
+ * 1. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/cnyes.json)
  */
+
+// 取得輸入參數
+const args = process.argv.slice(2);
+const outputPath = args[0]; // Arg 1: 儲存路徑
 
 // Helper to format unix timestamp (seconds) to YYYY-MM-DD HH:mm:ss
 function formatTime(unixSeconds) {
@@ -71,16 +82,27 @@ async function fetchNews() {
         });
 
         // 輸出 JSON 到 stdout，供 OpenClaw 讀取 (包在標記中)
+        const jsonOutput = JSON.stringify(parsedItems, null, 2);
         console.log('JSON_OUTPUT_START');
-        console.log(JSON.stringify(parsedItems, null, 2));
+        console.log(jsonOutput);
         console.log('JSON_OUTPUT_END');
 
-        // 本地備份 (可選)
-        try {
-            fs.writeFileSync('cnyes_news_data.json', JSON.stringify(parsedItems, null, 2), 'utf-8');
-            // console.log('Successfully saved to cnyes_news_data.json');
-        } catch (err) {
-            console.error('Error saving file:', err);
+        // 若有指定儲存路徑，則寫入檔案
+        if (outputPath) {
+            const dir = path.dirname(outputPath);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            fs.writeFileSync(outputPath, jsonOutput, 'utf-8');
+            console.log(`結果已儲存至: ${outputPath}`);
+        } else {
+            // 本地備份 (預設)
+            try {
+                fs.writeFileSync('cnyes_news_data.json', jsonOutput, 'utf-8');
+                // console.log('Successfully saved to cnyes_news_data.json');
+            } catch (err) {
+                console.error('Error saving default file:', err);
+            }
         }
 
     } catch (error) {
