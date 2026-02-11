@@ -8,23 +8,30 @@ import path from 'path';
  * 依賴：axios
  * 
  * 用法:
- * node fetch_tpex.mjs [stockCode] [outputPath]
+ * node fetch_tpex.mjs [stockCode] [date] [outputPath]
  * 
  * 參數:
  * 1. stockCode (選填): 指定股票代號 (例如: "6499") 或 "all" (預設)。若要篩選多檔，請在代碼間用逗號分隔 (例如: "6499,6610")。
- * 2. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/tpex.json)。若未提供，則根據日期與代碼自動生成檔名。
+ * 2. date (選填): 指定日期 (YYYYMMDD)，預設為今日。
+ * 3. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/tpex.json)。若未提供，則根據日期與代碼自動生成檔名。
  * 
  * 範例:
- * node fetch_tpex.mjs all ./data/tpex_20260210.json
+ * node fetch_tpex.mjs all 20260210 ./data/tpex_20260210.json
  * node fetch_tpex.mjs 6499
  */
 
 const args = process.argv.slice(2);
 const stockCodeArg = args[0] || 'all'; // Arg 1: stockCode or 'all'
-const outputPath = args[1]; // Arg 2: outputPath
+const dateArg = args[1]; // Arg 2: date (YYYYMMDD) or undefined
+const outputPath = args[2]; // Arg 3: outputPath or undefined
 
-// 取得今日日期 (YYYYMMDD)
-const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+// 解析日期：若未提供或格式錯誤，預設為今日
+let dateStr;
+if (dateArg && /^\d{8}$/.test(dateArg)) {
+    dateStr = dateArg;
+} else {
+    dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+}
 
 // 解析目標代碼
 let targetCodes = [];

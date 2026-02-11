@@ -7,20 +7,33 @@ import path from 'path';
  * 目的：抓取 TWSE T86 報表
  * 
  * 用法:
- * node fetch_twse_t86.mjs [stockCode] [outputPath]
+ * node fetch_twse_t86.mjs [stockCode] [date] [outputPath]
  * 
  * 參數:
  * 1. stockCode (選填): 指定股票代號 (例如: "2330") 或 "all" (預設)。若要篩選多檔，請在代碼間用逗號分隔 (例如: "2330,2317")。
- * 2. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/twse_t86.json)。
+ * 2. date (選填): 指定日期 (YYYYMMDD)，預設為今日。
+ * 3. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/twse_t86.json)。
  * 
  * 範例:
- * node fetch_twse_t86.mjs all ./data/twse_t86_20260210.json
+ * node fetch_twse_t86.mjs all 20260210 ./data/twse_t86_20260210.json
  * node fetch_twse_t86.mjs 2330
  */
 
 const args = process.argv.slice(2);
 const stockCodeArg = args[0] || 'all'; // Arg 1: stockCode or 'all'
-const outputPath = args[1]; // Arg 2: outputPath
+const dateArg = args[1]; // Arg 2: date (YYYYMMDD) or undefined
+const outputPath = args[2]; // Arg 3: outputPath or undefined
+
+// 解析日期：若未提供或格式錯誤，預設為今日
+let today;
+if (dateArg && /^\d{8}$/.test(dateArg)) {
+    const y = parseInt(dateArg.substring(0, 4));
+    const m = parseInt(dateArg.substring(4, 6)) - 1;
+    const d = parseInt(dateArg.substring(6, 8));
+    today = new Date(y, m, d);
+} else {
+    today = new Date();
+}
 
 // 解析目標代碼
 let targetCodes = [];
@@ -29,8 +42,7 @@ if (stockCodeArg.toLowerCase() !== 'all') {
 }
 
 async function fetchTwseT86() {
-    // Get today's date in YYYYMMDD format
-    const today = new Date();
+    // Gregorian Date components
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');

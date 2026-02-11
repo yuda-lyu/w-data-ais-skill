@@ -8,23 +8,30 @@ import path from 'path';
  * 依賴：axios
  * 
  * 用法:
- * node fetch_twse.mjs [stockCode] [outputPath]
+ * node fetch_twse.mjs [stockCode] [date] [outputPath]
  * 
  * 參數:
  * 1. stockCode (選填): 指定股票代號 (例如: "2330") 或 "all" (預設)。目前 TWSE API 僅支援單檔或全市場，不支援多檔同時篩選。
- * 2. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/twse.json)。若未提供，則根據日期與代碼自動生成檔名。
+ * 2. date (選填): 指定日期 (YYYYMMDD)，預設為今日。
+ * 3. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/twse.json)。若未提供，則根據日期與代碼自動生成檔名。
  * 
  * 範例:
- * node fetch_twse.mjs all ./data/twse_20260210.json
+ * node fetch_twse.mjs all 20260210 ./data/twse_20260210.json
  * node fetch_twse.mjs 2330
  */
 
 const args = process.argv.slice(2);
 const stockCodeArg = args[0] || 'all'; // Arg 1: stockCode or 'all'
-const outputPath = args[1]; // Arg 2: outputPath
+const dateArg = args[1]; // Arg 2: date (YYYYMMDD) or undefined
+const outputPath = args[2]; // Arg 3: outputPath or undefined
 
-// 取得今日日期 (YYYYMMDD)
-const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+// 解析日期：若未提供或格式錯誤，預設為今日
+let dateStr;
+if (dateArg && /^\d{8}$/.test(dateArg)) {
+    dateStr = dateArg;
+} else {
+    dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+}
 
 async function fetchTwse() {
     try {

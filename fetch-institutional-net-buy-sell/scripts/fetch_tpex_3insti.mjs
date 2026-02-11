@@ -7,20 +7,33 @@ import path from 'path';
  * 目的：抓取 TPEX 三大法人報表
  * 
  * 用法:
- * node fetch_tpex_3insti.mjs [stockCode] [outputPath]
+ * node fetch_tpex_3insti.mjs [stockCode] [date] [outputPath]
  * 
  * 參數:
  * 1. stockCode (選填): 指定股票代號 (例如: "6499") 或 "all" (預設)。若要篩選多檔，請在代碼間用逗號分隔 (例如: "6499,6610")。
- * 2. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/tpex_3insti.json)。
+ * 2. date (選填): 指定日期 (YYYYMMDD)，預設為今日。
+ * 3. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/tpex_3insti.json)。
  * 
  * 範例:
- * node fetch_tpex_3insti.mjs all ./data/tpex_3insti_20260210.json
+ * node fetch_tpex_3insti.mjs all 20260210 ./data/tpex_3insti_20260210.json
  * node fetch_tpex_3insti.mjs 6499
  */
 
 const args = process.argv.slice(2);
 const stockCodeArg = args[0] || 'all'; // Arg 1: stockCode or 'all'
-const outputPath = args[1]; // Arg 2: outputPath
+const dateArg = args[1]; // Arg 2: date (YYYYMMDD) or undefined
+const outputPath = args[2]; // Arg 3: outputPath or undefined
+
+// 解析日期：若未提供或格式錯誤，預設為今日
+let today;
+if (dateArg && /^\d{8}$/.test(dateArg)) {
+    const y = parseInt(dateArg.substring(0, 4));
+    const m = parseInt(dateArg.substring(4, 6)) - 1;
+    const d = parseInt(dateArg.substring(6, 8));
+    today = new Date(y, m, d);
+} else {
+    today = new Date();
+}
 
 // 解析目標代碼
 let targetCodes = [];
@@ -29,7 +42,6 @@ if (stockCodeArg.toLowerCase() !== 'all') {
 }
 
 async function fetchTpex3Insti() {
-    const today = new Date();
     
     // Gregorian Date components
     const yyyy = today.getFullYear();
@@ -123,7 +135,7 @@ async function fetchTpex3Insti() {
             filename = cwdFilename; // use absolute path for log
         }
 
-        fs.writeFileSync(filename, jsonOutput, 'utf8');
+        fs.writeFileSync(filename, jsonOutput, 'utf-8');
         console.log(`Saved parsed data to: ${filename}`);
 
     } catch (error) {
