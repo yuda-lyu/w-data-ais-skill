@@ -27,18 +27,20 @@ description: 抓取證交所（TWSE）股票收盤資料。支援個股或全市
 ### 執行方式
 
 1. **複製腳本**：從技能目錄讀取 `scripts/fetch_twse.mjs`。
-2. **執行腳本**：使用 `node` 執行該腳本，可帶入日期與股票代碼參數。
-   - **參數**：`node fetch_twse.mjs [stockCode|all] [outputPath]`。
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 標記中），若指定 outputPath 則會寫入檔案。
+2. **執行腳本**：使用 `node` 執行該腳本，可帶入代碼、日期與輸出路徑。
+   - **參數**：`node fetch_twse.mjs [stockCode|all] [date] [outputPath]`
+   - `stockCode`: 股票代碼 (單檔或 'all' 全市場)
+   - `date`: YYYYMMDD (例如 20260210)
+   - `outputPath`: 輸出 JSON 檔案路徑
 
 ```bash
-# 範例：抓取全市場，輸出至 stdout
-node fetch_twse.mjs all
+# 範例：抓取全市場 (2026/02/10) 並輸出至檔案
+node fetch_twse.mjs all 20260210 ./data/twse.json
 
-# 範例：抓取全市場，輸出至檔案
-node fetch_twse.mjs all ./data/twse.json
+# 範例：抓取個股 (2026/02/10) 並輸出至檔案
+node fetch_twse.mjs 2330 20260210 ./data/twse_2330.json
 
-# 範例：抓取個股 (台積電)，輸出至 stdout
+# 範例：抓取個股 (今日) 並輸出至 stdout
 node fetch_twse.mjs 2330
 ```
 

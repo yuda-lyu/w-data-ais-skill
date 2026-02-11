@@ -24,19 +24,21 @@ description: 抓取櫃買中心（TPEX）上櫃股票收盤資料。支援指定
 ### 執行方式
 
 1. **複製腳本**：從技能目錄讀取 `scripts/fetch_tpex.mjs`。
-2. **執行腳本**：使用 `node` 執行該腳本，可帶入日期與篩選代碼。
-   - **參數**：`node fetch_tpex.mjs [stockCode|all] [outputPath]`。
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 標記中），若指定 outputPath 則會寫入檔案。
+2. **執行腳本**：使用 `node` 執行該腳本，可帶入代碼、日期與輸出路徑。
+   - **參數**：`node fetch_tpex.mjs [stockCode|all] [date] [outputPath]`
+   - `stockCode`: 股票代碼 (單檔或逗號分隔) 或 'all' (全市場)
+   - `date`: YYYYMMDD (例如 20260210)
+   - `outputPath`: 輸出 JSON 檔案路徑
 
 ```bash
-# 範例：抓取全市場，輸出至 stdout
-node fetch_tpex.mjs all
+# 範例：抓取全市場 (2026/02/10) 並輸出至檔案
+node fetch_tpex.mjs all 20260210 ./data/tpex.json
 
-# 範例：抓取全市場，輸出至檔案
-node fetch_tpex.mjs all ./data/tpex.json
+# 範例：抓取特定個股 (2026/02/10) 並輸出至檔案
+node fetch_tpex.mjs 6499 20260210 ./data/tpex_6499.json
 
-# 範例：抓取特定個股，輸出至 stdout
-node fetch_tpex.mjs 6499,6610
+# 範例：抓取特定個股 (今日) 並輸出至 stdout
+node fetch_tpex.mjs 6499
 ```
 
 ---
