@@ -179,6 +179,14 @@ tw-stock-post-market/
 |------|------|----------|------|------|-------|------------|------|
 | 3481 | 群創 | ⬆️ 利多 | 21.5 | 23.0 | +6.98% | +78,960 | ✅ 符合 |
 | 2409 | 友達 | ⬇️ 利空 | 18.2 | 17.8 | -2.20% | -5,230 | ✅ 符合 |
+```
+
+**提取規則**：
+- 使用 `generate_report.mjs` 自動從盤前報告提取研判與收盤數據進行比對。
+- 研判結果欄位自動計算：
+  - ✅ 符合：利多且收>開，或利空且收<開
+  - ❌ 誤判：方向相反
+  - ➖ N/A：無數據或中性研判
 
 ---
 
@@ -263,6 +271,6 @@ npm install axios cheerio puppeteer-core lodash-es
    - fetch-twse (上市價格)
    - fetch-tpex (上櫃價格)
    - fetch-institutional-net-buy-sell (法人買賣超)
-5. 比對研判結果並分析原因
+5. 使用 generate_report.mjs 比對研判結果並分析原因
 6. 產出 report_YYYYMMDD.md 並推送至 GitHub
 ```
