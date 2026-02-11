@@ -29,10 +29,88 @@ const tpexData = readJson('institutional_tpex.json');
 
 const reportDate = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
 
+// --- Helper for Impact Analysis ---
+function analyzeImpact(text) {
+    const bullish = ['營收創新高', '獲利大增', '漲停', '大買', '收購', '股利', '殖利率', '強漲', '利多', '優於預期', '上修', '擴產', '新高', '完工', '入帳'];
+    const bearish = ['營收衰退', '虧損', '跌停', '大賣', '罰鍰', '違約', '利空', '重挫', '下修', '不如預期', '裁員', '衰退', '減產'];
+    
+    let score = 0;
+    bullish.forEach(k => { if (text.includes(k)) score++; });
+    bearish.forEach(k => { if (text.includes(k)) score--; });
+    
+    if (score > 0) return '⬆️ 利多';
+    if (score < 0) return '⬇️ 利空';
+    return '➖ 中性';
+}
+
+function extractStock(text) {
+    // Try to find stock code (4 digits)
+    const match = text.match(/(\d{4})/);
+    if (match) {
+        // Simple name extraction heuristic (text after code)
+        // This is weak but better than nothing for automation
+        return { code: match[1], name: '' };
+    }
+    return null;
+}
+
+function generateImpactTable(newsItems) {
+    let table = `## 📊 個股影響總表\n\n`;
+    table += `| 代碼 | 名稱 | 影響 | 簡要理由 |\n`;
+    table += `|------|------|------|----------|\n`;
+    
+    const seen = new Set();
+    let count = 0;
+
+    if (Array.isArray(newsItems)) {
+        newsItems.forEach(item => {
+            const title = item.title || '';
+            const stock = extractStock(title);
+            const impact = analyzeImpact(title);
+            
+            // Only list significant impacts
+            if (stock && impact !== '➖ 中性' && count < 10) {
+                const key = stock.code;
+                if (!seen.has(key)) {
+                    // Try to guess name from title if code found (e.g. "2330台積電")
+                    let name = stock.name;
+                    if (!name) {
+                        const nameMatch = title.match(new RegExp(`${stock.code}\\s*([^\\s:，,]+)`));
+                        if (nameMatch) name = nameMatch[1].substring(0, 3);
+                    }
+                    
+                    table += `| ${stock.code} | ${name} | ${impact} | ${title.substring(0, 30)}... |\n`;
+                    seen.add(key);
+                    count++;
+                }
+            }
+        });
+    }
+    
+    if (count === 0) {
+        table += `| - | - | ➖ 中性 | (今日新聞未偵測到明顯個股利多/空關鍵字) |\n`;
+    }
+    
+    table += `\n`;
+    return table;
+}
+
+// Collect all news for analysis
+let allNews = [];
+if (cnyesData && Array.isArray(cnyesData)) allNews = allNews.concat(cnyesData);
+if (statementdogData && Array.isArray(statementdogData)) allNews = allNews.concat(statementdogData);
+if (moneydjData) {
+    if (Array.isArray(moneydjData)) allNews = allNews.concat(moneydjData);
+    else if (moneydjData.data) allNews = allNews.concat(moneydjData.data);
+}
+
 let report = `# 台股盤前調研報告（${reportDate}）\n\n`;
 report += `> 調研日期：${TODAY}\n`;
 report += `> 執行時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}\n`;
 report += `> 來源：MOPS (公開資訊觀測站)、鉅亨網、財報狗、MoneyDJ、證交所/櫃買中心\n\n`;
+
+// 0. 個股影響總表
+report += generateImpactTable(allNews);
 
 // 1. 三大法人買賣超
 report += `## 💰 三大法人買賣超重點\n\n`;
