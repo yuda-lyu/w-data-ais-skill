@@ -5,17 +5,20 @@ import path from 'path';
  * 台股盤後總結報告生成器
  * 目的：彙整今日盤後數據，比對盤前研判準確度
  *
- * 用法：node generate_report.mjs [YYYYMMDD]
+ * 用法：node generate_report.mjs [YYYYMMDD] [outputDir] [preMarketDir]
  * 參數：
- * 1. YYYYMMDD (選填)：指定日期，預設為今日。
+ * 1. YYYYMMDD     (選填)：指定日期，預設為今日。
+ * 2. outputDir    (選填)：盤後主輸出目錄（raw/ 子目錄與報告均置於此），
+ *                         預設為 <cwd>/w-data-news/tw-stock-post-market/<YYYYMMDD>。
+ * 3. preMarketDir (選填)：盤前調研輸出目錄（用於比對盤前研判），
+ *                         預設為 <cwd>/w-data-news/tw-stock-research/<YYYYMMDD>。
  */
 
-const TODAY = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const BASE_DIR = process.cwd();
-const POST_MARKET_DIR = path.join(BASE_DIR, 'w-data-news', 'tw-stock-post-market', TODAY);
-const PRE_MARKET_DIR = path.join(BASE_DIR, 'w-data-news', 'tw-stock-research', TODAY);
-const RAW_DIR = path.join(POST_MARKET_DIR, 'raw');
-const REPORT_FILE = path.join(POST_MARKET_DIR, `report_${TODAY}.md`);
+const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const POST_MARKET_DIR = process.argv[3] || path.join(process.cwd(), 'w-data-news', 'tw-stock-post-market', TODAY);
+const PRE_MARKET_DIR  = process.argv[4] || path.join(process.cwd(), 'w-data-news', 'tw-stock-research', TODAY);
+const RAW_DIR         = path.join(POST_MARKET_DIR, 'raw');
+const REPORT_FILE     = path.join(POST_MARKET_DIR, `report_${TODAY}.md`);
 
 // --- Helper Functions ---
 

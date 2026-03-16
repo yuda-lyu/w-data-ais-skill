@@ -4,15 +4,17 @@ import path from 'path';
 /**
  * 台股盤前調研報告生成器
  *
- * 用法：node generate_report.mjs [YYYYMMDD]
+ * 用法：node generate_report.mjs [YYYYMMDD] [outputDir]
  * 參數：
- * 1. YYYYMMDD (選填)：指定日期，預設為今日。
+ * 1. YYYYMMDD  (選填)：指定日期，預設為今日。
+ * 2. outputDir (選填)：主輸出目錄（raw/ 子目錄與報告均置於此），
+ *                      預設為 <cwd>/w-data-news/tw-stock-research/<YYYYMMDD>。
  */
 
-const TODAY = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const BASE_DIR = process.cwd();
-const RAW_DIR = path.join(BASE_DIR, 'w-data-news', 'tw-stock-research', TODAY, 'raw');
-const REPORT_FILE = path.join(BASE_DIR, 'w-data-news', 'tw-stock-research', TODAY, `report_${TODAY}.md`);
+const TODAY      = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const OUTPUT_DIR = process.argv[3] || path.join(process.cwd(), 'w-data-news', 'tw-stock-research', TODAY);
+const RAW_DIR    = path.join(OUTPUT_DIR, 'raw');
+const REPORT_FILE = path.join(OUTPUT_DIR, `report_${TODAY}.md`);
 
 const readJson = (filename) => {
     const filePath = path.join(RAW_DIR, filename);
@@ -502,9 +504,8 @@ if (moneydjList) {
 report += generateDecisionSection(impactMap, twseData, tpexData);
 
 // Save Report
-const outputDir = path.dirname(REPORT_FILE);
-if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+if (!fs.existsSync(OUTPUT_DIR)) {
+    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
 fs.writeFileSync(REPORT_FILE, report);
