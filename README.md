@@ -1,6 +1,6 @@
 # AI 共享 Skills 庫
 
-AI Agent 的技能模組庫，配合 [OpenClaw](https://github.com/openclaw/openclaw) 使用。
+AI Agent 的技能模組庫。
 
 ## 用途
 

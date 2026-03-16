@@ -50,19 +50,46 @@ function writeOutput(payload) {
     }
 }
 
+const MAX_RETRIES   = 10;
+const BASE_DELAY_MS = 5000; // 每次重試延遲 = BASE_DELAY_MS × attempt（5s, 10s, 15s...，最多 30s）
+const MAX_DELAY_MS  = 30000;
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+function httpGet(urlStr) {
+    return new Promise((resolve, reject) => {
+        https.get(urlStr, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        }, (res) => {
+            if (res.statusCode >= 500) {
+                const err = new Error(`HTTP ${res.statusCode}`);
+                err.statusCode = res.statusCode;
+                res.resume();
+                reject(err);
+                return;
+            }
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
+        }).on('error', reject);
+    });
+}
+
+function isRetryable(error) {
+    if (error.statusCode && error.statusCode >= 500) return true;
+    const code = error.code;
+    return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(code);
+}
+
 console.log(`檢查日期：${TODAY}`);
 console.log(`API：${url}`);
 
-https.get(url, {
-    headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-    }
-}, (res) => {
-    let data = '';
-    res.on('data', chunk => data += chunk);
-    res.on('end', () => {
+async function checkTradingDay() {
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
         try {
-            const json = JSON.parse(data);
+            const { body } = await httpGet(url);
+            const json = JSON.parse(body);
             const stat = json.stat || '';
             if (stat === 'OK') {
                 console.log(`結果：交易日 ✅`);
@@ -70,21 +97,33 @@ https.get(url, {
                 writeOutput({ status: 'success', message: { date: TODAY, tradingDay: true } });
                 process.exit(0);
             } else {
+                // 非交易日不重試（非暫時性狀態）
                 console.log(`結果：非交易日 ❌ (${stat})`);
                 console.log('TRADING_DAY=false');
                 writeOutput({ status: 'success', message: { date: TODAY, tradingDay: false, reason: stat } });
                 process.exit(1);
             }
         } catch (e) {
-            console.error(`解析失敗：${e.message}`);
-            console.log('TRADING_DAY=error');
-            writeOutput({ type: 'error', message: `解析失敗：${e.message}` });
-            process.exit(2);
+            const retryable = isRetryable(e);
+            const attemptsLeft = MAX_RETRIES + 1 - attempt;
+
+            if (!retryable || attemptsLeft <= 0) {
+                console.error(`網路錯誤：${e.message}`);
+                console.log('TRADING_DAY=error');
+                writeOutput({ type: 'error', message: `網路錯誤：${e.message}` });
+                process.exit(2);
+            }
+
+            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
+            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] ${e.message} — 等待 ${delay / 1000}s 後重試...`);
+            await sleep(delay);
         }
-    });
-}).on('error', (e) => {
-    console.error(`網路錯誤：${e.message}`);
+    }
+}
+
+checkTradingDay().catch(e => {
+    console.error(`未預期錯誤：${e.message}`);
     console.log('TRADING_DAY=error');
-    writeOutput({ type: 'error', message: `網路錯誤：${e.message}` });
+    writeOutput({ type: 'error', message: `未預期錯誤：${e.message}` });
     process.exit(2);
 });

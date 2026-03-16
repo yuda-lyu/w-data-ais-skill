@@ -52,8 +52,8 @@ node fetch-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/20260316/
 ### 腳本邏輯摘要
 - 自動偵測系統瀏覽器路徑。
 - 啟動 Headless Chrome。
-- 前往 MOPS 頁面取得 Session/Referer。
-- 使用 `page.evaluate` 於瀏覽器環境內發送 API 請求。
+- 前往 MOPS 頁面取得 Session/Referer（導航失敗自動重試，最多 10 次）。
+- 使用 `page.evaluate` 於瀏覽器環境內發送 API 請求（每次 API 呼叫均有重試機制）。
 - 依序抓取上市、上櫃、興櫃、公開發行四類公告。
 - 輸出結構化 JSON。
 
@@ -128,7 +128,24 @@ node fetch-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/20260316/
 npm install puppeteer-core lodash-es
 ```
 
-### 2. 瀏覽器未找到
+### 2. 伺服器錯誤（502/503 等 5xx）
+
+腳本內建**自動重試機制**（最多 10 次），遇到以下情況時自動等待後重試：
+- 頁面導航失敗（`page.goto` 拋出例外）
+- API 回傳 HTTP 5xx 錯誤
+- 瀏覽器內部網路錯誤（`fetch` 拋出例外）
+
+| 重試次 | 等待時間 |
+|--------|---------|
+| 1 | 5s |
+| 2 | 10s |
+| 3 | 15s |
+| ... | ... |
+| 6+ | 30s（上限）|
+
+> 解析錯誤（`Parse Error`）**不會**觸發重試（非暫時性錯誤）。
+
+### 3. 瀏覽器未找到
 
 **症狀**：
 - 腳本輸出 `錯誤：找不到 Chrome 或 Edge 瀏覽器`
