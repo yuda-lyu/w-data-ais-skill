@@ -4,13 +4,13 @@ import path from 'path';
 /**
  * 台股盤後總結報告生成器
  * 目的：彙整今日盤後數據，比對盤前研判準確度
+ *
+ * 用法：node generate_report.mjs [YYYYMMDD]
+ * 參數：
+ * 1. YYYYMMDD (選填)：指定日期，預設為今日。
  */
 
-// --- Configuration ---
-// 預設抓取當日，可透過 argv[2] 指定日期 YYYYMMDD
 const TODAY = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-
-// 資料路徑 (對應 w-data-news 結構)
 const BASE_DIR = process.cwd();
 const POST_MARKET_DIR = path.join(BASE_DIR, 'w-data-news', 'tw-stock-post-market', TODAY);
 const PRE_MARKET_DIR = path.join(BASE_DIR, 'w-data-news', 'tw-stock-research', TODAY);
@@ -30,71 +30,120 @@ const readJson = (filePath) => {
     return null;
 };
 
-// 提取盤前研判表 (從 pre-market report markdown 解析)
-// 這種方式比較脆弱，理想上盤前應該存一份 structured json (e.g., impact_table.json)
-// 這裡假設我們嘗試從 report.md 的表格中解析，或者如果有的話從 raw/input.json 讀取
+// 提取盤前研判表
+// 優先讀取 raw/input.json；若不存在，Fallback 解析盤前報告 Markdown
 const getPreMarketPredictions = () => {
-    // 優先讀取 input.json (如果有的話)
     const inputJsonPath = path.join(RAW_DIR, 'input.json');
-    let predictions = readJson(inputJsonPath);
-    
+    const predictions = readJson(inputJsonPath);
     if (predictions) return predictions;
 
-    // Fallback: 嘗試解析盤前報告 (簡易 Regex)
     const preReportPath = path.join(PRE_MARKET_DIR, `report_${TODAY}.md`);
     if (fs.existsSync(preReportPath)) {
         const content = fs.readFileSync(preReportPath, 'utf8');
-        // 尋找表格區塊
         const tableMatch = content.match(/\| 代碼 \| 名稱 \| 影響 \| 簡要理由 \|([\s\S]*?)\n\n/);
         if (tableMatch) {
-            const rows = tableMatch[1].trim().split('\n').filter(line => line.startsWith('|') && !line.includes('---'));
-            predictions = rows.map(row => {
-                const cols = row.split('|').map(c => c.trim()).filter(c => c);
-                // | 2330 | 台積電 | ⬆️ 利多 | ... |
-                if (cols.length >= 4) {
-                    return {
-                        code: cols[0],
-                        name: cols[1],
-                        impact: cols[2], // "⬆️ 利多"
-                        reason: cols[3]
-                    };
-                }
-                return null;
-            }).filter(p => p);
-            return predictions;
+            return tableMatch[1].trim().split('\n')
+                .filter(line => line.startsWith('|') && !line.includes('---'))
+                .map(row => {
+                    const cols = row.split('|').map(c => c.trim()).filter(c => c);
+                    if (cols.length >= 4) {
+                        return { code: cols[0], name: cols[1], impact: cols[2], reason: cols[3] };
+                    }
+                    return null;
+                })
+                .filter(Boolean);
         }
     }
     return [];
 };
 
-// 取得今日收盤價
+// 取得今日收盤價（由 fetch-twse / fetch-tpex 腳本產出的原始格式）
+//
+// prices_twse.json：fetch_twse.mjs 以 all 模式輸出的 MI_INDEX 格式
+//   { stat, fields9: [...], data9: [[證券代號, 證券名稱, ..., 開盤價(idx5), ..., 收盤價(idx8), ...]] }
+//
+// prices_tpex.json：fetch_tpex.mjs 以 all 模式輸出的格式
+//   { source, date, count, data: [[代號(0), 名稱(1), 收盤(2), 漲跌(3), 開盤(4), 最高(5), 最低(6), ...]] }
 const getPrices = () => {
-    const pricesFile = path.join(RAW_DIR, 'prices.json');
-    // prices.json 應該包含 TWSE 與 TPEX 的合併資料
-    // 格式假設: { "2330": { name: "台積電", open: 100, close: 105, change: 5, pct: 5.0 }, ... }
-    // 或者是 Array
-    const data = readJson(pricesFile);
-    if (Array.isArray(data)) {
-        // Convert array to map for O(1) lookup
-        return data.reduce((acc, curr) => {
-            acc[curr.code] = curr;
-            return acc;
-        }, {});
+    const combined = {};
+
+    const twseData = readJson(path.join(RAW_DIR, 'prices_twse.json'));
+    if (twseData?.data9) {
+        twseData.data9.forEach(row => {
+            const code = (row[0] || '').trim();
+            const name = (row[1] || '').trim();
+            const open = parseFloat((row[5] || '').replace(/,/g, ''));
+            const close = parseFloat((row[8] || '').replace(/,/g, ''));
+            if (code && !isNaN(open) && !isNaN(close) && open > 0) {
+                combined[code] = {
+                    name,
+                    open,
+                    close,
+                    changePercent: parseFloat(((close - open) / open * 100).toFixed(2))
+                };
+            }
+        });
     }
-    return data || {};
+
+    // TPEX aaData 欄位順序：[0]=代號, [1]=名稱, [2]=收盤, [3]=漲跌, [4]=開盤, ...
+    const tpexData = readJson(path.join(RAW_DIR, 'prices_tpex.json'));
+    if (tpexData?.data) {
+        tpexData.data.forEach(row => {
+            const code = (row[0] || '').trim();
+            const name = (row[1] || '').trim();
+            const close = parseFloat((row[2] || '').replace(/,/g, ''));
+            const open = parseFloat((row[4] || '').replace(/,/g, ''));
+            if (code && !isNaN(open) && !isNaN(close) && open > 0) {
+                combined[code] = {
+                    name,
+                    open,
+                    close,
+                    changePercent: parseFloat(((close - open) / open * 100).toFixed(2))
+                };
+            }
+        });
+    }
+
+    return combined;
 };
 
-// 取得法人買賣超
+// 取得法人買賣超（由 fetch-institutional-net-buy-sell 腳本產出的原始格式）
+//
+// institutional_twse.json：fetch_twse_t86.mjs 輸出
+//   { source, date, data: [{ 證券代號, 證券名稱, 三大法人買賣超股數, ... }] }
+//
+// institutional_tpex.json：fetch_tpex_3insti.mjs 輸出
+//   { source, date, data: [{ 代號, 名稱, 三大法人買賣超股數合計, ... }] }
 const getInstitutional = () => {
-    const instFile = path.join(RAW_DIR, 'institutional.json');
-    const data = readJson(instFile);
-    if (Array.isArray(data)) {
-        return data.reduce((acc, curr) => {
-            acc[curr.code] = curr;
-            return acc;
-        }, {});
+    const combined = {};
+
+    const twseData = readJson(path.join(RAW_DIR, 'institutional_twse.json'));
+    if (twseData?.data) {
+        twseData.data.forEach(item => {
+            const code = (item['證券代號'] || '').trim();
+            if (code) {
+                combined[code] = {
+                    name: item['證券名稱'] || '',
+                    totalNet: item['三大法人買賣超股數'] || '0'
+                };
+            }
+        });
     }
-    return data || {};
+
+    const tpexData = readJson(path.join(RAW_DIR, 'institutional_tpex.json'));
+    if (tpexData?.data) {
+        tpexData.data.forEach(item => {
+            const code = (item['代號'] || '').trim();
+            if (code) {
+                combined[code] = {
+                    name: item['名稱'] || '',
+                    totalNet: item['三大法人買賣超股數合計'] || '0'
+                };
+            }
+        });
+    }
+
+    return combined;
 };
 
 // --- Main Generation Logic ---
@@ -103,7 +152,7 @@ const predictions = getPreMarketPredictions();
 const prices = getPrices();
 const institutional = getInstitutional();
 
-const reportDate = `${TODAY.substring(0,4)}/${TODAY.substring(4,6)}/${TODAY.substring(6,8)}`;
+const reportDate = `${TODAY.substring(0, 4)}/${TODAY.substring(4, 6)}/${TODAY.substring(6, 8)}`;
 
 let report = `# 台股盤後總結報告（${reportDate}）\n\n`;
 report += `> 執行時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}\n`;
@@ -121,41 +170,40 @@ let wrongList = [];
 predictions.forEach(pred => {
     const price = prices[pred.code];
     const inst = institutional[pred.code];
-    
     let result = '➖ N/A';
     let open = '-', close = '-', pct = '-', instNet = '-';
 
     if (price) {
         open = price.open;
         close = price.close;
-        pct = (price.changePercent > 0 ? '+' : '') + price.changePercent + '%';
-        
-        // Logic: 
-        // Bullish: Close > Open
-        // Bearish: Close < Open
+        pct = (price.changePercent >= 0 ? '+' : '') + price.changePercent + '%';
+
         const isBullish = price.close > price.open;
         const isBearish = price.close < price.open;
-        
+
         if (pred.impact.includes('利多')) {
-            if (isBullish) { result = '✅ 符合'; stats.correct++; correctList.push(pred); }
-            else { result = '❌ 誤判'; stats.wrong++; wrongList.push(pred); }
+            result = isBullish ? '✅ 符合' : '❌ 誤判';
+            if (isBullish) { stats.correct++; correctList.push(pred); }
+            else { stats.wrong++; wrongList.push(pred); }
             stats.total++;
         } else if (pred.impact.includes('利空')) {
-            if (isBearish) { result = '✅ 符合'; stats.correct++; correctList.push(pred); }
-            else { result = '❌ 誤判'; stats.wrong++; wrongList.push(pred); }
+            result = isBearish ? '✅ 符合' : '❌ 誤判';
+            if (isBearish) { stats.correct++; correctList.push(pred); }
+            else { stats.wrong++; wrongList.push(pred); }
             stats.total++;
         } else {
             stats.neutral++;
+            result = '➖ 中性';
         }
     } else {
         result = '❓ 無數據';
     }
-    
+
     if (inst) {
-        // totalNet from twse/tpex script output format
-        const val = inst.totalNet || inst.三大法人買賣超股數 || inst.三大法人買賣超股數合計 || 0;
-        instNet = parseInt(val).toLocaleString();
-        if (val > 0) instNet = `+${instNet}`;
+        const numVal = parseInt(String(inst.totalNet).replace(/,/g, ''), 10);
+        if (!isNaN(numVal)) {
+            instNet = (numVal > 0 ? '+' : '') + numVal.toLocaleString();
+        }
     }
 
     report += `| ${pred.code} | ${pred.name} | ${pred.impact} | ${open} | ${close} | ${pct} | ${instNet} | ${result} |\n`;
@@ -163,7 +211,6 @@ predictions.forEach(pred => {
 
 report += `\n`;
 
-// 統計摘要
 const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
 report += `## 📈 統計摘要\n\n`;
 report += `- 總計研判：${stats.total} 檔\n`;
@@ -171,7 +218,6 @@ report += `- ✅ 符合：${stats.correct} 檔 (${accuracy}%)\n`;
 report += `- ❌ 誤判：${stats.wrong} 檔 (${stats.total > 0 ? 100 - accuracy : 0}%)\n`;
 report += `- ➖ 中性：${stats.neutral} 檔（不計入）\n\n`;
 
-// 分析段落 (Template)
 report += `## ✅ 符合分析\n\n`;
 if (correctList.length > 0) {
     const sample = correctList[0];
@@ -199,10 +245,13 @@ if (wrongList.length > 0) {
 report += `## 💡 後續建議\n\n`;
 report += `1. **強化因子**：\n`;
 report += `2. **注意事項**：\n`;
+report += `3. **調整方向**：\n`;
 
-// Write to file
 if (!fs.existsSync(POST_MARKET_DIR)) {
     fs.mkdirSync(POST_MARKET_DIR, { recursive: true });
+}
+if (!fs.existsSync(RAW_DIR)) {
+    fs.mkdirSync(RAW_DIR, { recursive: true });
 }
 
 fs.writeFileSync(REPORT_FILE, report);

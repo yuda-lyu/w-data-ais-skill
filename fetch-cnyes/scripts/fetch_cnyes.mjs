@@ -110,7 +110,8 @@ async function fetchNews() {
         if (error.response) {
             console.error('Response data:', error.response.data);
         }
+        process.exit(1);
     }
 }
 
-fetchNews();
+fetchNews().catch(err => { console.error(err); process.exit(1); });

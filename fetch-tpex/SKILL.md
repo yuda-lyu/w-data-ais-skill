@@ -29,6 +29,7 @@ description: 抓取櫃買中心（TPEX）上櫃股票收盤資料。支援指定
    - `stockCode`: 股票代碼 (單檔或逗號分隔) 或 'all' (全市場)
    - `date`: YYYYMMDD (例如 20260210)
    - `outputPath`: 輸出 JSON 檔案路徑
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。**有資料時寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `tpex_YYYYMMDD.json`）；若 API 回傳空資料（非交易日等），則不寫入任何檔案。
 
 ```bash
 # 範例：抓取全市場 (2026/02/10) 並輸出至檔案
@@ -37,7 +38,7 @@ node fetch_tpex.mjs all 20260210 ./data/tpex.json
 # 範例：抓取特定個股 (2026/02/10) 並輸出至檔案
 node fetch_tpex.mjs 6499 20260210 ./data/tpex_6499.json
 
-# 範例：抓取特定個股 (今日) 並輸出至 stdout
+# 範例：抓取特定個股 (今日)，自動產生 tpex_6499_YYYYMMDD.json
 node fetch_tpex.mjs 6499
 ```
 
@@ -58,13 +59,13 @@ https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_resu
 - `d`：民國日期（例如 `115/02/05`）
 - `o=json`：JSON 回傳
 
-回傳結構包含 `tables[0].fields` 與 `tables[0].data`。
+回傳結構的 `aaData` 欄位為資料陣列；欄位順序：`[0]=代號, [1]=名稱, [2]=收盤, [3]=漲跌, [4]=開盤, [5]=最高, [6]=最低, [7]=成交股數, ...`
 
 ## 交易日檢查
 
-- 回傳 JSON 的 `stat` 欄位：
-  - `OK`：交易日
-  - 其他：視為非交易日/查無資料
+- 腳本透過 `aaData` 是否存在且非空來判斷：
+  - `aaData` 有資料：交易日，正常輸出
+  - `aaData` 空或缺失：視為非交易日/查無資料
 
 ### 紀錄格式
 
@@ -110,7 +111,7 @@ https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_resu
   "date": "20260205",
   "count": 800,
   "data": [
-    ["6499", "益安", "45.00", "46.00", "44.50", "45.50", "+0.50", ...]
+    ["6499", "益安", "45.50", "+0.50", "45.00", "46.00", "44.50", "1,234,567", ...]
   ]
 }
 ```

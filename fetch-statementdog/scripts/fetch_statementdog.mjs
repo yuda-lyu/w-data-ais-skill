@@ -77,7 +77,8 @@ async function fetchNews() {
 
     } catch (error) {
         console.error('Error fetching news:', error);
+        process.exit(1);
     }
 }
 
-fetchNews();
+fetchNews().catch(err => { console.error(err); process.exit(1); });

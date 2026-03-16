@@ -1,6 +1,6 @@
 ---
 name: fetch-cnyes
-description: 抓取鉅亨網（Anue）台股即時新聞。支援指定日期範圍，回傳結構化 JSON。適用於台股調研、產業新聞、法人動態等即時資訊。
+description: 抓取鉅亨網（Anue）台股即時新聞（近 10 天，最多 100 筆），回傳結構化 JSON。適用於台股調研、產業新聞、法人動態等即時資訊。
 ---
 
 # 鉅亨網資料抓取
@@ -29,15 +29,13 @@ description: 抓取鉅亨網（Anue）台股即時新聞。支援指定日期範
 1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_cnyes.mjs`。
 2. **執行腳本**：使用 `node` 執行該腳本。
    - **可選參數**：指定輸出檔案路徑 `node fetch_cnyes.mjs [outputPath]`。
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間），若指定 outputPath 則會寫入檔案。
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間），並**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動備份至 `cnyes_news_data.json`）。
 
 ```bash
-# 範例：輸出至 stdout
-cp /path/to/skill/scripts/fetch_cnyes.mjs .
-npm install axios
+# 範例：無指定路徑，自動備份至 cnyes_news_data.json
 node fetch_cnyes.mjs
 
-# 範例：輸出至檔案
+# 範例：指定輸出路徑
 node fetch_cnyes.mjs ./data/cnyes.json
 ```
 
@@ -77,12 +75,13 @@ node fetch_cnyes.mjs ./data/cnyes.json
 - 技術分析文章
 - 一般產業介紹
 
-## 個股識別
+## 個股識別（Agent 層級處理）
 
-從標題提取股票代碼和名稱：
-- 標題包含「台積電」→ code: 2330
+腳本輸出僅含 `time`、`title`、`href` 三個欄位，不包含股票代碼。
+呼叫方 Agent 須自行從標題識別個股：
 - 標題包含「(2330)」→ code: 2330
-- 無法識別時 code 留空
+- 標題包含公司名稱 → 對應查詢代碼
+- 無法識別時略過
 
 ## 📝 錯誤紀錄機制（必要）
 

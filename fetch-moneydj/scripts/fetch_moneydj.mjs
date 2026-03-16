@@ -50,8 +50,8 @@ async function fetchPage(pageIndex) {
             const timeText = $row.find('td').eq(0).text().trim();
             const $link = $row.find('td').eq(1).find('a');
             
-            // 簡單驗證時間格式 (MM/DD HH:mm)
-            if (timeText && /^\d{2}\/\d{2}\s+\d{2}:\d{2}$/.test(timeText) && $link.length > 0) {
+            // 驗證時間格式：MM/DD HH:mm（前日以前）、HH:mm（今日）、昨 HH:mm（昨日）
+            if (timeText && /^(\d{2}\/\d{2}\s+\d{2}:\d{2}|\d{2}:\d{2}|昨\s*\d{2}:\d{2})$/.test(timeText) && $link.length > 0) {
                 const title = $link.attr('title') || $link.text().trim();
                 const linkRel = $link.attr('href');
                 
@@ -112,4 +112,4 @@ async function main() {
     }
 }
 
-main();
+main().catch(err => { console.error(err); process.exit(1); });

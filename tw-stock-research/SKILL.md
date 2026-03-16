@@ -1,11 +1,11 @@
 ---
 name: tw-stock-research
-description: 台股盤前調研技能。從 4 個來源（MOPS、鉅亨網、財報狗、MoneyDJ）序列抓取近兩日（昨日+今日）重大訊息，篩選會影響股價的公告/新聞，並彙整盤前報告。使用時機：(1) 需要查詢今日台股重大訊息、(2) 需要法人買賣超資料、(3) 需要個股公告/財報/訴訟/庫藏股等即時資訊、(4) 台股盤前調研任務。
+description: 台股盤前調研技能。從 5 個來源（MOPS、鉅亨網、財報狗、MoneyDJ、證交所/櫃買中心法人）序列抓取近兩日（昨日+今日）重大訊息，篩選會影響股價的公告/新聞，並彙整盤前報告。使用時機：(1) 需要查詢今日台股重大訊息、(2) 需要法人買賣超資料、(3) 需要個股公告/財報/訴訟/庫藏股等即時資訊、(4) 台股盤前調研任務。
 ---
 
 # 台股盤前調研
 
-從 4 個來源**序列**抓取**近兩日（昨日+今日）**重大訊息，篩選會影響股價的公告/新聞，產出**盤前調研報告**。
+從 5 個來源**序列**抓取**近兩日（昨日+今日）**重大訊息，篩選會影響股價的公告/新聞，產出**盤前調研報告**。
 
 ## 🚦 交易日檢查（必要）
 
@@ -34,7 +34,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 ## 📦 資料來源與抓取技能
 
-本技能透過調用 4 個專職抓取技能取得資料：
+本技能透過調用 5 個專職抓取技能取得資料：
 
 | 來源 | 抓取技能 | 資料類型 | 時間範圍 |
 |------|----------|----------|----------|
@@ -70,7 +70,8 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
   │     └─ 產出 raw/moneydj.json
   │
   └─ 5. 執行 法人買賣超 抓取（參閱 fetch-institutional-net-buy-sell 技能）
-        └─ 產出 raw/institutional.json
+        ├─ 產出 raw/institutional_twse.json
+        └─ 產出 raw/institutional_tpex.json
 ```
 
 **注意事項**：
@@ -129,7 +130,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 ## 輸出結構
 
 ```
-tw-stock-research/
+w-data-news/tw-stock-research/
 └── YYYYMMDD/
     ├── report_YYYYMMDD.md      # 最終報告（依執行日期命名）
     ├── error_log.jsonl         # 錯誤紀錄
@@ -138,7 +139,8 @@ tw-stock-research/
         ├── cnyes.json
         ├── statementdog.json
         ├── moneydj.json
-        └── institutional.json
+        ├── institutional_twse.json
+        └── institutional_tpex.json
 ```
 
 ## 📝 錯誤紀錄機制（必要）
@@ -153,27 +155,22 @@ tw-stock-research/
 {
   "timestamp": "2026-02-05T08:15:30+08:00",
   "date": "20260205",
-  "source": "goodinfo",
+  "source": "mops",
   "phase": "fetch",
   "error": {
-    "type": "anti-bot",
-    "message": "JavaScript redirect detected, page not loaded",
-    "details": "setCookie('CLIENT_KEY', ...); window.location.replace(...)"
+    "type": "browser",
+    "message": "Puppeteer launch failed",
+    "details": "Error: Failed to launch the browser process"
   },
   "attempts": [
     {
-      "action": "wait 3s then navigate",
-      "result": "failed",
-      "message": "Still showing redirect page"
-    },
-    {
-      "action": "wait 5s then navigate again",
+      "action": "retry with /usr/bin/google-chrome-stable",
       "result": "success",
-      "message": "Page loaded, table visible"
+      "message": "Browser launched successfully"
     }
   ],
   "resolution": "success",
-  "notes": "Goodinfo anti-bot requires 5s wait instead of 3s"
+  "notes": "Chrome path /usr/bin/google-chrome-stable works instead of /usr/bin/google-chrome"
 }
 ```
 
@@ -206,11 +203,11 @@ tw-stock-research/
 - 每次執行產生獨立檔案，歷史報告皆保留
 - 報告開頭須包含：
   ```markdown
-  # 台股盤前調研報告（民國年/MM/DD）
+  # 台股盤前調研報告（YYYY/MM/DD）
 
-  > 調研日期：昨日 (MM/DD) + 今日 (MM/DD)
-  > 執行時間：YYYY-MM-DD HH:MM (台灣時間)
-  > 來源：MOPS (公開資訊觀測站)、鉅亨網、財報狗、MoneyDJ
+  > 調研日期：YYYYMMDD
+  > 執行時間：YYYY/MM/DD HH:MM:SS (台灣時間)
+  > 來源：MOPS (公開資訊觀測站)、鉅亨網、財報狗、MoneyDJ、證交所/櫃買中心
   ```
 
 ## 報告結構
@@ -270,14 +267,15 @@ npm install axios cheerio puppeteer-core lodash-es
 ```
 請執行台股盤前調研任務（循序模式）：
 1. 檢查是否為交易日
-2. 建立 tasks/stock-research/ 目錄
-3. 安裝依賴：npm install axios cheerio puppeteer-core lodash-es
-4. 依序執行 5 個抓取任務（由本 Agent 自行執行，不 spawn）：
-   - fetch-mops (node fetch_mops.mjs)
-   - fetch-cnyes (node fetch_cnyes.mjs)
-   - fetch-statementdog (node fetch_statementdog.mjs)
-   - fetch-moneydj (node fetch_moneydj.mjs)
-   - fetch-institutional-net-buy-sell (node fetch_all.mjs)
-5. 讀取 raw/*.json 彙整 report_YYYYMMDD.md（使用 generate_report.mjs，YYYYMMDD = 執行當日）
-6. 推送至 GitHub
+2. 安裝依賴：npm install axios cheerio puppeteer-core lodash-es
+3. 依序執行抓取任務（由本 Agent 自行執行，不 spawn），輸出至 w-data-news/tw-stock-research/YYYYMMDD/raw/：
+   - fetch-mops (node fetch_mops.mjs → mops.json)
+   - fetch-cnyes (node fetch_cnyes.mjs → cnyes.json)
+   - fetch-statementdog (node fetch_statementdog.mjs → statementdog.json)
+   - fetch-moneydj (node fetch_moneydj.mjs → moneydj.json)
+   - fetch-institutional-net-buy-sell:
+     - node fetch_twse_t86.mjs all YYYYMMDD → institutional_twse.json
+     - node fetch_tpex_3insti.mjs all YYYYMMDD → institutional_tpex.json
+4. 執行 node scripts/generate_report.mjs [YYYYMMDD] 產出盤前報告
+5. 推送至 GitHub
 ```

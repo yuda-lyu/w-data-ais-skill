@@ -1,9 +1,18 @@
 import fs from 'fs';
 import path from 'path';
 
-const TODAY = '20260211';
-const RAW_DIR = `w-data-news/tw-stock-research/${TODAY}/raw`;
-const REPORT_FILE = `w-data-news/tw-stock-research/${TODAY}/report_${TODAY}.md`;
+/**
+ * 台股盤前調研報告生成器
+ *
+ * 用法：node generate_report.mjs [YYYYMMDD]
+ * 參數：
+ * 1. YYYYMMDD (選填)：指定日期，預設為今日。
+ */
+
+const TODAY = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const BASE_DIR = process.cwd();
+const RAW_DIR = path.join(BASE_DIR, 'w-data-news', 'tw-stock-research', TODAY, 'raw');
+const REPORT_FILE = path.join(BASE_DIR, 'w-data-news', 'tw-stock-research', TODAY, `report_${TODAY}.md`);
 
 const readJson = (filename) => {
     const filePath = path.join(RAW_DIR, filename);
@@ -27,7 +36,7 @@ const moneydjData = readJson('moneydj.json');
 const twseData = readJson('institutional_twse.json');
 const tpexData = readJson('institutional_tpex.json');
 
-const reportDate = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+const reportDate = `${TODAY.substring(0, 4)}/${TODAY.substring(4, 6)}/${TODAY.substring(6, 8)}`;
 
 // --- Helper for Impact Analysis ---
 function analyzeImpact(text) {
@@ -127,18 +136,18 @@ const processInst = (data, marketName) => {
     // Since fetch_twse_t86 failed, we handle null.
     // Tpex data was empty list.
     
-    const list = data.data || data.items || [];
+    const list = data.data || [];
     if (list.length === 0) {
         output += `(無資料)\n\n`;
     } else {
-        // Simple table
+        // TWSE fields: 證券代號, 證券名稱, 三大法人買賣超股數
+        // TPEX fields: 代號, 名稱, 三大法人買賣超股數合計
         output += `| 代號 | 名稱 | 買賣超股數 |\n|---|---|---|\n`;
         list.slice(0, 10).forEach(item => {
-             // Adapt to actual fields if known, otherwise dump
-             const code = item.code || item[0];
-             const name = item.name || item[1];
-             const val = item.net || item[2]; // Approximate
-             output += `| ${code} | ${name} | ${val} |\n`;
+            const code = item['證券代號'] || item['代號'] || '';
+            const name = item['證券名稱'] || item['名稱'] || '';
+            const val  = item['三大法人買賣超股數'] || item['三大法人買賣超股數合計'] || '';
+            output += `| ${code} | ${name} | ${val} |\n`;
         });
         output += `\n`;
     }

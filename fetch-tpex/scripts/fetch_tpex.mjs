@@ -114,7 +114,8 @@ async function fetchTpex() {
 
     } catch (error) {
         console.error('Error fetching TPEX data:', error.message);
+        process.exit(1);
     }
 }
 
-fetchTpex();
+fetchTpex().catch(err => { console.error(err); process.exit(1); });

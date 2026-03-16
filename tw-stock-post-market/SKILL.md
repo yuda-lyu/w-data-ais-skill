@@ -67,21 +67,22 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 **欄位說明**：
 - `code`：股票代碼
 - `name`：股票名稱
-- `impact`：`利多` / `利空` / `中性`
+- `impact`：`⬆️ 利多` / `⬇️ 利空` / `➖ 中性`（從盤前報告 Markdown 表格提取時含 emoji）
 - `reason`：研判理由
 
 ## 執行流程
 
 ```
 1. 檢查是否為交易日
-2. 讀取今日盤前調研報告的個股影響總表
-3. 調用 fetch-twse 技能抓取各股開收盤價（上市）
-   - 若 TWSE 查無資料（not-found / 該代碼不在回傳表內），改用 fetch-tpex 抓取（上櫃）
-4. 調用 fetch-institutional-net-buy-sell 技能抓取三大法人買賣超（逐檔、指定日期；官方 TWSE+TPEX）
-5. 比對研判結果
-6. 分析符合/誤判原因
-7. 產出 report_YYYYMMDD.md
-8. 推送至 GitHub
+2. 讀取今日盤前調研報告的個股影響總表，存入 raw/input.json
+3. 調用 fetch-twse 技能抓取全市場收盤資料（all），存入 raw/prices_twse.json
+   - 若有上櫃股票，調用 fetch-tpex 抓取全市場，存入 raw/prices_tpex.json
+4. 調用 fetch-institutional-net-buy-sell 技能抓取三大法人買賣超：
+   - TWSE T86 → raw/institutional_twse.json
+   - TPEX 3Insti → raw/institutional_tpex.json
+5. 執行 node scripts/generate_report.mjs [YYYYMMDD] 比對研判結果
+6. 產出 report_YYYYMMDD.md
+7. 推送至 GitHub
 ```
 
 ## 研判比對邏輯
@@ -97,14 +98,16 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 ## 輸出結構
 
 ```
-tw-stock-post-market/
+w-data-news/tw-stock-post-market/
 └── YYYYMMDD/
-    ├── report_YYYYMMDD.md      # 盤後總結報告
-    ├── error_log.jsonl         # 錯誤紀錄
+    ├── report_YYYYMMDD.md          # 盤後總結報告
+    ├── error_log.jsonl             # 錯誤紀錄
     └── raw/
-        ├── input.json          # 輸入的個股影響總表
-        ├── prices.json         # 開收盤價
-        └── institutional.json  # 法人買賣超
+        ├── input.json              # 輸入的個股影響總表（從盤前報告提取）
+        ├── prices_twse.json        # fetch-twse all 全市場輸出（MI_INDEX 格式）
+        ├── prices_tpex.json        # fetch-tpex all 全市場輸出（aaData 格式）
+        ├── institutional_twse.json # fetch-institutional-net-buy-sell TWSE T86 輸出
+        └── institutional_tpex.json # fetch-institutional-net-buy-sell TPEX 3Insti 輸出
 ```
 
 ## 📝 錯誤紀錄機制（必要）
@@ -165,11 +168,11 @@ tw-stock-post-market/
 ## 報告結構
 
 ```markdown
-# 台股盤後總結報告（YYY/MM/DD）
+# 台股盤後總結報告（YYYY/MM/DD）
 
 > 執行時間：YYYY-MM-DD HH:MM (台灣時間)
 > 盤前調研：report_YYYYMMDD.md
-> 資料來源：證交所、Goodinfo
+> 資料來源：證交所、櫃買中心
 
 ---
 
@@ -258,19 +261,20 @@ npm install axios cheerio puppeteer-core lodash-es
 
 **解決方法**：
 - 確認今日盤前調研是否已成功執行並產出報告。
-- 確認報告路徑是否為 `tasks/stock-research/report_YYYYMMDD.md`。
+- 確認報告路徑是否為 `w-data-news/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`。
 
 ## 快速執行
 
 ```
-請執行台股盤後總結任務（循序模式）：
+請執行台股盤後總結任務：
 1. 檢查是否為交易日
-2. 確保 npm 依賴已安裝 (axios cheerio puppeteer-core lodash-es)
-3. 讀取今日盤前調研報告的個股影響總表
-4. 依序調用抓取技能（使用 Node.js 腳本）：
-   - fetch-twse (上市價格)
-   - fetch-tpex (上櫃價格)
-   - fetch-institutional-net-buy-sell (法人買賣超)
-5. 使用 generate_report.mjs 比對研判結果並分析原因
+2. 確保 npm 依賴已安裝：npm install axios
+3. 讀取今日盤前調研報告的個股影響總表，存入 raw/input.json
+4. 依序執行抓取（所有 raw/ 檔案儲存於 w-data-news/tw-stock-post-market/YYYYMMDD/raw/）：
+   - node fetch_twse.mjs all YYYYMMDD → prices_twse.json
+   - node fetch_tpex.mjs all YYYYMMDD → prices_tpex.json
+   - node fetch_twse_t86.mjs all YYYYMMDD → institutional_twse.json
+   - node fetch_tpex_3insti.mjs all YYYYMMDD → institutional_tpex.json
+5. 執行 node scripts/generate_report.mjs [YYYYMMDD]
 6. 產出 report_YYYYMMDD.md 並推送至 GitHub
 ```

@@ -130,7 +130,8 @@ async function fetchTwseT86() {
 
     } catch (error) {
         console.error('Request failed:', error.message);
+        process.exit(1);
     }
 }
 
-fetchTwseT86();
+fetchTwseT86().catch(err => { console.error(err); process.exit(1); });

@@ -140,7 +140,8 @@ async function fetchTpex3Insti() {
 
     } catch (error) {
         console.error('Request failed:', error.message);
+        process.exit(1);
     }
 }
 
-fetchTpex3Insti();
+fetchTpex3Insti().catch(err => { console.error(err); process.exit(1); });

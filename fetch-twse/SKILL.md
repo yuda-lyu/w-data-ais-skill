@@ -32,6 +32,7 @@ description: 抓取證交所（TWSE）股票收盤資料。支援個股或全市
    - `stockCode`: 股票代碼 (單檔或 'all' 全市場)
    - `date`: YYYYMMDD (例如 20260210)
    - `outputPath`: 輸出 JSON 檔案路徑
+3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。**有資料時寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `twse_STOCKCODE_YYYYMMDD.json`）；若 API 回傳非 OK（非交易日等），則不寫入任何檔案。
 
 ```bash
 # 範例：抓取全市場 (2026/02/10) 並輸出至檔案
@@ -40,7 +41,7 @@ node fetch_twse.mjs all 20260210 ./data/twse.json
 # 範例：抓取個股 (2026/02/10) 並輸出至檔案
 node fetch_twse.mjs 2330 20260210 ./data/twse_2330.json
 
-# 範例：抓取個股 (今日) 並輸出至 stdout
+# 範例：抓取個股 (今日)，自動產生 twse_2330_YYYYMMDD.json
 node fetch_twse.mjs 2330
 ```
 
@@ -56,10 +57,12 @@ node fetch_twse.mjs 2330
 https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=YYYYMMDD&stockNo=XXXX
 ```
 
+> ⚠️ **注意**：此 API 傳回的是 `date` 所在**整個月份**的所有交易日資料（非單日），若需特定日期的收盤價，需從傳回的 `data` 陣列中自行篩選對應日期。
+
 **參數**：
 | 參數 | 說明 | 範例 |
 |------|------|------|
-| `date` | 查詢日期（YYYYMMDD） | 20260205 |
+| `date` | 查詢月份（YYYYMMDD，取年月） | 20260205 |
 | `stockNo` | 股票代碼 | 2330 |
 
 **回傳範例**：

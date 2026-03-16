@@ -93,7 +93,8 @@ async function fetchTwse() {
 
     } catch (error) {
         console.error('Error fetching TWSE data:', error.message);
+        process.exit(1);
     }
 }
 
-fetchTwse();
+fetchTwse().catch(err => { console.error(err); process.exit(1); });
