@@ -22,7 +22,14 @@ const REPORT_FILE = path.join(POST_MARKET_DIR, `report_${TODAY}.md`);
 const readJson = (filePath) => {
     try {
         if (fs.existsSync(filePath)) {
-            return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            // Unwrap unified output format: { status: 'success', message: <data> }
+            if (raw && raw.status === 'success') return raw.message;
+            if (raw && raw.type === 'error') {
+                console.warn(`${filePath} contains error: ${raw.message}`);
+                return null;
+            }
+            return raw; // fallback for legacy format
         }
     } catch (e) {
         console.error(`Warning: Could not read ${filePath}: ${e.message}`);
@@ -57,19 +64,22 @@ const getPreMarketPredictions = () => {
     return [];
 };
 
-// 取得今日收盤價（由 fetch-twse / fetch-tpex 腳本產出的原始格式）
+// 取得今日收盤價（由 fetch-twse / fetch-tpex 腳本產出，readJson 已自動解包 status/message 包裝）
 //
-// prices_twse.json：fetch_twse.mjs 以 all 模式輸出的 MI_INDEX 格式
+// prices_twse.json 解包後：MI_INDEX 格式
 //   { stat, fields9: [...], data9: [[證券代號, 證券名稱, ..., 開盤價(idx5), ..., 收盤價(idx8), ...]] }
 //
-// prices_tpex.json：fetch_tpex.mjs 以 all 模式輸出的格式
+// prices_tpex.json 解包後：TPEX 格式
 //   { source, date, count, data: [[代號(0), 名稱(1), 收盤(2), 漲跌(3), 開盤(4), 最高(5), 最低(6), ...]] }
 const getPrices = () => {
     const combined = {};
 
     const twseData = readJson(path.join(RAW_DIR, 'prices_twse.json'));
-    if (twseData?.data9) {
-        twseData.data9.forEach(row => {
+    // 相容兩種格式：舊版 data9（直接屬性）/ 新版 tables[]（MI_INDEX 改版後）
+    const twsePriceRows = twseData?.data9
+        || twseData?.tables?.find(t => Array.isArray(t?.fields) && t.fields.includes('開盤價'))?.data;
+    if (twsePriceRows) {
+        twsePriceRows.forEach(row => {
             const code = (row[0] || '').trim();
             const name = (row[1] || '').trim();
             const open = parseFloat((row[5] || '').replace(/,/g, ''));
@@ -85,7 +95,7 @@ const getPrices = () => {
         });
     }
 
-    // TPEX aaData 欄位順序：[0]=代號, [1]=名稱, [2]=收盤, [3]=漲跌, [4]=開盤, ...
+    // TPEX data 欄位順序：[0]=代號, [1]=名稱, [2]=收盤, [3]=漲跌, [4]=開盤, ...
     const tpexData = readJson(path.join(RAW_DIR, 'prices_tpex.json'));
     if (tpexData?.data) {
         tpexData.data.forEach(row => {
@@ -107,12 +117,12 @@ const getPrices = () => {
     return combined;
 };
 
-// 取得法人買賣超（由 fetch-institutional-net-buy-sell 腳本產出的原始格式）
+// 取得法人買賣超（由 fetch-institutional-net-buy-sell 腳本產出，readJson 已自動解包 status/message 包裝）
 //
-// institutional_twse.json：fetch_twse_t86.mjs 輸出
+// institutional_twse.json 解包後：
 //   { source, date, data: [{ 證券代號, 證券名稱, 三大法人買賣超股數, ... }] }
 //
-// institutional_tpex.json：fetch_tpex_3insti.mjs 輸出
+// institutional_tpex.json 解包後：
 //   { source, date, data: [{ 代號, 名稱, 三大法人買賣超股數合計, ... }] }
 const getInstitutional = () => {
     const combined = {};

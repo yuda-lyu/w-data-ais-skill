@@ -26,17 +26,18 @@ description: 抓取鉅亨網（Anue）台股即時新聞（近 10 天，最多 1
 
 ### 執行方式
 
-1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_cnyes.mjs`。
-2. **執行腳本**：使用 `node` 執行該腳本。
-   - **可選參數**：指定輸出檔案路徑 `node fetch_cnyes.mjs [outputPath]`。
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間），並**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動備份至 `cnyes_news_data.json`）。
+> 須從**專案根目錄**（`node_modules` 所在位置）執行。
+
+1. **安裝依賴**：`npm install axios`。
+2. **執行腳本**：`node fetch-cnyes/scripts/fetch_cnyes.mjs [outputPath]`
+3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `cnyes_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
-# 範例：無指定路徑，自動備份至 cnyes_news_data.json
-node fetch_cnyes.mjs
-
 # 範例：指定輸出路徑
-node fetch_cnyes.mjs ./data/cnyes.json
+node fetch-cnyes/scripts/fetch_cnyes.mjs ./w-data-news/tw-stock-research/20260316/raw/cnyes.json
+
+# 範例：無指定路徑，自動產生 cnyes_YYYYMMDD.json
+node fetch-cnyes/scripts/fetch_cnyes.mjs
 ```
 
 ### 腳本邏輯摘要
@@ -49,14 +50,28 @@ node fetch_cnyes.mjs ./data/cnyes.json
 
 ## 輸出格式
 
+**預設檔名**：`cnyes_YYYYMMDD.json`
+
+成功：
 ```json
-[
-  {
-    "time": "2026-02-05 07:45:00",
-    "title": "台積電法說會釋正向展望 外資連三買",
-    "href": "https://news.cnyes.com/news/id/..."
-  }
-]
+{
+  "status": "success",
+  "message": [
+    {
+      "time": "2026-02-05 07:45:00",
+      "title": "台積電法說會釋正向展望 外資連三買",
+      "href": "https://news.cnyes.com/news/id/..."
+    }
+  ]
+}
+```
+
+錯誤：
+```json
+{
+  "type": "error",
+  "message": "Request failed with status code 503"
+}
 ```
 
 ## 篩選標準
@@ -83,41 +98,6 @@ node fetch_cnyes.mjs ./data/cnyes.json
 - 標題包含公司名稱 → 對應查詢代碼
 - 無法識別時略過
 
-## 📝 錯誤紀錄機制（必要）
-
-執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
-
-### 紀錄規則
-當 Node.js 腳本執行失敗（Exit Code != 0）或標準錯誤輸出（stderr）包含錯誤訊息時，Agent 應捕捉錯誤並寫入 Log。
-
-### 紀錄格式 (JSONL)
-
-每行一筆 JSON，追加寫入：
-
-```json
-{
-  "timestamp": "2026-02-05T08:15:30+08:00",
-  "date": "20260205",
-  "source": "cnyes",
-  "phase": "fetch",
-  "error": {
-    "type": "network",
-    "message": "Axios request failed",
-    "details": "Error: Request failed with status code 503"
-  },
-  "resolution": "failed"
-}
-```
-
-### 常見錯誤類型 (type)
-
-| type | 說明 | 觸發場景 |
-|---|---|---|
-| `network` | 網路錯誤 | HTTP 狀態碼非 200、DNS 解析失敗、API 服務不穩 |
-| `empty` | 資料空白 | API 回傳空陣列或無預期欄位 |
-| `parse` | 解析錯誤 | 回傳格式改變導致無法提取欄位 |
-| `io` | 存檔錯誤 | 指定的 `outputPath` 無法寫入 |
-
 ## 🔧 常見問題與排除
 
 ### 1. 執行錯誤 (Module not found)
@@ -133,9 +113,10 @@ npm install axios
 
 ## 快速執行
 
-```
-請使用 fetch-cnyes 技能抓取鉅亨網新聞（使用 Axios 腳本）：
-1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_cnyes.mjs [outputPath]
-3. 讀取並解析 JSON 輸出
+```bash
+# 從專案根目錄執行
+node fetch-cnyes/scripts/fetch_cnyes.mjs [outputPath]
+
+# 範例
+node fetch-cnyes/scripts/fetch_cnyes.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
 ```

@@ -182,23 +182,3 @@ python scripts/check_quota_batch.py ~/.openclaw/agents/main/agent/auth-profiles.
 2. **錯誤回傳**：失敗帳號的 `error` 欄位會包含錯誤訊息
 3. **空 quotas**：失敗帳號的 `quotas` 為空陣列
 4. **統計錯誤**：Summary 會統計總錯誤數量
-
-### 調用方錯誤紀錄（建議）
-
-若此技能被其他技能調用，建議將錯誤記錄至 `error_log.jsonl`：
-
-```json
-{
-  "timestamp": "2026-02-05T13:50:00+08:00",
-  "date": "20260205",
-  "source": "check-all-quota",
-  "phase": "fetch",
-  "error": {
-    "type": "token_expired",
-    "message": "5 accounts have expired tokens",
-    "details": ["firsemisphere@gmail.com", "firsemisphere2@gmail.com", ...]
-  },
-  "resolution": "partial",
-  "notes": "Run 'openclaw login google-antigravity' to refresh tokens"
-}
-```

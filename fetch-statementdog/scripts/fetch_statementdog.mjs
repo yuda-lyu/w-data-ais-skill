@@ -7,78 +7,108 @@ import * as cheerio from 'cheerio';
  * 財報狗 (StatementDog) 新聞抓取程式
  * 目的：抓取財報狗最新新聞
  * 依賴：axios, cheerio
- * 
+ *
  * 用法:
  * node fetch_statementdog.mjs [outputPath]
- * 
+ *
  * 參數:
- * 1. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/statementdog.json)
+ * 1. outputPath (選填): 儲存結果的檔案路徑。預設為 statementdog_YYYYMMDD.json。
+ *
+ * 輸出（file）：
+ * - 成功：{ status: 'success', message: [...] }
+ * - 錯誤：{ type: 'error', message: '...' }
  */
 
-// 取得輸入參數
 const args = process.argv.slice(2);
-const outputPath = args[0]; // Arg 1: 儲存路徑
+const outputPathArg = args[0];
+
+const TODAY = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const outputFile = outputPathArg || `statementdog_${TODAY}.json`;
 
 const url = 'https://statementdog.com/news/latest';
 
-async function fetchNews() {
+function writeOutput(payload) {
     try {
-        console.log(`Fetching ${url}...`);
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-        });
-
-        // Parse HTML
-        const $ = cheerio.load(response.data);
-        const newsItems = [];
-
-        $('.statementdog-news-list-item').each((index, element) => {
-            const titleElement = $(element).find('.statementdog-news-list-item-title');
-            const linkElement = $(element).find('.statementdog-news-list-item-link');
-            const timeElement = $(element).find('.statementdog-news-list-item-date');
-
-            if (titleElement.length && linkElement.length) {
-                const title = titleElement.text().trim();
-                let link = linkElement.attr('href');
-                let time = timeElement.text().trim();
-
-                // Handle relative URLs
-                if (link && !link.startsWith('http')) {
-                    link = `https://statementdog.com${link}`;
-                }
-
-                newsItems.push({ time, title, link });
-            }
-        });
-
-        console.log(`Extracted News Items: ${newsItems.length}`);
-
-        // 輸出 JSON 到 stdout，供 OpenClaw 讀取
-        const jsonOutput = JSON.stringify(newsItems, null, 2);
-        console.log('JSON_OUTPUT_START');
-        console.log(jsonOutput);
-        console.log('JSON_OUTPUT_END');
-
-        // 若有指定儲存路徑，則寫入檔案
-        if (outputPath) {
-            const dir = path.dirname(outputPath);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-            fs.writeFileSync(outputPath, jsonOutput, 'utf-8');
-            console.log(`結果已儲存至: ${outputPath}`);
-        } else {
-            // 本地備份 (預設)
-            fs.writeFileSync('statementdog_data.json', jsonOutput);
-            // console.log('Data saved to statementdog_data.json');
-        }
-
-    } catch (error) {
-        console.error('Error fetching news:', error);
-        process.exit(1);
+        const dir = path.dirname(outputFile);
+        if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), 'utf-8');
+        console.log(`結果已儲存至: ${outputFile}`);
+    } catch (e) {
+        console.error(`寫檔失敗：${e.message}`);
     }
 }
 
-fetchNews().catch(err => { console.error(err); process.exit(1); });
+const MAX_RETRIES = 10;
+const BASE_DELAY_MS = 5000; // delay = BASE_DELAY_MS × attempt, capped at MAX_DELAY_MS
+const MAX_DELAY_MS  = 30000;
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+function isRetryable(error) {
+    const status = error.response?.status;
+    if (status) return status >= 500;
+    return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
+}
+
+async function fetchNews() {
+    console.log(`Fetching ${url}...`);
+
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+        try {
+            const response = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+
+            const $ = cheerio.load(response.data);
+            const newsItems = [];
+
+            $('.statementdog-news-list-item').each((index, element) => {
+                const titleElement = $(element).find('.statementdog-news-list-item-title');
+                const linkElement  = $(element).find('.statementdog-news-list-item-link');
+                const timeElement  = $(element).find('.statementdog-news-list-item-date');
+
+                if (titleElement.length && linkElement.length) {
+                    const title = titleElement.text().trim();
+                    let link = linkElement.attr('href');
+                    let time = timeElement.text().trim();
+
+                    if (link && !link.startsWith('http')) {
+                        link = `https://statementdog.com${link}`;
+                    }
+
+                    newsItems.push({ time, title, link });
+                }
+            });
+
+            console.log(`Extracted News Items: ${newsItems.length}`);
+
+            if (newsItems.length === 0) {
+                // 頁面結構問題，非暫時性，不重試
+                const errMsg = '抓取到 0 筆新聞，可能是頁面結構改變或 selector 失效，請確認財報狗頁面是否正常。';
+                console.error(errMsg);
+                writeOutput({ type: 'error', message: errMsg });
+                process.exit(1);
+            }
+
+            writeOutput({ status: 'success', message: newsItems });
+            return;
+
+        } catch (error) {
+            const attemptsLeft = MAX_RETRIES + 1 - attempt;
+            if (!isRetryable(error) || attemptsLeft <= 0) {
+                console.error('Error fetching news:', error.message);
+                writeOutput({ type: 'error', message: error.message });
+                process.exit(1);
+            }
+            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
+            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] ${error.message} — 等待 ${delay / 1000}s 後重試...`);
+            await sleep(delay);
+        }
+    }
+}
+
+fetchNews().catch(err => {
+    console.error(err);
+    writeOutput({ type: 'error', message: err.message || String(err) });
+    process.exit(1);
+});

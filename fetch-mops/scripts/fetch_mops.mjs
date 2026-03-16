@@ -7,17 +7,34 @@ import path from 'path';
  * MOPS 資料抓取程式
  * 目的：抓取今日重大公告 (上市, 上櫃, 興櫃, 公開發行)
  * 依賴：puppeteer-core (需本機安裝 Chrome/Chromium)
- * 
+ *
  * 用法:
  * node fetch_mops.mjs [outputPath]
- * 
+ *
  * 參數:
- * 1. outputPath (選填): 儲存結果的檔案路徑 (例如: /path/to/mops.json)
+ * 1. outputPath (選填): 儲存結果的檔案路徑。預設為 mops_YYYYMMDD.json。
+ *
+ * 輸出（file）：
+ * - 成功：{ status: 'success', message: [...] }
+ * - 錯誤：{ type: 'error', message: '...' }
  */
 
-// 取得輸入參數
 const args = process.argv.slice(2);
-const outputPath = args[0]; // Arg 1: 儲存路徑
+const outputPathArg = args[0];
+
+const TODAY = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const outputFile = outputPathArg || `mops_${TODAY}.json`;
+
+function writeOutput(payload) {
+    try {
+        const dir = path.dirname(outputFile);
+        if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), 'utf-8');
+        console.log(`結果已儲存至: ${outputFile}`);
+    } catch (e) {
+        console.error(`寫檔失敗：${e.message}`);
+    }
+}
 
 // 定義目標與對應參數
 const targets = [
@@ -67,7 +84,7 @@ function findBrowserPath() {
             '/usr/bin/chromium-browser',
             '/snap/bin/chromium',
         ];
-    } else if (platform === 'darwin') { // macOS (預留)
+    } else if (platform === 'darwin') {
         paths = [
             '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
             '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
@@ -86,7 +103,9 @@ function findBrowserPath() {
 async function main() {
     const executablePath = findBrowserPath();
     if (!executablePath) {
-        console.error('錯誤：找不到 Chrome 或 Edge 瀏覽器。請確認已安裝。');
+        const errMsg = '錯誤：找不到 Chrome 或 Edge 瀏覽器。請確認已安裝。';
+        console.error(errMsg);
+        writeOutput({ type: 'error', message: errMsg });
         process.exit(1);
     }
 
@@ -100,7 +119,6 @@ async function main() {
     try {
         const page = await browser.newPage();
 
-        // 進入頁面以取得 Session/Referer
         console.log('前往 MOPS 重大訊息頁面 (t146sb10)...');
         await page.goto('https://mops.twse.com.tw/mops/#/web/t146sb10', { waitUntil: 'networkidle0', timeout: 60000 });
         await new Promise(r => setTimeout(r, 2000));
@@ -109,7 +127,7 @@ async function main() {
 
         for (const target of targets) {
             console.log(`正在抓取 [${target.name}] 資料...`);
-            
+
             const data = await page.evaluate(async (t) => {
                 try {
                     const jsonBody = JSON.stringify(t.payload);
@@ -148,24 +166,12 @@ async function main() {
 
         console.log('抓取完成。摘要:', summary);
 
-        // 輸出 JSON 到 stdout，供 OpenClaw 讀取
-        const jsonOutput = JSON.stringify(results, null, 2);
-        console.log('JSON_OUTPUT_START');
-        console.log(jsonOutput);
-        console.log('JSON_OUTPUT_END');
-
-        // 若有指定儲存路徑，則寫入檔案
-        if (outputPath) {
-            const dir = path.dirname(outputPath);
-            if (!fs.existsSync(dir)) {
-                fs.mkdirSync(dir, { recursive: true });
-            }
-            fs.writeFileSync(outputPath, jsonOutput, 'utf-8');
-            console.log(`結果已儲存至: ${outputPath}`);
-        }
+        const payload = { status: 'success', message: results };
+        writeOutput(payload);
 
     } catch (error) {
-        console.error('發生錯誤:', error);
+        console.error('發生錯誤:', error.message);
+        writeOutput({ type: 'error', message: error.message });
         process.exit(1);
     } finally {
         await browser.close();

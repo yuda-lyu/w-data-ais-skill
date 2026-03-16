@@ -16,6 +16,18 @@ description: 抓取證交所（TWSE）股票收盤資料。支援個股或全市
 | 抓取方式 | API（JSON 格式） |
 | 更新時間 | 每日 14:30 後（收盤後） |
 
+## 🚦 交易日檢查（建議）
+
+TWSE 股價資料僅在台股交易日產生。建議執行前先確認：
+
+```bash
+node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
+# TRADING_DAY=true  → 繼續執行
+# TRADING_DAY=false → 跳過，非交易日無收盤資料
+```
+
+> 詳見 `check-tw-trading-day` 技能。
+
 ## 最佳實踐：使用 Axios Script（推薦）
 
 建議使用本技能附帶的 Node.js 腳本進行抓取，穩定性高且支援單檔與全市場模式。
@@ -26,23 +38,24 @@ description: 抓取證交所（TWSE）股票收盤資料。支援個股或全市
 
 ### 執行方式
 
-1. **複製腳本**：從技能目錄讀取 `scripts/fetch_twse.mjs`。
-2. **執行腳本**：使用 `node` 執行該腳本，可帶入代碼、日期與輸出路徑。
-   - **參數**：`node fetch_twse.mjs [stockCode|all] [date] [outputPath]`
-   - `stockCode`: 股票代碼 (單檔或 'all' 全市場)
-   - `date`: YYYYMMDD (例如 20260210)
+> 須從**專案根目錄**（`node_modules` 所在位置）執行。
+
+1. **安裝依賴**：`npm install axios`。
+2. **執行腳本**：`node fetch-twse/scripts/fetch_twse.mjs [stockCode|all] [date] [outputPath]`
+   - `stockCode`: 股票代碼 (單檔) 或 `all`（全市場）
+   - `date`: YYYYMMDD（例如 20260210）
    - `outputPath`: 輸出 JSON 檔案路徑
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間）。**有資料時寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `twse_STOCKCODE_YYYYMMDD.json`）；若 API 回傳非 OK（非交易日等），則不寫入任何檔案。
+3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `twse_STOCKCODE_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：抓取全市場 (2026/02/10) 並輸出至檔案
-node fetch_twse.mjs all 20260210 ./data/twse.json
+node fetch-twse/scripts/fetch_twse.mjs all 20260210 ./data/twse.json
 
 # 範例：抓取個股 (2026/02/10) 並輸出至檔案
-node fetch_twse.mjs 2330 20260210 ./data/twse_2330.json
+node fetch-twse/scripts/fetch_twse.mjs 2330 20260210 ./data/twse_2330.json
 
 # 範例：抓取個股 (今日)，自動產生 twse_2330_YYYYMMDD.json
-node fetch_twse.mjs 2330
+node fetch-twse/scripts/fetch_twse.mjs 2330
 ```
 
 ---
@@ -108,31 +121,45 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 ## 輸出格式
 
-### 個股查詢 (STOCK_DAY)
+**預設檔名**：`twse_STOCKCODE_YYYYMMDD.json`（全市場時為 `twse_ALL_YYYYMMDD.json`）
 
+成功（個股查詢 STOCK_DAY）：
 ```json
 {
-  "stat": "OK",
-  "date": "115年02月",
-  "title": "115年02月 2330 台積電 各日成交資訊",
-  "fields": ["日期", "成交股數", "成交金額", "開盤價", "最高價", "最低價", "收盤價", "漲跌價差", "成交筆數"],
-  "data": [
-    ["115/02/03", "25,123,456", "25,123,456,789", "980.00", "985.00", "975.00", "982.00", "+12.00", "15,234"]
-  ]
+  "status": "success",
+  "message": {
+    "stat": "OK",
+    "date": "115年02月",
+    "title": "115年02月 2330 台積電 各日成交資訊",
+    "fields": ["日期", "成交股數", "成交金額", "開盤價", "最高價", "最低價", "收盤價", "漲跌價差", "成交筆數"],
+    "data": [
+      ["115/02/03", "25,123,456", "25,123,456,789", "980.00", "985.00", "975.00", "982.00", "+12.00", "15,234"]
+    ]
+  }
 }
 ```
 
-### 全市場查詢 (MI_INDEX)
-
+成功（全市場查詢 MI_INDEX）：
 ```json
 {
-  "stat": "OK",
-  "type": "ALLBUT0999",
-  "title": "115年02月05日 每日收盤行情(全部(不含權證、牛熊證))",
-  "fields9": ["證券代號", "證券名稱", "成交股數", "成交筆數", "成交金額", "開盤價", "最高價", "最低價", "收盤價", "漲跌(+/-)", "漲跌價差", "最後揭示買價", "最後揭示買量", "最後揭示賣價", "最後揭示賣量", "本益比"],
-  "data9": [
-    ["2330", "台積電", "28,456,789", "18,567", "28,456,789,012", "982.00", "990.00", "980.00", "988.00", "+", "6.00", "988.00", "50", "989.00", "100", "25.00"]
-  ]
+  "status": "success",
+  "message": {
+    "stat": "OK",
+    "type": "ALLBUT0999",
+    "title": "115年02月05日 每日收盤行情(全部(不含權證、牛熊證))",
+    "fields9": ["證券代號", "證券名稱", "成交股數", "..."],
+    "data9": [
+      ["2330", "台積電", "28,456,789", "18,567", "28,456,789,012", "982.00", "990.00", "980.00", "988.00", "+", "6.00", "988.00", "50", "989.00", "100", "25.00"]
+    ]
+  }
+}
+```
+
+錯誤：
+```json
+{
+  "type": "error",
+  "message": "TWSE API returned: 很抱歉，沒有符合條件的資料!"
 }
 ```
 
@@ -183,46 +210,11 @@ npm install axios
 
 ## 快速執行
 
-```
-請使用 fetch-twse 技能抓取證交所資料（使用 Axios 腳本）：
-1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_twse.mjs [stockCode|all] [date] [outputPath]
-3. 讀取並解析 JSON 輸出
-```
+```bash
+# 從專案根目錄執行
+node fetch-twse/scripts/fetch_twse.mjs [stockCode|all] [date] [outputPath]
 
-## 📝 錯誤紀錄機制（必要）
-
-執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
-
-### 紀錄規則
-當 Node.js 腳本執行失敗（Exit Code != 0）或標準錯誤輸出（stderr）包含錯誤訊息時，Agent 應捕捉錯誤並寫入 Log。
-
-### 紀錄格式 (JSONL)
-
-每行一筆 JSON，追加寫入：
-
-```json
-{
-  "timestamp": "2026-02-05T15:30:00+08:00",
-  "date": "20260205",
-  "source": "twse",
-  "phase": "fetch",
-  "error": {
-    "type": "timeout",
-    "message": "API request timeout",
-    "details": "ETIMEDOUT on /exchangeReport/STOCK_DAY"
-  },
-  "resolution": "failed",
-  "notes": "TWSE API may be slow during 14:30-15:00"
-}
+# 範例：全市場
+node fetch-twse/scripts/fetch_twse.mjs all 20260316 ./w-data-news/tw-stock-post-market/20260316/raw/prices_twse.json
 ```
 
-### 常見錯誤類型 (type)
-
-| type | 說明 | 觸發場景 |
-|---|---|---|
-| `network` | 網路錯誤 | HTTP 狀態碼非 200、連線逾時 |
-| `empty` | 查無資料 | 非交易日、盤中資料尚未更新、股票代碼錯誤 (或屬上櫃股票) |
-| `parse` | 解析錯誤 | 回傳 JSON 格式異常 |
-| `not-found` | 找不到 | 該股票代碼不存在於上市市場 |
-| `io` | 存檔錯誤 | 指定的 `outputPath` 無法寫入 |

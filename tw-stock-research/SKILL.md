@@ -13,14 +13,16 @@ description: 台股盤前調研技能。從 5 個來源（MOPS、鉅亨網、財
 
 ### 檢查方式
 
-使用證交所 API 檢查當日是否有交易資料：
+使用 `check-tw-trading-day` 技能：
 
 ```bash
-# 檢查當日是否為交易日（以大盤指數為例）
-curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYYMMDD&type=IND" | jq '.stat'
-# 回傳 "OK" = 交易日
-# 回傳 "很抱歉..." = 非交易日
+node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPath]
+# TRADING_DAY=true  → 交易日，繼續執行
+# TRADING_DAY=false → 非交易日，跳過
 ```
+
+> 詳見 `check-tw-trading-day` 技能。
+> ⚠️ 務必指定 `outputPath`，否則輸出檔案會寫入專案根目錄。調用方應傳入 `./w-data-news/tw-stock-research/YYYYMMDD/raw/trading_day.json`。
 
 ### 非交易日處理
 
@@ -48,36 +50,57 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 ## 執行模式
 
-### 循序執行模式（推薦）
+### ✅ 主控腳本模式（推薦）
 
-由當前 Agent **自行依序執行**各項抓取任務，不使用 `sessions_spawn` 派發子 Agent。
+使用 `run_research.mjs` 一行完成所有步驟，**不需要手動逐一執行各抓取腳本**：
 
-執行流程：
+```bash
+# 從專案根目錄執行
+node tw-stock-research/scripts/run_research.mjs [YYYYMMDD]
 
-```
-主控 Agent
-  │
-  ├─ 1. 執行 MOPS 抓取（參閱 fetch-mops 技能）
-  │     └─ 產出 raw/mops.json
-  │
-  ├─ 2. 執行 鉅亨網 抓取（參閱 fetch-cnyes 技能）
-  │     └─ 產出 raw/cnyes.json
-  │
-  ├─ 3. 執行 財報狗 抓取（參閱 fetch-statementdog 技能）
-  │     └─ 產出 raw/statementdog.json
-  │
-  ├─ 4. 執行 MoneyDJ 抓取（參閱 fetch-moneydj 技能）
-  │     └─ 產出 raw/moneydj.json
-  │
-  └─ 5. 執行 法人買賣超 抓取（參閱 fetch-institutional-net-buy-sell 技能）
-        ├─ 產出 raw/institutional_twse.json
-        └─ 產出 raw/institutional_tpex.json
+# 範例
+node tw-stock-research/scripts/run_research.mjs 20260316
 ```
 
-**注意事項**：
-- 每個步驟間建議間隔 2-3 秒，避免過於頻繁的請求。
-- 若某個來源抓取失敗，應記錄錯誤至 `error_log.jsonl`，並**繼續執行下一個來源**，不可中斷整個任務。
-- 所有抓取完成後，再統一讀取 `raw/*.json` 進行彙整。
+`run_research.mjs` 自動執行以下流程：
+
+```
+run_research.mjs
+  │
+  ├─ 1. 交易日檢查（check-tw-trading-day）
+  │     └─ 非交易日 → 印出提示並 exit 1，不繼續
+  │
+  ├─ 2. 建立輸出目錄 w-data-news/tw-stock-research/YYYYMMDD/raw/
+  │
+  ├─ 3. fetch-mops               → raw/mops.json
+  ├─ 4. fetch-cnyes              → raw/cnyes.json
+  ├─ 5. fetch-statementdog       → raw/statementdog.json
+  ├─ 6. fetch-moneydj            → raw/moneydj.json        ⚠️ 最多 5 分鐘
+  ├─ 7. fetch-twse-t86 (all)     → raw/institutional_twse.json
+  ├─ 8. fetch-tpex-3insti (all)  → raw/institutional_tpex.json
+  │
+  └─ 9. generate_report.mjs      → report_YYYYMMDD.md
+```
+
+**容錯機制**：任一抓取步驟失敗時，錯誤自動記錄至 `error_log.jsonl`，**不中斷整體流程**，繼續執行下一步。報告產出失敗則 exit 2。
+
+> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-moneydj 的 50 頁爬取）。
+
+### 手動逐步模式（除錯用）
+
+需要單獨重跑某一來源時才使用，各腳本皆須從**專案根目錄**執行：
+
+```bash
+node fetch-mops/scripts/fetch_mops.mjs                                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
+node fetch-cnyes/scripts/fetch_cnyes.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
+node fetch-statementdog/scripts/fetch_statementdog.mjs                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
+node fetch-moneydj/scripts/fetch_moneydj.mjs                                       ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
+node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
+node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
+node tw-stock-research/scripts/generate_report.mjs YYYYMMDD
+```
+
+> ⚠️ 新聞類腳本（mops/cnyes/statementdog/moneydj）只接受 `outputPath` 一個參數，**不接受日期**。法人類腳本（t86/3insti）參數順序為 `[all|code] [YYYYMMDD] [outputPath]`。
 
 ## 篩選標準
 
@@ -143,9 +166,9 @@ w-data-news/tw-stock-research/
         └── institutional_tpex.json
 ```
 
-## 📝 錯誤紀錄機制（必要）
+## 📝 錯誤紀錄機制
 
-執行過程中遭遇的**所有錯誤**和**嘗試修復**都須記錄至 `error_log.jsonl`，供未來排錯和改進技能參考。
+`run_research.mjs` 執行過程中遭遇的錯誤**自動**記錄至 `error_log.jsonl`，供未來排錯和改進技能參考。
 
 ### 紀錄格式
 
@@ -153,24 +176,16 @@ w-data-news/tw-stock-research/
 
 ```json
 {
-  "timestamp": "2026-02-05T08:15:30+08:00",
+  "timestamp": "2026-02-05T00:15:30.000Z",
   "date": "20260205",
-  "source": "mops",
+  "source": "fetch-mops",
   "phase": "fetch",
   "error": {
-    "type": "browser",
+    "type": "unknown",
     "message": "Puppeteer launch failed",
     "details": "Error: Failed to launch the browser process"
   },
-  "attempts": [
-    {
-      "action": "retry with /usr/bin/google-chrome-stable",
-      "result": "success",
-      "message": "Browser launched successfully"
-    }
-  ],
-  "resolution": "success",
-  "notes": "Chrome path /usr/bin/google-chrome-stable works instead of /usr/bin/google-chrome"
+  "resolution": "failed"
 }
 ```
 
@@ -178,16 +193,14 @@ w-data-news/tw-stock-research/
 
 | 欄位 | 必要 | 說明 |
 |------|------|------|
-| `timestamp` | ✅ | ISO 8601 格式，含時區 |
+| `timestamp` | ✅ | ISO 8601 格式（UTC，`Z` 結尾） |
 | `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 來源：mops / cnyes / statementdog / moneydj / system |
-| `phase` | ✅ | 階段：init / fetch / parse / report / push |
-| `error.type` | ✅ | 錯誤類型：network / timeout / anti-bot / parse / quota / auth / unknown |
+| `source` | ✅ | 來源：fetch-mops / fetch-cnyes / fetch-statementdog / fetch-moneydj / fetch-twse-t86 / fetch-tpex-3insti / generate_report |
+| `phase` | ✅ | 階段：fetch / report |
+| `error.type` | ✅ | 錯誤類型：timeout / unknown |
 | `error.message` | ✅ | 簡短錯誤訊息 |
-| `error.details` | ❌ | 詳細錯誤內容（堆疊、回應內容等） |
-| `attempts` | ❌ | 嘗試修復的紀錄（陣列） |
-| `resolution` | ✅ | 最終結果：success / failed / skipped |
-| `notes` | ❌ | 額外備註（供未來改進參考） |
+| `error.details` | ❌ | 詳細錯誤內容（stderr 等） |
+| `resolution` | ✅ | 最終結果：固定為 `failed`（錯誤發生才寫入此 log） |
 
 ### 定期回顧
 
@@ -264,18 +277,37 @@ npm install axios cheerio puppeteer-core lodash-es
 
 ## 快速執行
 
+### 推薦：使用主控腳本（一行完成）
+
+```bash
+# 從專案根目錄執行，自動依序執行所有步驟
+npm install axios cheerio puppeteer-core lodash-es
+node tw-stock-research/scripts/run_research.mjs [YYYYMMDD]
+
+# 範例
+node tw-stock-research/scripts/run_research.mjs 20260316
 ```
-請執行台股盤前調研任務（循序模式）：
-1. 檢查是否為交易日
-2. 安裝依賴：npm install axios cheerio puppeteer-core lodash-es
-3. 依序執行抓取任務（由本 Agent 自行執行，不 spawn），輸出至 w-data-news/tw-stock-research/YYYYMMDD/raw/：
-   - fetch-mops (node fetch_mops.mjs → mops.json)
-   - fetch-cnyes (node fetch_cnyes.mjs → cnyes.json)
-   - fetch-statementdog (node fetch_statementdog.mjs → statementdog.json)
-   - fetch-moneydj (node fetch_moneydj.mjs → moneydj.json)
-   - fetch-institutional-net-buy-sell:
-     - node fetch_twse_t86.mjs all YYYYMMDD → institutional_twse.json
-     - node fetch_tpex_3insti.mjs all YYYYMMDD → institutional_tpex.json
-4. 執行 node scripts/generate_report.mjs [YYYYMMDD] 產出盤前報告
-5. 推送至 GitHub
+
+報告產出位置：`w-data-news/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`
+
+### 手動執行（各步驟分開）
+
+```bash
+# 1. 交易日檢查（須先建立輸出目錄）
+mkdir -p ./w-data-news/tw-stock-research/YYYYMMDD/raw
+node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-news/tw-stock-research/YYYYMMDD/raw/trading_day.json
+
+# 2. 安裝依賴
+npm install axios cheerio puppeteer-core lodash-es
+
+# 3. 依序抓取（outputPath 必須為完整相對路徑）
+node fetch-mops/scripts/fetch_mops.mjs                                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
+node fetch-cnyes/scripts/fetch_cnyes.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
+node fetch-statementdog/scripts/fetch_statementdog.mjs                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
+node fetch-moneydj/scripts/fetch_moneydj.mjs                                       ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
+node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
+node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
+
+# 4. 產出報告
+node tw-stock-research/scripts/generate_report.mjs YYYYMMDD
 ```

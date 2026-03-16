@@ -26,30 +26,19 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞（最新 50 頁）
 
 ### 執行方式
 
-若使用 `exec` 工具，建議使用 `background` 參數，或確保環境逾時設定大於 10 分鐘 (600000 ms)。
+> 須從**專案根目錄**（`node_modules` 所在位置）執行。
+> ⚠️ 執行約需 **1.5 ~ 3 分鐘**（50 頁 + 隨機延遲），請確保逾時設定 ≥ 300000 ms 或使用背景執行。
 
-```json
-// Example Tool Call
-{
-  "tool": "exec",
-  "command": "node fetch_moneydj.mjs ./data/moneydj.json",
-  "background": true
-}
-```
-
-### 執行方式 (CLI)
-
-1. **讀取腳本**：從技能目錄讀取 `scripts/fetch_moneydj.mjs`。
-2. **執行腳本**：使用 `node` 執行該腳本。
-   - **可選參數**：指定輸出檔案路徑 `node fetch_moneydj.mjs [outputPath]`。
-3. **解析輸出**：腳本會將結果以 JSON 格式輸出（包在 `JSON_OUTPUT_START` 與 `JSON_OUTPUT_END` 之間），並**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動備份至 `moneydj_data.json`）。
+1. **安裝依賴**：`npm install axios cheerio`。
+2. **執行腳本**：`node fetch-moneydj/scripts/fetch_moneydj.mjs [outputPath]`
+3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `moneydj_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
-# 範例：無指定路徑，自動備份至 moneydj_data.json
-node fetch_moneydj.mjs
-
 # 範例：指定輸出路徑
-node fetch_moneydj.mjs ./data/moneydj.json
+node fetch-moneydj/scripts/fetch_moneydj.mjs ./w-data-news/tw-stock-research/20260316/raw/moneydj.json
+
+# 範例：無指定路徑，自動產生 moneydj_YYYYMMDD.json
+node fetch-moneydj/scripts/fetch_moneydj.mjs
 ```
 
 ### 腳本邏輯摘要
@@ -64,14 +53,28 @@ node fetch_moneydj.mjs ./data/moneydj.json
 
 ## 輸出格式
 
+**預設檔名**：`moneydj_YYYYMMDD.json`
+
+成功：
 ```json
-[
-  {
-    "time": "02/05 08:30",
-    "title": "台積電法說會：2025 年資本支出上看 320 億美元",
-    "link": "https://www.moneydj.com/kmdj/news/..."
-  }
-]
+{
+  "status": "success",
+  "message": [
+    {
+      "time": "02/05 08:30",
+      "title": "台積電法說會：2025 年資本支出上看 320 億美元",
+      "link": "https://www.moneydj.com/kmdj/news/..."
+    }
+  ]
+}
+```
+
+錯誤：
+```json
+{
+  "type": "error",
+  "message": "Access denied (403)"
+}
 ```
 
 ## 篩選標準
@@ -97,41 +100,6 @@ MoneyDJ 時間格式：
 - `昨 15:00` = 昨天 15:00
 - `02/04 08:30` = 02月04日 08:30
 
-## 📝 錯誤紀錄機制（必要）
-
-執行過程中遭遇的錯誤須記錄至調用方的 `error_log.jsonl`。
-
-### 紀錄規則
-當 Node.js 腳本執行失敗（Exit Code != 0）或標準錯誤輸出（stderr）包含錯誤訊息時，Agent 應捕捉錯誤並寫入 Log。
-
-### 紀錄格式 (JSONL)
-
-每行一筆 JSON，追加寫入：
-
-```json
-{
-  "timestamp": "2026-02-05T08:15:30+08:00",
-  "date": "20260205",
-  "source": "moneydj",
-  "phase": "fetch",
-  "error": {
-    "type": "blocked",
-    "message": "Access denied",
-    "details": "Status code 403 (Anti-bot)"
-  },
-  "resolution": "failed"
-}
-```
-
-### 常見錯誤類型 (type)
-
-| type | 說明 | 觸發場景 |
-|---|---|---|
-| `network` | 網路錯誤 | 連線拒絕、逾時 |
-| `blocked` | 封鎖 | HTTP 403/429、被判定為機器人 |
-| `selector` | 解析錯誤 | HTML 結構變更，Cheerio 找不到對應 Class/ID |
-| `io` | 存檔錯誤 | 指定的 `outputPath` 無法寫入 |
-
 ## 🔧 常見問題與排除
 
 ### 1. 執行錯誤 (Module not found)
@@ -147,9 +115,10 @@ npm install axios cheerio
 
 ## 快速執行
 
-```
-請使用 fetch-moneydj 技能抓取 MoneyDJ 新聞（使用 Axios 腳本）：
-1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_moneydj.mjs [outputPath]
-3. 讀取並解析 JSON 輸出
+```bash
+# 從專案根目錄執行（背景執行避免逾時）
+node fetch-moneydj/scripts/fetch_moneydj.mjs [outputPath]
+
+# 範例
+node fetch-moneydj/scripts/fetch_moneydj.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
 ```
