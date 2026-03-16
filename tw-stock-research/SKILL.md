@@ -55,11 +55,23 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 使用 `run_research.mjs` 一行完成所有步驟，**不需要手動逐一執行各抓取腳本**：
 
 ```bash
-# 從專案根目錄執行
-node tw-stock-research/scripts/run_research.mjs [YYYYMMDD]
+# 語法
+node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [outputDir]
 
-# 範例
+# 參數說明
+# YYYYMMDD  (選填)：指定日期，預設為今日
+# skillsDir (選填)：技能庫根目錄（node_modules 所在位置），預設為 cwd
+# outputDir (選填)：主輸出目錄（raw/ 與 error_log.jsonl 均置於此），
+#                   預設為 <skillsDir>/w-data-news/tw-stock-research/<YYYYMMDD>
+
+# 範例：從技能庫根目錄執行（最常見）
 node tw-stock-research/scripts/run_research.mjs 20260316
+
+# 範例：從其他工作路徑執行，明確指定技能庫與輸出目錄
+node /path/to/w-data-ais-skill/tw-stock-research/scripts/run_research.mjs \
+     20260316 \
+     /path/to/w-data-ais-skill \
+     /path/to/output/tw-stock-research/20260316
 ```
 
 `run_research.mjs` 自動執行以下流程：
@@ -158,6 +170,7 @@ w-data-news/tw-stock-research/
     ├── report_YYYYMMDD.md      # 最終報告（依執行日期命名）
     ├── error_log.jsonl         # 錯誤紀錄
     └── raw/
+        ├── trading_day.json        # 交易日檢查結果
         ├── mops.json
         ├── cnyes.json
         ├── statementdog.json
@@ -282,13 +295,13 @@ npm install axios cheerio puppeteer-core lodash-es
 ```bash
 # 從專案根目錄執行，自動依序執行所有步驟
 npm install axios cheerio puppeteer-core lodash-es
-node tw-stock-research/scripts/run_research.mjs [YYYYMMDD]
+node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [outputDir]
 
 # 範例
 node tw-stock-research/scripts/run_research.mjs 20260316
 ```
 
-報告產出位置：`w-data-news/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`
+報告產出位置：`<outputDir>/report_YYYYMMDD.md`（預設為 `w-data-news/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`）
 
 ### 手動執行（各步驟分開）
 
@@ -309,5 +322,6 @@ node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all YYYYMMDD
 node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
 
 # 4. 產出報告
-node tw-stock-research/scripts/generate_report.mjs YYYYMMDD
+# 語法：node tw-stock-research/scripts/generate_report.mjs [YYYYMMDD] [outputDir]
+node tw-stock-research/scripts/generate_report.mjs YYYYMMDD ./w-data-news/tw-stock-research/YYYYMMDD
 ```

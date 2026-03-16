@@ -78,11 +78,26 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 使用 `run_post_market.mjs` 一行完成所有步驟：
 
 ```bash
-# 從專案根目錄執行
-node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD]
+# 語法
+node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [outputDir] [preMarketDir]
 
-# 範例
+# 參數說明
+# YYYYMMDD     (選填)：指定日期，預設為今日
+# skillsDir    (選填)：技能庫根目錄（node_modules 所在位置），預設為 cwd
+# outputDir    (選填)：盤後主輸出目錄（raw/ 與 error_log.jsonl 均置於此），
+#                      預設為 <skillsDir>/w-data-news/tw-stock-post-market/<YYYYMMDD>
+# preMarketDir (選填)：盤前調研輸出目錄（用於比對盤前研判），
+#                      預設為 <skillsDir>/w-data-news/tw-stock-research/<YYYYMMDD>
+
+# 範例：從技能庫根目錄執行（最常見）
 node tw-stock-post-market/scripts/run_post_market.mjs 20260316
+
+# 範例：從其他工作路徑執行，明確指定所有目錄
+node /path/to/w-data-ais-skill/tw-stock-post-market/scripts/run_post_market.mjs \
+     20260316 \
+     /path/to/w-data-ais-skill \
+     /path/to/output/tw-stock-post-market/20260316 \
+     /path/to/output/tw-stock-research/20260316
 ```
 
 `run_post_market.mjs` 自動執行以下流程：
@@ -123,6 +138,7 @@ w-data-news/tw-stock-post-market/
     ├── report_YYYYMMDD.md          # 盤後總結報告
     ├── error_log.jsonl             # 錯誤紀錄
     └── raw/
+        ├── trading_day.json        # 交易日檢查結果
         ├── input.json              # （選填）手動準備的個股影響總表；不存在時自動 fallback 解析盤前 Markdown 報告
         ├── prices_twse.json        # fetch-twse all 全市場輸出（MI_INDEX 格式）
         ├── prices_tpex.json        # fetch-tpex all 全市場輸出（tables 格式）
@@ -265,7 +281,8 @@ npm install axios cheerio puppeteer-core lodash-es
 
 **解決方法**：
 - 確認今日盤前調研是否已成功執行並產出報告。
-- 確認報告路徑是否為 `w-data-news/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`。
+- 確認盤前報告路徑是否為 `<preMarketDir>/report_YYYYMMDD.md`（預設為 `w-data-news/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`）。
+- 若使用自訂 `preMarketDir`，請確認傳入的路徑與盤前調研的 `outputDir` 一致。
 
 ## 快速執行
 
@@ -274,13 +291,13 @@ npm install axios cheerio puppeteer-core lodash-es
 ```bash
 # 從專案根目錄執行，自動依序執行所有步驟
 npm install axios
-node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD]
+node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [outputDir] [preMarketDir]
 
 # 範例
 node tw-stock-post-market/scripts/run_post_market.mjs 20260316
 ```
 
-報告產出位置：`w-data-news/tw-stock-post-market/YYYYMMDD/report_YYYYMMDD.md`
+報告產出位置：`<outputDir>/report_YYYYMMDD.md`（預設為 `w-data-news/tw-stock-post-market/YYYYMMDD/report_YYYYMMDD.md`）
 
 ### 手動執行（各步驟分開）
 
@@ -299,5 +316,8 @@ node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all YYYYMMDD
 node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all YYYYMMDD   ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/institutional_tpex.json
 
 # 4. 產出報告
-node tw-stock-post-market/scripts/generate_report.mjs YYYYMMDD
+# 語法：node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [outputDir] [preMarketDir]
+node tw-stock-post-market/scripts/generate_report.mjs YYYYMMDD \
+     ./w-data-news/tw-stock-post-market/YYYYMMDD \
+     ./w-data-news/tw-stock-research/YYYYMMDD
 ```
