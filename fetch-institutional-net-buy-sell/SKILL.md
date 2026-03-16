@@ -124,7 +124,23 @@ node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs 6499,6610 20
 
 ## 🔧 常見問題與排除
 
-### 1. 執行錯誤 (Module not found)
+### 1. 伺服器錯誤（502/503 等 5xx）
+
+兩支腳本皆內建**自動重試機制**（最多 10 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
+
+| 重試次 | 等待時間 |
+|--------|---------|
+| 1 | 5s |
+| 2 | 10s |
+| 3 | 15s |
+| ... | ... |
+| 6+ | 30s（上限）|
+
+若 10 次後仍失敗，才寫入錯誤並 exit 1。
+
+> 查無資料（`stat !== 'OK'` 或 `tables` 為空）**不會**觸發重試（非暫時性狀態）。
+
+### 2. 執行錯誤 (Module not found)
 
 **症狀**：
 - `Cannot find module 'axios'`

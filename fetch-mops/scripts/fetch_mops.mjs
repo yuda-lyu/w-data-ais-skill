@@ -166,11 +166,9 @@ async function main() {
 
         // 帶重試的頁面導航
         console.log('前往 MOPS 重大訊息頁面 (t146sb10)...');
-        let gotoSuccess = false;
         for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
             try {
                 await page.goto('https://mops.twse.com.tw/mops/#/web/t146sb10', { waitUntil: 'networkidle0', timeout: 60000 });
-                gotoSuccess = true;
                 break;
             } catch (e) {
                 const attemptsLeft = MAX_RETRIES + 1 - attempt;
@@ -180,7 +178,6 @@ async function main() {
                 await sleep(delay);
             }
         }
-        if (!gotoSuccess) throw new Error('頁面導航失敗');
 
         await new Promise(r => setTimeout(r, 2000));
 

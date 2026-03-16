@@ -53,38 +53,43 @@ function writeOutput(payload) {
 
 async function fetchPage(pageIndex) {
     const url = `${baseUrl}${pageIndex}`;
-    try {
-        const response = await axios.get(url, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
-            responseType: 'arraybuffer'
-        });
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+        try {
+            const response = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                },
+                responseType: 'arraybuffer'
+            });
 
-        const decoder = new TextDecoder('utf-8');
-        const html = decoder.decode(response.data);
-        const $ = cheerio.load(html);
-        const newsItems = [];
+            const decoder = new TextDecoder('utf-8');
+            const html = decoder.decode(response.data);
+            const $ = cheerio.load(html);
+            const newsItems = [];
 
-        $('tr').each((i, el) => {
-            const $row = $(el);
-            const timeText = $row.find('td').eq(0).text().trim();
-            const $link = $row.find('td').eq(1).find('a');
+            $('tr').each((i, el) => {
+                const $row = $(el);
+                const timeText = $row.find('td').eq(0).text().trim();
+                const $link = $row.find('td').eq(1).find('a');
 
-            if (timeText && /^(\d{2}\/\d{2}\s+\d{2}:\d{2}|\d{2}:\d{2}|昨\s*\d{2}:\d{2})$/.test(timeText) && $link.length > 0) {
-                const title = $link.attr('title') || $link.text().trim();
-                const linkRel = $link.attr('href');
-                if (linkRel) {
-                    const link = linkRel.startsWith('http') ? linkRel : domain + linkRel;
-                    newsItems.push({ time: timeText, title, link });
+                if (timeText && /^(\d{2}\/\d{2}\s+\d{2}:\d{2}|\d{2}:\d{2}|昨\s*\d{2}:\d{2})$/.test(timeText) && $link.length > 0) {
+                    const title = $link.attr('title') || $link.text().trim();
+                    const linkRel = $link.attr('href');
+                    if (linkRel) {
+                        const link = linkRel.startsWith('http') ? linkRel : domain + linkRel;
+                        newsItems.push({ time: timeText, title, link });
+                    }
                 }
-            }
-        });
+            });
 
-        return newsItems;
-    } catch (error) {
-        console.error(`Error fetching page ${pageIndex}:`, error.message);
-        return [];
+            return newsItems;
+        } catch (error) {
+            const attemptsLeft = MAX_RETRIES + 1 - attempt;
+            if (!isRetryable(error) || attemptsLeft <= 0) throw error;
+            const retryDelay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
+            console.warn(`[Page ${pageIndex}][Retry ${attempt}/${MAX_RETRIES}] ${error.message} — 等待 ${retryDelay / 1000}s 後重試...`);
+            await delay(retryDelay);
+        }
     }
 }
 

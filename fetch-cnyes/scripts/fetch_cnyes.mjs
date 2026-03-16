@@ -34,6 +34,20 @@ function isRetryable(error) {
     return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
 }
 
+async function fetchWithRetry(url, params) {
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+        try {
+            return await axios.get(url, { params });
+        } catch (error) {
+            const attemptsLeft = MAX_RETRIES + 1 - attempt;
+            if (!isRetryable(error) || attemptsLeft <= 0) throw error;
+            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
+            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] ${error.message} — 等待 ${delay / 1000}s 後重試...`);
+            await sleep(delay);
+        }
+    }
+}
+
 function writeOutput(payload) {
     try {
         const dir = path.dirname(outputFile);
@@ -77,7 +91,7 @@ async function fetchNews() {
                 endAt: now
             };
 
-            const response = await axios.get(url, { params });
+            const response = await fetchWithRetry(url, params);
             const items = response.data?.items?.data || [];
 
             if (items.length === 0) {
