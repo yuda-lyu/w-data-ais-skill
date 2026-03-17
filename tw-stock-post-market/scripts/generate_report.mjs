@@ -42,6 +42,7 @@ const readJson = (filePath) => {
 
 // 提取盤前研判表
 // 優先讀取 raw/input.json；若不存在，Fallback 解析盤前報告 Markdown
+// 盤前報告格式（新版）：利多/利空分兩張表，各 3 欄（代碼|名稱|簡要理由），impact 從段落標題推導
 const getPreMarketPredictions = () => {
     const inputJsonPath = path.join(RAW_DIR, 'input.json');
     const predictions = readJson(inputJsonPath);
@@ -50,19 +51,28 @@ const getPreMarketPredictions = () => {
     const preReportPath = path.join(PRE_MARKET_DIR, `report_${TODAY}.md`);
     if (fs.existsSync(preReportPath)) {
         const content = fs.readFileSync(preReportPath, 'utf8');
-        const tableMatch = content.match(/\| 代碼 \| 名稱 \| 影響 \| 簡要理由 \|([\s\S]*?)\n\n/);
-        if (tableMatch) {
-            return tableMatch[1].trim().split('\n')
+
+        const parseSection = (sectionHeader, impactLabel) => {
+            // 抓取該段落標題到下一個 ## / ### 或文末之間的內容
+            const re = new RegExp(sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s\\S]*?\\| 代碼 \\| 名稱 \\| 簡要理由 \\|([\\s\\S]*?)(?=\\n###|\\n##|$)');
+            const match = content.match(re);
+            if (!match) return [];
+            return match[1].trim().split('\n')
                 .filter(line => line.startsWith('|') && !line.includes('---'))
                 .map(row => {
                     const cols = row.split('|').map(c => c.trim()).filter(c => c);
-                    if (cols.length >= 4) {
-                        return { code: cols[0], name: cols[1], impact: cols[2], reason: cols[3] };
+                    if (cols.length >= 3) {
+                        return { code: cols[0], name: cols[1], impact: impactLabel, reason: cols[2] };
                     }
                     return null;
                 })
                 .filter(Boolean);
-        }
+        };
+
+        const bullish = parseSection('### ⬆️ 利多', '⬆️ 利多');
+        const bearish  = parseSection('### ⬇️ 利空', '⬇️ 利空');
+        const combined = [...bullish, ...bearish];
+        if (combined.length > 0) return combined;
     }
     return [];
 };

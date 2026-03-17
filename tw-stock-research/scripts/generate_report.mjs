@@ -297,20 +297,33 @@ function computeImpactMap(newsItems, nameCodeMap) {
 }
 
 function generateImpactTable(impactMap) {
-    let table = `## 📊 個股影響總表\n\n`;
-    table += `| 代碼 | 名稱 | 影響 | 簡要理由 |\n`;
-    table += `|------|------|------|----------|\n`;
+    let output = `## 📊 個股影響總表\n\n`;
 
     if (impactMap.size === 0) {
-        table += `| - | - | ➖ 中性 | (今日新聞未偵測到明顯個股利多/空關鍵字) |\n`;
-    } else {
-        for (const [code, info] of impactMap) {
-            const reason = info.reason.length > 40 ? info.reason.substring(0, 40) + '...' : info.reason;
-            table += `| ${code} | ${info.name} | ${info.impact} | ${reason} |\n`;
-        }
+        output += `(今日新聞未偵測到明顯個股利多/空關鍵字)\n\n`;
+        return output;
     }
 
-    return table + '\n';
+    const bullish = [...impactMap.entries()].filter(([, v]) => v.impact === '⬆️ 利多');
+    const bearish = [...impactMap.entries()].filter(([, v]) => v.impact === '⬇️ 利空');
+
+    const renderTable = (entries) => {
+        let t = `| 代碼 | 名稱 | 簡要理由 |\n`;
+        t += `|------|------|----------|\n`;
+        entries.forEach(([code, info]) => {
+            const reason = info.reason.length > 40 ? info.reason.substring(0, 40) + '...' : info.reason;
+            t += `| ${code} | ${info.name} | ${reason} |\n`;
+        });
+        return t + '\n';
+    };
+
+    output += `### ⬆️ 利多（${bullish.length} 檔）\n\n`;
+    output += bullish.length > 0 ? renderTable(bullish) : `(無)\n\n`;
+
+    output += `### ⬇️ 利空（${bearish.length} 檔）\n\n`;
+    output += bearish.length > 0 ? renderTable(bearish) : `(無)\n\n`;
+
+    return output;
 }
 
 // --- Fix 3: 投資決策重點 ---
