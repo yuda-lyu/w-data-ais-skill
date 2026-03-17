@@ -130,3 +130,5 @@ if (reportResult.status !== 0 || reportResult.error) {
 if (reportResult.stdout) process.stdout.write(reportResult.stdout);
 log(`盤後總結完成 ✅`);
 log(`報告位置：${OUTPUT_DIR}/report_${TODAY}.md`);
+console.log('POST_MARKET_COMPLETE=true');
+process.exit(0);

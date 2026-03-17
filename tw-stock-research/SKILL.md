@@ -88,15 +88,17 @@ run_research.mjs
   ├─ 4. fetch-cnyes              → raw/cnyes.json
   ├─ 5. fetch-statementdog       → raw/statementdog.json
   ├─ 6. fetch-moneydj            → raw/moneydj.json        ⚠️ 最多 5 分鐘
-  ├─ 7. fetch-twse-t86 (all)     → raw/institutional_twse.json
-  ├─ 8. fetch-tpex-3insti (all)  → raw/institutional_tpex.json
+  ├─ 7. fetch-twse-t86 (all, 前一交易日)     → raw/institutional_twse.json
+  ├─ 8. fetch-tpex-3insti (all, 前一交易日)  → raw/institutional_tpex.json
   │
   └─ 9. generate_report.mjs      → report_YYYYMMDD.md
 ```
 
 **容錯機制**：任一抓取步驟失敗時，錯誤自動記錄至 `error_log.jsonl`，**不中斷整體流程**，繼續執行下一步。報告產出失敗則 exit 2。
 
-> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-moneydj 的 50 頁爬取）。
+> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-moneydj 的 50 頁爬取）。外層 exec 呼叫時請設定 **timeout ≥ 600000 ms（10 分鐘）**，避免 SIGTERM 中斷。
+
+**完成訊號**：腳本成功產出報告後，會在 stdout 輸出 `RESEARCH_COMPLETE=true`，接著立即 `process.exit(0)`。外層呼叫方可偵測此字串判斷執行成功，無需等待其他 I/O。
 
 ### 手動逐步模式（除錯用）
 
@@ -107,12 +109,12 @@ node fetch-mops/scripts/fetch_mops.mjs                                          
 node fetch-cnyes/scripts/fetch_cnyes.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
 node fetch-statementdog/scripts/fetch_statementdog.mjs                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
 node fetch-moneydj/scripts/fetch_moneydj.mjs                                       ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
-node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
-node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
+node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
+node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
 node tw-stock-research/scripts/generate_report.mjs YYYYMMDD
 ```
 
-> ⚠️ 新聞類腳本（mops/cnyes/statementdog/moneydj）只接受 `outputPath` 一個參數，**不接受日期**。法人類腳本（t86/3insti）參數順序為 `[all|code] [YYYYMMDD] [outputPath]`。
+> ⚠️ 新聞類腳本（mops/cnyes/statementdog/moneydj）只接受 `outputPath` 一個參數，**不接受日期**。法人類腳本（t86/3insti）參數順序為 `[all|code] [YYYYMMDD] [outputPath]`，日期須填**前一交易日**（`PREV_YYYYMMDD`），非當日——當日法人資料 15:00 後才有，盤前執行必填前一交易日。
 
 ## 篩選標準
 
@@ -318,8 +320,8 @@ node fetch-mops/scripts/fetch_mops.mjs                                          
 node fetch-cnyes/scripts/fetch_cnyes.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
 node fetch-statementdog/scripts/fetch_statementdog.mjs                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
 node fetch-moneydj/scripts/fetch_moneydj.mjs                                       ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
-node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
-node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
+node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
+node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
 
 # 4. 產出報告
 # 語法：node tw-stock-research/scripts/generate_report.mjs [YYYYMMDD] [outputDir]

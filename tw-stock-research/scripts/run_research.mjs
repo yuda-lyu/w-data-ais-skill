@@ -18,6 +18,23 @@ import path from 'path';
 const TODAY      = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
 const SKILLS_DIR = process.argv[3] || process.cwd();
 const OUTPUT_DIR = process.argv[4] || path.join(SKILLS_DIR, 'w-data-news', 'tw-stock-research', TODAY);
+
+// 計算前一個工作日（跳過週六日；公假日仍可能無資料，但屬少數情況）
+function getPreviousTradingDay(dateStr) {
+    const y = parseInt(dateStr.substring(0, 4));
+    const m = parseInt(dateStr.substring(4, 6)) - 1;
+    const d = parseInt(dateStr.substring(6, 8));
+    const dt = new Date(y, m, d);
+    dt.setDate(dt.getDate() - 1);
+    while (dt.getDay() === 0 || dt.getDay() === 6) {
+        dt.setDate(dt.getDate() - 1);
+    }
+    const yyyy = dt.getFullYear();
+    const mm   = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd   = String(dt.getDate()).padStart(2, '0');
+    return `${yyyy}${mm}${dd}`;
+}
+const INST_DATE = getPreviousTradingDay(TODAY);
 const RAW_DIR    = path.join(OUTPUT_DIR, 'raw');
 const ERROR_LOG  = path.join(OUTPUT_DIR, 'error_log.jsonl');
 
@@ -103,10 +120,10 @@ run('fetch-moneydj',      'fetch-moneydj/scripts/fetch_moneydj.mjs',           [
 // 法人資料腳本：接受 [all|code] [YYYYMMDD] [outputPath]
 run('fetch-twse-t86',
     'fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs',
-    ['all', TODAY, raw('institutional_twse.json')], 60000);
+    ['all', INST_DATE, raw('institutional_twse.json')], 60000);
 run('fetch-tpex-3insti',
     'fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs',
-    ['all', TODAY, raw('institutional_tpex.json')], 60000);
+    ['all', INST_DATE, raw('institutional_tpex.json')], 60000);
 
 // ── Step 4: 產出報告 ──────────────────────────────────────────────────────────
 log('產出報告...');
@@ -126,3 +143,5 @@ if (reportResult.status !== 0 || reportResult.error) {
 if (reportResult.stdout) process.stdout.write(reportResult.stdout);
 log(`盤前調研完成 ✅`);
 log(`報告位置：${OUTPUT_DIR}/report_${TODAY}.md`);
+console.log('RESEARCH_COMPLETE=true');
+process.exit(0);
