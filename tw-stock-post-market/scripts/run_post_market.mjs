@@ -6,21 +6,25 @@ import path from 'path';
  * tw-stock-post-market 主控腳本
  * 依序執行盤後所需資料抓取並產出盤後總結報告
  *
- * 用法：node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [outputDir] [preMarketDir]
+ * 用法：node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
  *
  * 參數：
- * 1. YYYYMMDD     (選填)：指定日期，預設為今日。
- * 2. skillsDir    (選填)：技能庫根目錄（node_modules 所在位置），預設為 cwd。
- * 3. outputDir    (選填)：盤後主輸出目錄（raw/ 與 error_log.jsonl 均置於此），
- *                         預設為 <skillsDir>/w-data-news/tw-stock-post-market/<YYYYMMDD>。
- * 4. preMarketDir (選填)：盤前調研輸出目錄（用於比對盤前研判），
- *                         預設為 <skillsDir>/w-data-news/tw-stock-research/<YYYYMMDD>。
+ * 1. YYYYMMDD      (選填)：指定日期，預設為今日。
+ * 2. skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd。
+ * 3. baseOutputDir (選填)：輸出根目錄；腳本會自動在此目錄下建立
+ *                          tw-stock-post-market/<YYYYMMDD>/ 與
+ *                          tw-stock-research/<YYYYMMDD>/ 子目錄。
+ *                          預設為 <skillsDir>/w-data-news。
+ *
+ * 實際輸出目錄：<baseOutputDir>/tw-stock-post-market/<YYYYMMDD>/
+ * 讀取盤前報告：<baseOutputDir>/tw-stock-research/<YYYYMMDD>/
  */
 
-const TODAY        = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const SKILLS_DIR   = process.argv[3] || process.cwd();
-const OUTPUT_DIR   = process.argv[4] || path.join(SKILLS_DIR, 'w-data-news', 'tw-stock-post-market', TODAY);
-const PRE_MARKET_DIR = process.argv[5] || path.join(SKILLS_DIR, 'w-data-news', 'tw-stock-research', TODAY);
+const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const SKILLS_DIR      = process.argv[3] || process.cwd();
+const BASE_OUTPUT_DIR = process.argv[4] || path.join(SKILLS_DIR, 'w-data-news');
+const OUTPUT_DIR      = path.join(BASE_OUTPUT_DIR, 'tw-stock-post-market', TODAY);
+const PRE_MARKET_DIR  = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR      = path.join(OUTPUT_DIR, 'raw');
 const ERROR_LOG    = path.join(OUTPUT_DIR, 'error_log.jsonl');
 

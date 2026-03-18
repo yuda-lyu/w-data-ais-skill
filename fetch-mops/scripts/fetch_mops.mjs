@@ -1,5 +1,4 @@
 import puppeteer from 'puppeteer-core';
-import { map } from 'lodash-es';
 import fs from 'fs';
 import path from 'path';
 
@@ -198,7 +197,7 @@ async function main() {
             await new Promise(r => setTimeout(r, 1000));
         }
 
-        const summary = map(results, (r) => {
+        const summary = results.map((r) => {
             const resultData = r.data && r.data.result ? r.data.result : r.data;
             const count = Array.isArray(resultData) ? resultData.length : 0;
             return `${r.market}: 取得 ${count} 筆資料`;

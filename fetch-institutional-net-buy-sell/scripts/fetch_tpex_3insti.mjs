@@ -116,7 +116,7 @@ async function fetchTpex3Insti() {
             });
 
             if (targetCodes.length > 0) {
-                const codeField = fields.find(f => f.includes('代號'));
+                const codeField = fields.find(f => f.trim() === '代號');
                 if (codeField) {
                     processedData = processedData.filter(item => targetCodes.includes(item[codeField]));
                 } else {

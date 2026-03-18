@@ -48,30 +48,15 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 ## 輸入格式
 
-須從盤前調研報告提取「個股影響總表」JSON 陣列：
+`generate_report.mjs` 直接讀取盤前調研 Markdown 報告（`tw-stock-research/<YYYYMMDD>/report_<YYYYMMDD>.md`），自動解析其中「個股影響總表」的利多/利空兩張表格。
 
-```json
-[
-  {
-    "code": "3481",
-    "name": "群創",
-    "impact": "利多",
-    "reason": "法人買超 7.9 萬張（02/04），漲停 +9.79%"
-  },
-  {
-    "code": "2409",
-    "name": "友達",
-    "impact": "利空",
-    "reason": "鉅亨網報導外資調節"
-  }
-]
-```
+**解析規則**：
+- 段落標題模糊匹配：`### ⬆️ 利多（N 檔）` / `### ⬇️ 利空（N 檔）`（尾端檔數可有可無）
+- 表格欄位（新版，5 欄）：`代碼 | 名稱 | 信心 | 法人動向 | 簡要理由`
+- 表格欄位（舊版，3 欄，相容）：`代碼 | 名稱 | 簡要理由`
+- `impact` 從段落標題推導（`⬆️ 利多` / `⬇️ 利空`）
 
-**欄位說明**：
-- `code`：股票代碼
-- `name`：股票名稱
-- `impact`：`⬆️ 利多` / `⬇️ 利空` / `➖ 中性`（從盤前報告 Markdown 表格提取時含 emoji）
-- `reason`：研判理由
+**無需手動準備任何 JSON 輸入**；只要盤前調研已正常產出報告，盤後腳本即可自動讀取。
 
 ## 執行流程
 
@@ -79,25 +64,30 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 ```bash
 # 語法
-node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [outputDir] [preMarketDir]
+node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 參數說明
-# YYYYMMDD     (選填)：指定日期，預設為今日
-# skillsDir    (選填)：技能庫根目錄（node_modules 所在位置），預設為 cwd
-# outputDir    (選填)：盤後主輸出目錄（raw/ 與 error_log.jsonl 均置於此），
-#                      預設為 <skillsDir>/w-data-news/tw-stock-post-market/<YYYYMMDD>
-# preMarketDir (選填)：盤前調研輸出目錄（用於比對盤前研判），
-#                      預設為 <skillsDir>/w-data-news/tw-stock-research/<YYYYMMDD>
+# YYYYMMDD      (選填)：指定日期，預設為今日
+# skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd
+# baseOutputDir (選填)：輸出根目錄，腳本自動在此建立：
+#                         tw-stock-post-market/<YYYYMMDD>/（盤後輸出）
+#                         tw-stock-research/<YYYYMMDD>/   （讀取盤前報告）
+#                       預設為 <skillsDir>/w-data-news
+#
+# 實際輸出目錄：<baseOutputDir>/tw-stock-post-market/<YYYYMMDD>/
+# 讀取盤前報告：<baseOutputDir>/tw-stock-research/<YYYYMMDD>/
 
 # 範例：從技能庫根目錄執行（最常見）
 node tw-stock-post-market/scripts/run_post_market.mjs 20260316
 
-# 範例：從其他工作路徑執行，明確指定所有目錄
+# 範例：指定基底輸出目錄（傳入 ./w-data-news 即可，勿再加子路徑）
+node tw-stock-post-market/scripts/run_post_market.mjs 20260316 . ./w-data-news
+
+# 範例：從其他工作路徑執行
 node /path/to/w-data-ais-skill/tw-stock-post-market/scripts/run_post_market.mjs \
      20260316 \
      /path/to/w-data-ais-skill \
-     /path/to/output/tw-stock-post-market/20260316 \
-     /path/to/output/tw-stock-research/20260316
+     /path/to/w-data-news
 ```
 
 `run_post_market.mjs` 自動執行以下流程：
@@ -143,7 +133,6 @@ w-data-news/tw-stock-post-market/
     ├── error_log.jsonl             # 錯誤紀錄
     └── raw/
         ├── trading_day.json        # 交易日檢查結果
-        ├── input.json              # （選填）手動準備的個股影響總表；不存在時自動 fallback 解析盤前 Markdown 報告
         ├── prices_twse.json        # fetch-twse all 全市場輸出（MI_INDEX 格式）
         ├── prices_tpex.json        # fetch-tpex all 全市場輸出（tables 格式）
         ├── institutional_twse.json # fetch-institutional-net-buy-sell TWSE T86 輸出
@@ -304,8 +293,10 @@ w-data-news/tw-stock-post-market/
 **解決方法**：
 確保在工作區執行了所有子技能所需的依賴：
 ```bash
-npm install axios cheerio puppeteer-core lodash-es
+npm install axios
 ```
+
+> 盤後技能僅使用 `axios`（fetch-twse / fetch-tpex / fetch-institutional-net-buy-sell 均為純 Axios 腳本），**不需要** `cheerio` 或 `puppeteer-core`（那是盤前技能的依賴）。
 
 ### 2. 找不到盤前報告
 
@@ -317,8 +308,8 @@ npm install axios cheerio puppeteer-core lodash-es
 
 **解決方法**：
 - 確認今日盤前調研是否已成功執行並產出報告。
-- 確認盤前報告路徑是否為 `<preMarketDir>/report_YYYYMMDD.md`（預設為 `w-data-news/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`）。
-- 若使用自訂 `preMarketDir`，請確認傳入的路徑與盤前調研的 `outputDir` 一致。
+- 確認盤前報告路徑是否為 `<baseOutputDir>/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`。
+- 若使用自訂 `baseOutputDir`，請確認與盤前調研使用的 `baseOutputDir` 一致。
 
 ## 快速執行
 
@@ -327,13 +318,13 @@ npm install axios cheerio puppeteer-core lodash-es
 ```bash
 # 從專案根目錄執行，自動依序執行所有步驟
 npm install axios
-node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [outputDir] [preMarketDir]
+node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 範例
 node tw-stock-post-market/scripts/run_post_market.mjs 20260316
 ```
 
-報告產出位置：`<outputDir>/report_YYYYMMDD.md`（預設為 `w-data-news/tw-stock-post-market/YYYYMMDD/report_YYYYMMDD.md`）
+報告產出位置：`<baseOutputDir>/tw-stock-post-market/YYYYMMDD/report_YYYYMMDD.md`（預設 baseOutputDir 為 `w-data-news`）
 
 ### 手動執行（各步驟分開）
 

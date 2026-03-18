@@ -34,13 +34,13 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 ### 前置需求
 1. 確保環境已安裝 Chrome/Chromium (`/usr/bin/google-chrome` 或類似路徑)。
-2. 在工作區安裝依賴：`npm install puppeteer-core lodash-es`。
+2. 在工作區安裝依賴：`npm install puppeteer-core`。
 
 ### 執行方式
 
 > 須從**專案根目錄**（`node_modules` 所在位置）執行。
 
-1. **安裝依賴**：`npm install puppeteer-core lodash-es`。
+1. **安裝依賴**：`npm install puppeteer-core`。
 2. **執行腳本**：`node fetch-mops/scripts/fetch_mops.mjs [outputPath]`
 3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `mops_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
@@ -120,12 +120,12 @@ node fetch-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/20260316/
 ### 1. 執行錯誤 (Module not found)
 
 **症狀**：
-- `Cannot find module 'puppeteer-core'` 或 `lodash-es`
+- `Cannot find module 'puppeteer-core'`
 
 **解決方法**：
 確保在工作區執行了依賴安裝：
 ```bash
-npm install puppeteer-core lodash-es
+npm install puppeteer-core
 ```
 
 ### 2. 伺服器錯誤（502/503 等 5xx）

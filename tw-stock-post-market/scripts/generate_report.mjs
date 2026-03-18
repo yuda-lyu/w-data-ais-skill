@@ -41,40 +41,48 @@ const readJson = (filePath) => {
 };
 
 // 提取盤前研判表
-// 優先讀取 raw/input.json；若不存在，Fallback 解析盤前報告 Markdown
-// 盤前報告格式（新版）：利多/利空分兩張表，各 3 欄（代碼|名稱|簡要理由），impact 從段落標題推導
+// 直接解析盤前 Markdown 報告（無 input.json 中間層）。
+// 盤前報告格式（新版）：
+//   - 利多/利空各一段，段落標題含檔數，如：### ⬆️ 利多（25 檔）
+//   - 表格 5 欄：| 代碼 | 名稱 | 信心 | 法人動向 | 簡要理由 |
+//   - 舊版 3 欄（代碼|名稱|簡要理由）亦相容
 const getPreMarketPredictions = () => {
-    const inputJsonPath = path.join(RAW_DIR, 'input.json');
-    const predictions = readJson(inputJsonPath);
-    if (predictions) return predictions;
-
     const preReportPath = path.join(PRE_MARKET_DIR, `report_${TODAY}.md`);
-    if (fs.existsSync(preReportPath)) {
-        const content = fs.readFileSync(preReportPath, 'utf8');
+    if (!fs.existsSync(preReportPath)) return [];
 
-        const parseSection = (sectionHeader, impactLabel) => {
-            // 抓取該段落標題到下一個 ## / ### 或文末之間的內容
-            const re = new RegExp(sectionHeader.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\s\\S]*?\\| 代碼 \\| 名稱 \\| 簡要理由 \\|([\\s\\S]*?)(?=\\n###|\\n##|$)');
-            const match = content.match(re);
-            if (!match) return [];
-            return match[1].trim().split('\n')
-                .filter(line => line.startsWith('|') && !line.includes('---'))
-                .map(row => {
-                    const cols = row.split('|').map(c => c.trim()).filter(c => c);
-                    if (cols.length >= 3) {
-                        return { code: cols[0], name: cols[1], impact: impactLabel, reason: cols[2] };
-                    }
-                    return null;
-                })
-                .filter(Boolean);
-        };
+    const content = fs.readFileSync(preReportPath, 'utf8');
 
-        const bullish = parseSection('### ⬆️ 利多', '⬆️ 利多');
-        const bearish  = parseSection('### ⬇️ 利空', '⬇️ 利空');
-        const combined = [...bullish, ...bearish];
-        if (combined.length > 0) return combined;
-    }
-    return [];
+    // 段落標題用模糊匹配（忽略尾端的「（N 檔）」）
+    // 欄位順序：代碼(0) | 名稱(1) | 信心(2) | 法人動向(3) | 簡要理由(4)
+    const parseSection = (headerKeyword, impactLabel) => {
+        // 匹配任何包含 headerKeyword 的 ### 標題行
+        const re = new RegExp(
+            `###[^\n]*${headerKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\n]*\n` +
+            `[\\s\\S]*?\\| 代碼[\\s\\S]*?(?=\\n###|\\n##|$)`
+        );
+        const match = content.match(re);
+        if (!match) return [];
+
+        return match[0].split('\n')
+            .filter(line => line.startsWith('|') && !line.includes('---') && !line.includes('代碼'))
+            .map(row => {
+                const cols = row.split('|').map(c => c.trim()).filter(c => c);
+                // 新版 5 欄：代碼(0) 名稱(1) 信心(2) 法人動向(3) 簡要理由(4)
+                if (cols.length >= 5) {
+                    return { code: cols[0], name: cols[1], impact: impactLabel, reason: cols[4] };
+                }
+                // 舊版 3 欄相容：代碼(0) 名稱(1) 簡要理由(2)
+                if (cols.length >= 3) {
+                    return { code: cols[0], name: cols[1], impact: impactLabel, reason: cols[2] };
+                }
+                return null;
+            })
+            .filter(Boolean);
+    };
+
+    const bullish = parseSection('⬆️ 利多', '⬆️ 利多');
+    const bearish  = parseSection('⬇️ 利空', '⬇️ 利空');
+    return [...bullish, ...bearish];
 };
 
 // 取得今日收盤價（由 fetch-twse / fetch-tpex 腳本產出，readJson 已自動解包 status/message 包裝）
@@ -89,14 +97,26 @@ const getPrices = () => {
 
     const twseData = readJson(path.join(RAW_DIR, 'prices_twse.json'));
     // 相容兩種格式：舊版 data9（直接屬性）/ 新版 tables[]（MI_INDEX 改版後）
-    const twsePriceRows = twseData?.data9
-        || twseData?.tables?.find(t => Array.isArray(t?.fields) && t.fields.includes('開盤價'))?.data;
+    let twsePriceRows, twseOpenIdx, twseCloseIdx;
+    if (twseData?.data9) {
+        twsePriceRows = twseData.data9;
+        const f = Array.isArray(twseData.fields9) ? twseData.fields9 : [];
+        twseOpenIdx  = f.indexOf('開盤價'); if (twseOpenIdx  === -1) twseOpenIdx  = 5;
+        twseCloseIdx = f.indexOf('收盤價'); if (twseCloseIdx === -1) twseCloseIdx = 8;
+    } else if (twseData?.tables) {
+        const tbl = twseData.tables.find(t => Array.isArray(t?.fields) && t.fields.includes('開盤價'));
+        if (tbl) {
+            twsePriceRows = tbl.data;
+            twseOpenIdx  = tbl.fields.indexOf('開盤價');
+            twseCloseIdx = tbl.fields.indexOf('收盤價');
+        }
+    }
     if (twsePriceRows) {
         twsePriceRows.forEach(row => {
             const code = (row[0] || '').trim();
             const name = (row[1] || '').trim();
-            const open = parseFloat((row[5] || '').replace(/,/g, ''));
-            const close = parseFloat((row[8] || '').replace(/,/g, ''));
+            const open = parseFloat((row[twseOpenIdx]  || '').replace(/,/g, ''));
+            const close = parseFloat((row[twseCloseIdx] || '').replace(/,/g, ''));
             if (code && !isNaN(open) && !isNaN(close) && open > 0) {
                 combined[code] = {
                     name,

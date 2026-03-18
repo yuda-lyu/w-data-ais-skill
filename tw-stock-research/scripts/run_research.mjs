@@ -6,18 +6,22 @@ import path from 'path';
  * tw-stock-research 主控腳本
  * 依序執行所有資料抓取技能並產出盤前調研報告
  *
- * 用法：node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [outputDir]
+ * 用法：node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
  *
  * 參數：
- * 1. YYYYMMDD  (選填)：指定日期，預設為今日。
- * 2. skillsDir (選填)：技能庫根目錄（node_modules 所在位置），預設為 cwd。
- * 3. outputDir (選填)：主輸出目錄（raw/ 與 error_log.jsonl 均置於此），
- *                      預設為 <skillsDir>/w-data-news/tw-stock-research/<YYYYMMDD>。
+ * 1. YYYYMMDD      (選填)：指定日期，預設為今日。
+ * 2. skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd。
+ * 3. baseOutputDir (選填)：輸出根目錄；腳本會自動在此目錄下建立
+ *                          tw-stock-research/<YYYYMMDD>/ 子目錄。
+ *                          預設為 <skillsDir>/w-data-news。
+ *
+ * 實際輸出目錄：<baseOutputDir>/tw-stock-research/<YYYYMMDD>/
  */
 
-const TODAY      = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const SKILLS_DIR = process.argv[3] || process.cwd();
-const OUTPUT_DIR = process.argv[4] || path.join(SKILLS_DIR, 'w-data-news', 'tw-stock-research', TODAY);
+const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const SKILLS_DIR      = process.argv[3] || process.cwd();
+const BASE_OUTPUT_DIR = process.argv[4] || path.join(SKILLS_DIR, 'w-data-news');
+const OUTPUT_DIR      = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 
 // 往前推一個工作日（跳過週六日）
 function prevWeekday(dateStr) {
@@ -109,12 +113,12 @@ if (tradingCheck.error) {
 
 // ── Step 3: 依序抓取（各步驟失敗不中斷整體流程）────────────────────────────
 // 新聞類腳本：只接受 outputPath，不接受日期參數
-run('fetch-mops',         'fetch-mops/scripts/fetch_mops.mjs',                 [raw('mops.json')],               120000);
+run('fetch-mops',         'fetch-mops/scripts/fetch_mops.mjs',                 [raw('mops.json')],               180000); // 最多 3 分鐘（Puppeteer + 重試）
 run('fetch-cnyes',        'fetch-cnyes/scripts/fetch_cnyes.mjs',               [raw('cnyes.json')],               60000);
 run('fetch-statementdog', 'fetch-statementdog/scripts/fetch_statementdog.mjs', [raw('statementdog.json')],        60000);
 run('fetch-moneydj',      'fetch-moneydj/scripts/fetch_moneydj.mjs',           [raw('moneydj.json')],            300000); // 最多 5 分鐘
 
-// 法人資料腳本：往前偵測，直到找到有效交易日（最多回溯 5 個工作日）
+// 法人資料腳本：往前偵測，直到找到有效交易日（最多回溯 30 個工作日）
 // - 以 TWSE 回應是否成功作為「是否為交易日」的主判斷依據
 // - TWSE 成功後才接著執行 TPEX（同日必然也是交易日）
 const MAX_INST_LOOKBACK = 30;

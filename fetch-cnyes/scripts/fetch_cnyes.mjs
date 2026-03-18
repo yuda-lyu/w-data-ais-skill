@@ -75,7 +75,7 @@ function formatTime(unixSeconds) {
 async function fetchNews() {
     try {
         const now = Math.floor(Date.now() / 1000);
-        const oneDayAgo = now - 86400 * 10;
+        const tenDaysAgo = now - 86400 * 10;
         const url = 'https://api.cnyes.com/media/api/v1/newslist/category/tw_stock';
         const targetTotal = 100;
         let allItems = [];
@@ -88,7 +88,7 @@ async function fetchNews() {
                 page: page,
                 limit: 30,
                 isCategoryHeadline: 1,
-                startAt: oneDayAgo,
+                startAt: tenDaysAgo,
                 endAt: now
             };
 

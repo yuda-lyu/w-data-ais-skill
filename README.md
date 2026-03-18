@@ -100,7 +100,7 @@ node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [ou
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Puppeteer + 內部 API | `fetch_mops.mjs` | `puppeteer-core`, `lodash-es` |
+| `fetch-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Puppeteer + 內部 API | `fetch_mops.mjs` | `puppeteer-core` |
 | `fetch-cnyes` | 抓取鉅亨網台股即時新聞（近 100 筆） | `fetch_cnyes.mjs` | `axios` |
 | `fetch-statementdog` | 抓取財報狗產業分析與個股新聞 | `fetch_statementdog.mjs` | `axios`, `cheerio` |
 | `fetch-moneydj` | 抓取 MoneyDJ 法說/營收新聞（50 頁，~1.5~3 分鐘） | `fetch_moneydj.mjs` | `axios`, `cheerio` |
@@ -155,7 +155,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 ```bash
 # 台股研究相關（最常用）
-npm install axios cheerio puppeteer-core lodash-es
+npm install axios cheerio puppeteer-core
 
 # 僅盤後總結（不含 MOPS）
 npm install axios

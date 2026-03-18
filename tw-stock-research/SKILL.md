@@ -56,22 +56,27 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 ```bash
 # 語法
-node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [outputDir]
+node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 參數說明
-# YYYYMMDD  (選填)：指定日期，預設為今日
-# skillsDir (選填)：技能庫根目錄（node_modules 所在位置），預設為 cwd
-# outputDir (選填)：主輸出目錄（raw/ 與 error_log.jsonl 均置於此），
-#                   預設為 <skillsDir>/w-data-news/tw-stock-research/<YYYYMMDD>
+# YYYYMMDD      (選填)：指定日期，預設為今日
+# skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd
+# baseOutputDir (選填)：輸出根目錄，腳本自動在此建立 tw-stock-research/<YYYYMMDD>/，
+#                       預設為 <skillsDir>/w-data-news
+#
+# 實際輸出目錄：<baseOutputDir>/tw-stock-research/<YYYYMMDD>/
 
 # 範例：從技能庫根目錄執行（最常見）
 node tw-stock-research/scripts/run_research.mjs 20260316
 
-# 範例：從其他工作路徑執行，明確指定技能庫與輸出目錄
+# 範例：指定基底輸出目錄（傳入 ./w-data-news 即可，勿再加子路徑）
+node tw-stock-research/scripts/run_research.mjs 20260316 . ./w-data-news
+
+# 範例：從其他工作路徑執行
 node /path/to/w-data-ais-skill/tw-stock-research/scripts/run_research.mjs \
      20260316 \
      /path/to/w-data-ais-skill \
-     /path/to/output/tw-stock-research/20260316
+     /path/to/w-data-news
 ```
 
 `run_research.mjs` 自動執行以下流程：
@@ -297,7 +302,7 @@ w-data-news/tw-stock-research/
 **解決方法**：
 確保在工作區執行了所有依賴安裝：
 ```bash
-npm install axios cheerio puppeteer-core lodash-es
+npm install axios cheerio puppeteer-core
 ```
 
 ### 2. 瀏覽器未找到
@@ -315,14 +320,14 @@ npm install axios cheerio puppeteer-core lodash-es
 
 ```bash
 # 從專案根目錄執行，自動依序執行所有步驟
-npm install axios cheerio puppeteer-core lodash-es
-node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [outputDir]
+npm install axios cheerio puppeteer-core
+node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 範例
 node tw-stock-research/scripts/run_research.mjs 20260316
 ```
 
-報告產出位置：`<outputDir>/report_YYYYMMDD.md`（預設為 `w-data-news/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`）
+報告產出位置：`<baseOutputDir>/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`（預設 baseOutputDir 為 `w-data-news`）
 
 ### 手動執行（各步驟分開）
 
@@ -332,7 +337,7 @@ mkdir -p ./w-data-news/tw-stock-research/YYYYMMDD/raw
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-news/tw-stock-research/YYYYMMDD/raw/trading_day.json
 
 # 2. 安裝依賴
-npm install axios cheerio puppeteer-core lodash-es
+npm install axios cheerio puppeteer-core
 
 # 3. 依序抓取（outputPath 必須為完整相對路徑）
 node fetch-mops/scripts/fetch_mops.mjs                                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
