@@ -61,14 +61,15 @@ function writeOutput(payload) {
 
 function formatTime(unixSeconds) {
     const date = new Date(unixSeconds * 1000);
-    const pad = (n) => n.toString().padStart(2, '0');
-    const YYYY = date.getFullYear();
-    const MM = pad(date.getMonth() + 1);
-    const DD = pad(date.getDate());
-    const HH = pad(date.getHours());
-    const mm = pad(date.getMinutes());
-    const ss = pad(date.getSeconds());
-    return `${YYYY}-${MM}-${DD} ${HH}:${mm}:${ss}`;
+    // 明確使用台灣時區，避免在 UTC 伺服器環境下時間偏差 8 小時
+    const parts = new Intl.DateTimeFormat('zh-TW', {
+        timeZone: 'Asia/Taipei',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    }).formatToParts(date);
+    const p = Object.fromEntries(parts.filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
 }
 
 async function fetchNews() {

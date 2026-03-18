@@ -19,22 +19,19 @@ const TODAY      = process.argv[2] || new Date().toISOString().slice(0, 10).repl
 const SKILLS_DIR = process.argv[3] || process.cwd();
 const OUTPUT_DIR = process.argv[4] || path.join(SKILLS_DIR, 'w-data-news', 'tw-stock-research', TODAY);
 
-// 計算前一個工作日（跳過週六日；公假日仍可能無資料，但屬少數情況）
-function getPreviousTradingDay(dateStr) {
+// 往前推一個工作日（跳過週六日）
+function prevWeekday(dateStr) {
     const y = parseInt(dateStr.substring(0, 4));
     const m = parseInt(dateStr.substring(4, 6)) - 1;
     const d = parseInt(dateStr.substring(6, 8));
     const dt = new Date(y, m, d);
-    dt.setDate(dt.getDate() - 1);
-    while (dt.getDay() === 0 || dt.getDay() === 6) {
-        dt.setDate(dt.getDate() - 1);
-    }
+    do { dt.setDate(dt.getDate() - 1); } while (dt.getDay() === 0 || dt.getDay() === 6);
     const yyyy = dt.getFullYear();
     const mm   = String(dt.getMonth() + 1).padStart(2, '0');
     const dd   = String(dt.getDate()).padStart(2, '0');
     return `${yyyy}${mm}${dd}`;
 }
-const INST_DATE = getPreviousTradingDay(TODAY);
+
 const RAW_DIR    = path.join(OUTPUT_DIR, 'raw');
 const ERROR_LOG  = path.join(OUTPUT_DIR, 'error_log.jsonl');
 
@@ -117,13 +114,38 @@ run('fetch-cnyes',        'fetch-cnyes/scripts/fetch_cnyes.mjs',               [
 run('fetch-statementdog', 'fetch-statementdog/scripts/fetch_statementdog.mjs', [raw('statementdog.json')],        60000);
 run('fetch-moneydj',      'fetch-moneydj/scripts/fetch_moneydj.mjs',           [raw('moneydj.json')],            300000); // 最多 5 分鐘
 
-// 法人資料腳本：接受 [all|code] [YYYYMMDD] [outputPath]
-run('fetch-twse-t86',
-    'fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs',
-    ['all', INST_DATE, raw('institutional_twse.json')], 60000);
-run('fetch-tpex-3insti',
-    'fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs',
-    ['all', INST_DATE, raw('institutional_tpex.json')], 60000);
+// 法人資料腳本：往前偵測，直到找到有效交易日（最多回溯 5 個工作日）
+// - 以 TWSE 回應是否成功作為「是否為交易日」的主判斷依據
+// - TWSE 成功後才接著執行 TPEX（同日必然也是交易日）
+const MAX_INST_LOOKBACK = 30;
+let instDate = prevWeekday(TODAY);
+let instFetched = false;
+
+for (let i = 0; i < MAX_INST_LOOKBACK; i++) {
+    log(`嘗試法人資料日期：${instDate}（第 ${i + 1} 次）`);
+    const twseOk = run('fetch-twse-t86',
+        'fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs',
+        ['all', instDate, raw('institutional_twse.json')], 60000);
+
+    if (twseOk) {
+        // TWSE 成功 → 確認為交易日，接著抓 TPEX
+        run('fetch-tpex-3insti',
+            'fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs',
+            ['all', instDate, raw('institutional_tpex.json')], 60000);
+        log(`法人資料日期確認：${instDate} ✅`);
+        instFetched = true;
+        break;
+    }
+
+    // TWSE 失敗 → 可能為公假日，繼續往前推
+    log(`${instDate} 無 TWSE 資料（可能為公假日），往前推一個工作日...`);
+    instDate = prevWeekday(instDate);
+}
+
+if (!instFetched) {
+    log(`⚠️ 已回溯 ${MAX_INST_LOOKBACK} 個工作日，仍無法取得法人資料，繼續產出報告`);
+    appendErrorLog('fetch-twse-t86', 'fetch', 'unknown', `回溯 ${MAX_INST_LOOKBACK} 日仍無資料`, '');
+}
 
 // ── Step 4: 產出報告 ──────────────────────────────────────────────────────────
 log('產出報告...');

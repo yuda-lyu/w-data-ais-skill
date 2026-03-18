@@ -216,7 +216,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 npm install axios
 ```
 
-### 2. 查無資料 (很抱歉，沒有符合條件的資料!)
+### 3. 查無資料 (很抱歉，沒有符合條件的資料!)
 
 **原因**：
 - 該日為非交易日（假日）。

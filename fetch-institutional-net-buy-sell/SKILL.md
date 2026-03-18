@@ -151,7 +151,7 @@ node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs 6499,6610 20
 npm install axios
 ```
 
-### 2. 資料缺失
+### 3. 資料缺失
 
 **症狀**：
 - 回傳 `很抱歉，沒有符合條件的資料!`

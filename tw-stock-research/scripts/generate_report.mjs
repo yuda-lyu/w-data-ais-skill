@@ -255,6 +255,7 @@ function analyzeImpact(text) {
         '罰鍰', '違約', '遭罰',
         '利空', '下修', '不如預期',
         '裁員', '衰退', '減產', '敗訴',
+        '不漲反跌', '反跌', '利多出盡', '股價不漲',
     ];
 
     let score = 0;
@@ -278,8 +279,9 @@ function isRoutineDisclosure(title) {
 }
 
 // Compute impact map from all news
-function computeImpactMap(newsItems, nameCodeMap) {
-    const map = new Map(); // code → { name, impact, reason }
+// instMap (optional): code → instNetNum，用於計算法人確認欄位
+function computeImpactMap(newsItems, nameCodeMap, instMap) {
+    const map = new Map(); // code → { name, impact, reason, instNetNum }
     if (Array.isArray(newsItems)) {
         newsItems.forEach(item => {
             const title = item.title || '';
@@ -288,7 +290,8 @@ function computeImpactMap(newsItems, nameCodeMap) {
             if (impact === '➖ 中性') return;
             extractAllStocks(title, nameCodeMap).forEach(stock => {
                 if (!map.has(stock.code)) {
-                    map.set(stock.code, { name: stock.name, impact, reason: title });
+                    const instNetNum = instMap ? (instMap.get(stock.code) ?? null) : null;
+                    map.set(stock.code, { name: stock.name, impact, reason: title, instNetNum });
                 }
             });
         });
@@ -304,18 +307,44 @@ function generateImpactTable(impactMap) {
         return output;
     }
 
-    const bullish = [...impactMap.entries()].filter(([, v]) => v.impact === '⬆️ 利多');
-    const bearish = [...impactMap.entries()].filter(([, v]) => v.impact === '⬇️ 利空');
+    // 信心等級：3=法人方向一致, 2=無法人資料, 1=法人方向相反
+    const getConfidence = (impact, instNetNum) => {
+        const isBullish = impact.includes('利多');
+        if (instNetNum === null) return 2;
+        return ((isBullish && instNetNum > 0) || (!isBullish && instNetNum < 0)) ? 3 : 1;
+    };
+    const confLabel = (c) => c === 3 ? '★★★' : c === 2 ? '★★☆' : '★☆☆';
+
+    // 法人動向欄：顯示 ✅買超/⚠️賣超 + 股數，方向與研判一致為 ✅，相反為 ⚠️
+    const fmtInst = (impact, instNetNum) => {
+        if (instNetNum === null) return '-';
+        const isBullish = impact.includes('利多');
+        const aligned = (isBullish && instNetNum > 0) || (!isBullish && instNetNum < 0);
+        const prefix = aligned ? '✅' : '⚠️';
+        const dir = instNetNum > 0 ? '買超' : '賣超';
+        return `${prefix}${dir} ${Math.abs(instNetNum).toLocaleString()}`;
+    };
 
     const renderTable = (entries) => {
-        let t = `| 代碼 | 名稱 | 簡要理由 |\n`;
-        t += `|------|------|----------|\n`;
-        entries.forEach(([code, info]) => {
+        let t = `| 代碼 | 名稱 | 信心 | 法人動向 | 簡要理由 |\n`;
+        t += `|------|------|------|----------|----------|\n`;
+        // 信心高排前，相同信心維持原序
+        const sorted = [...entries].sort((a, b) =>
+            getConfidence(b[1].impact, b[1].instNetNum) - getConfidence(a[1].impact, a[1].instNetNum)
+        );
+        sorted.forEach(([code, info]) => {
+            const conf = getConfidence(info.impact, info.instNetNum);
+            // 若理由含「漲停」代表前日已大漲，加警示（利多出盡風險）
+            const limitUpWarn = info.impact.includes('利多') && info.reason.includes('漲停')
+                ? '⚠️前日已漲停｜' : '';
             const reason = info.reason.length > 40 ? info.reason.substring(0, 40) + '...' : info.reason;
-            t += `| ${code} | ${info.name} | ${reason} |\n`;
+            t += `| ${code} | ${info.name} | ${confLabel(conf)} | ${fmtInst(info.impact, info.instNetNum)} | ${limitUpWarn}${reason} |\n`;
         });
         return t + '\n';
     };
+
+    const bullish = [...impactMap.entries()].filter(([, v]) => v.impact === '⬆️ 利多');
+    const bearish = [...impactMap.entries()].filter(([, v]) => v.impact === '⬇️ 利空');
 
     output += `### ⬆️ 利多（${bullish.length} 檔）\n\n`;
     output += bullish.length > 0 ? renderTable(bullish) : `(無)\n\n`;
@@ -323,6 +352,7 @@ function generateImpactTable(impactMap) {
     output += `### ⬇️ 利空（${bearish.length} 檔）\n\n`;
     output += bearish.length > 0 ? renderTable(bearish) : `(無)\n\n`;
 
+    output += `> 信心說明：★★★ 法人方向一致｜★★☆ 無法人資料｜★☆☆ 法人方向相反（高風險）\n\n`;
     return output;
 }
 
@@ -341,7 +371,7 @@ function generateDecisionSection(impactMap, twseData, tpexData) {
         .slice(0, 5);
 
     if (twseTop.length > 0 || tpexTop.length > 0) {
-        section += `### 🏦 法人重點買超（今日前5名）\n`;
+        section += `### 🏦 法人重點買超（前一交易日前5名）\n`;
         [...twseTop, ...tpexTop].slice(0, 5).forEach(item => {
             const code = item['證券代號'] || item['代號'] || '';
             const name = item['證券名稱'] || item['名稱'] || '';
@@ -380,8 +410,29 @@ function generateDecisionSection(impactMap, twseData, tpexData) {
     return section;
 }
 
+// --- Build inst code→netNum map (for 法人確認) ---
+function buildInstMap(twseData, tpexData) {
+    const map = new Map(); // code → instNetNum
+    const parseInstNum = (s) => {
+        const n = parseInt(String(s || '0').replace(/,/g, ''), 10);
+        return isNaN(n) ? null : n;
+    };
+    (twseData?.data || []).forEach(item => {
+        const code = String(item['證券代號'] || '').trim();
+        const val  = parseInstNum(item['三大法人買賣超股數']);
+        if (code && val !== null) map.set(code, val);
+    });
+    (tpexData?.data || []).forEach(item => {
+        const code = String(item['代號'] || '').trim();
+        const val  = parseInstNum(item['三大法人買賣超股數合計']);
+        if (code && val !== null) map.set(code, val);
+    });
+    return map;
+}
+
 // --- Build name→code map ---
 const nameCodeMap = buildNameCodeMap(twseData, tpexData, mopsData);
+const instMap     = buildInstMap(twseData, tpexData);
 
 // Collect all news for analysis
 let allNews = [];
@@ -393,7 +444,7 @@ if (moneydjData) {
 }
 
 // Compute impact map once (shared between table + decision section)
-const impactMap = computeImpactMap(allNews, nameCodeMap);
+const impactMap = computeImpactMap(allNews, nameCodeMap, instMap);
 
 let report = `# 台股盤前調研報告（${reportDate}）\n\n`;
 report += `> 調研日期：${TODAY}\n`;
