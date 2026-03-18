@@ -60,29 +60,25 @@ node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutp
 
 # 參數說明
 # YYYYMMDD      (選填)：指定日期，預設為今日
-# skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd
-# baseOutputDir (選填)：輸出根目錄，腳本自動在此建立 tw-stock-research/<YYYYMMDD>/，
-#                       預設為 <skillsDir>/w-data-news
+# skillsDir     (選填)：技能庫根目錄（各子技能腳本與 node_modules 所在位置），預設為 cwd
+# baseOutputDir (選填)：資料輸出根目錄；腳本自動在此建立 tw-stock-research/<YYYYMMDD>/，
+#                       agent 調用時應顯式傳入；若省略僅作本地手動執行時的便利 fallback
 #
 # 實際輸出目錄：<baseOutputDir>/tw-stock-research/<YYYYMMDD>/
 
-# 範例：從技能庫根目錄執行（最常見）
-node tw-stock-research/scripts/run_research.mjs 20260316
-
-# 範例：指定基底輸出目錄（傳入 ./w-data-news 即可，勿再加子路徑）
-node tw-stock-research/scripts/run_research.mjs 20260316 . ./w-data-news
-
-# 範例：從其他工作路徑執行
-node /path/to/w-data-ais-skill/tw-stock-research/scripts/run_research.mjs \
+# 範例：外部 agent 從任意工作目錄執行
+node /path/to/skills-dir/tw-stock-research/scripts/run_research.mjs \
      20260316 \
-     /path/to/w-data-ais-skill \
-     /path/to/w-data-news
+     /path/to/skills-dir \
+     /path/to/base-output-dir
 ```
 
-> 參數區分：
-> - `run_research.mjs` 第 3 個參數是 `baseOutputDir`，請傳入輸出根目錄，例如 `./w-data-news`
-> - `generate_report.mjs` 第 2 個參數才是 `outputDir`，請傳入最終輸出目錄，例如 `./w-data-news/tw-stock-research/YYYYMMDD`
-> - 不要把 `./w-data-news/tw-stock-research/YYYYMMDD` 傳給 `run_research.mjs`，否則腳本會再自動補上 `tw-stock-research/YYYYMMDD`
+> Agent 調用契約：
+> - `skillsDir` 只用來定位技能腳本與依賴，不代表資料輸出位置
+> - `baseOutputDir` 只用來存放資料輸出，不代表技能庫位置
+> - `run_research.mjs` 與 `generate_report.mjs` 都接收 `baseOutputDir`
+> - 腳本會自行推導 `<baseOutputDir>/tw-stock-research/YYYYMMDD/`
+> - 不要把 `./w-data-news/tw-stock-research/YYYYMMDD` 傳給任何一支 research 腳本作為 `baseOutputDir`
 
 `run_research.mjs` 自動執行以下流程：
 
@@ -324,7 +320,7 @@ npm install axios cheerio puppeteer-core
 ### 推薦：使用主控腳本（一行完成）
 
 ```bash
-# 從專案根目錄執行，自動依序執行所有步驟
+# 外部 agent 可從任意工作目錄執行；請顯式傳入 skillsDir 與 baseOutputDir
 npm install axios cheerio puppeteer-core
 node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
@@ -332,7 +328,7 @@ node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutp
 node tw-stock-research/scripts/run_research.mjs 20260316
 ```
 
-報告產出位置：`<baseOutputDir>/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`（預設 baseOutputDir 為 `w-data-news`）
+報告產出位置：`<baseOutputDir>/tw-stock-research/YYYYMMDD/report_YYYYMMDD.md`
 
 ### 手動執行（各步驟分開）
 
@@ -353,7 +349,7 @@ node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all PREV_YYY
 node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
 
 # 4. 產出報告
-# 語法：node tw-stock-research/scripts/generate_report.mjs [YYYYMMDD] [outputDir]
-# 注意：這裡的 outputDir 是最終輸出目錄，不是 baseOutputDir
-node tw-stock-research/scripts/generate_report.mjs YYYYMMDD ./w-data-news/tw-stock-research/YYYYMMDD
+# 語法：node tw-stock-research/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
+# 注意：這裡的 baseOutputDir 是資料根目錄，腳本會自動補上 tw-stock-research/YYYYMMDD
+node tw-stock-research/scripts/generate_report.mjs YYYYMMDD ./w-data-news
 ```

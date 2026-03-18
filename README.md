@@ -90,16 +90,17 @@ node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutp
 node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 單獨產生盤前報告（僅在 raw 資料已備妥時使用）
-node tw-stock-research/scripts/generate_report.mjs [YYYYMMDD] [outputDir]
+node tw-stock-research/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 # 單獨產生盤後報告（僅在 raw 資料已備妥時使用）
-node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [outputDir] [preMarketDir]
+node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 ```
 
 - 容錯機制：任一抓取步驟失敗自動記錄至 `error_log.jsonl`，不中斷整體流程
 - 完成訊號：`RESEARCH_COMPLETE=true` / `POST_MARKET_COMPLETE=true`（stdout）
-- `run_research.mjs` / `run_post_market.mjs` 接收的是 `baseOutputDir`，應傳入輸出根目錄，例如 `./w-data-news`
-- `generate_report.mjs` 接收的是 `outputDir`，應傳入最終輸出目錄，例如 `./w-data-news/tw-stock-post-market/YYYYMMDD`
+- `skillsDir` 只負責定位技能腳本與依賴；`baseOutputDir` 只負責存放資料輸出，兩者應由調用方明確傳入
+- 四支入口腳本都接收 `baseOutputDir`，並在內部自動推導 `tw-stock-research/YYYYMMDD/`、`tw-stock-post-market/YYYYMMDD/` 與 `raw/`
+- `baseOutputDir` 應傳入資料根目錄，例如 `./w-data-news`，不要傳入已含 `tw-stock-research/YYYYMMDD` 或 `tw-stock-post-market/YYYYMMDD` 的最終目錄
 - 輸出位置：`w-data-news/tw-stock-research/YYYYMMDD/` / `w-data-news/tw-stock-post-market/YYYYMMDD/`
 
 ---

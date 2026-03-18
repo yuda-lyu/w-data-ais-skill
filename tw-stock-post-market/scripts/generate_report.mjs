@@ -5,20 +5,36 @@ import path from 'path';
  * 台股盤後總結報告生成器
  * 目的：彙整今日盤後數據，比對盤前研判準確度，並自動產出預判機制分析
  *
- * 用法：node generate_report.mjs [YYYYMMDD] [outputDir] [preMarketDir]
+ * 用法：node generate_report.mjs [YYYYMMDD] [baseOutputDir]
  * 參數：
  * 1. YYYYMMDD     (選填)：指定日期，預設為今日。
- * 2. outputDir    (選填)：盤後主輸出目錄（raw/ 子目錄與報告均置於此），
- *                         預設為 <cwd>/w-data-news/tw-stock-post-market/<YYYYMMDD>。
- * 3. preMarketDir (選填)：盤前調研輸出目錄（用於比對盤前研判），
- *                         預設為 <cwd>/w-data-news/tw-stock-research/<YYYYMMDD>。
+ * 2. baseOutputDir (選填)：資料輸出根目錄；腳本會自動推導：
+ *                         - <baseOutputDir>/tw-stock-post-market/<YYYYMMDD>/
+ *                         - <baseOutputDir>/tw-stock-research/<YYYYMMDD>/
+ *                         agent 調用時應顯式傳入；若省略僅作本地手動執行時的便利 fallback。
  */
 
 const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const POST_MARKET_DIR = process.argv[3] || path.join(process.cwd(), 'w-data-news', 'tw-stock-post-market', TODAY);
-const PRE_MARKET_DIR  = process.argv[4] || path.join(process.cwd(), 'w-data-news', 'tw-stock-research', TODAY);
+const BASE_OUTPUT_INPUT = process.argv[3] || path.join(process.cwd(), 'w-data-news');
+const BASE_OUTPUT_DIR = resolveBaseOutputDir(BASE_OUTPUT_INPUT, process.argv[4]);
+const POST_MARKET_DIR = path.join(BASE_OUTPUT_DIR, 'tw-stock-post-market', TODAY);
+const PRE_MARKET_DIR  = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR         = path.join(POST_MARKET_DIR, 'raw');
 const REPORT_FILE     = path.join(POST_MARKET_DIR, `report_${TODAY}.md`);
+
+function resolveBaseOutputDir(baseOutputPath, legacyPreMarketPath) {
+    const resolved = path.resolve(baseOutputPath);
+    if (path.basename(resolved) === TODAY && path.basename(path.dirname(resolved)) === 'tw-stock-post-market') {
+        return path.dirname(path.dirname(resolved));
+    }
+    if (legacyPreMarketPath) {
+        const legacyResolved = path.resolve(legacyPreMarketPath);
+        if (path.basename(legacyResolved) === TODAY && path.basename(path.dirname(legacyResolved)) === 'tw-stock-research') {
+            return path.dirname(path.dirname(legacyResolved));
+        }
+    }
+    return resolved;
+}
 
 // --- Helper Functions ---
 

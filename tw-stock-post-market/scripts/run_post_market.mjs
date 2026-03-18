@@ -10,11 +10,15 @@ import path from 'path';
  *
  * 參數：
  * 1. YYYYMMDD      (選填)：指定日期，預設為今日。
- * 2. skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd。
+ * 2. skillsDir     (選填)：技能庫根目錄（各子技能腳本與 node_modules 所在位置），預設為 cwd。
  * 3. baseOutputDir (選填)：輸出根目錄；腳本會自動在此目錄下建立
  *                          tw-stock-post-market/<YYYYMMDD>/ 與
  *                          tw-stock-research/<YYYYMMDD>/ 子目錄。
- *                          預設為 <skillsDir>/w-data-news。
+ *                          agent 調用時應顯式傳入；若省略僅作本地手動執行時的便利 fallback。
+ *
+ * skillsDir 與 baseOutputDir 是兩個彼此獨立的根路徑：
+ * - skillsDir 只負責定位技能腳本
+ * - baseOutputDir 只負責存放資料輸出
  *
  * 實際輸出目錄：<baseOutputDir>/tw-stock-post-market/<YYYYMMDD>/
  * 讀取盤前報告：<baseOutputDir>/tw-stock-research/<YYYYMMDD>/
@@ -22,11 +26,21 @@ import path from 'path';
 
 const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
 const SKILLS_DIR      = process.argv[3] || process.cwd();
-const BASE_OUTPUT_DIR = process.argv[4] || path.join(SKILLS_DIR, 'w-data-news');
+const BASE_OUTPUT_DIR = process.argv[4] || path.join(process.cwd(), 'w-data-news');
 const OUTPUT_DIR      = path.join(BASE_OUTPUT_DIR, 'tw-stock-post-market', TODAY);
 const PRE_MARKET_DIR  = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR      = path.join(OUTPUT_DIR, 'raw');
 const ERROR_LOG    = path.join(OUTPUT_DIR, 'error_log.jsonl');
+
+function validateBaseOutputDir(baseDir) {
+    const resolved = path.resolve(baseDir);
+    if (path.basename(resolved) === TODAY && path.basename(path.dirname(resolved)) === 'tw-stock-post-market') {
+        console.error('[run_post_market] baseOutputDir 應傳入資料根目錄，例如 /path/to/w-data-news；不要傳入最終輸出目錄 /path/to/w-data-news/tw-stock-post-market/YYYYMMDD');
+        process.exit(2);
+    }
+}
+
+validateBaseOutputDir(BASE_OUTPUT_DIR);
 
 function log(msg) {
     console.log(`[run_post_market] ${msg}`);
@@ -120,7 +134,7 @@ run('fetch-tpex-3insti',
 log('產出報告...');
 const reportResult = spawnSync(
     'node',
-    [path.join(SKILLS_DIR, 'tw-stock-post-market/scripts/generate_report.mjs'), TODAY, OUTPUT_DIR, PRE_MARKET_DIR],
+    [path.join(SKILLS_DIR, 'tw-stock-post-market/scripts/generate_report.mjs'), TODAY, BASE_OUTPUT_DIR],
     { cwd: SKILLS_DIR, encoding: 'utf8', timeout: 30000 }
 );
 if (reportResult.status !== 0 || reportResult.error) {

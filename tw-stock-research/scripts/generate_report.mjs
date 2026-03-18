@@ -4,17 +4,28 @@ import path from 'path';
 /**
  * 台股盤前調研報告生成器
  *
- * 用法：node generate_report.mjs [YYYYMMDD] [outputDir]
+ * 用法：node generate_report.mjs [YYYYMMDD] [baseOutputDir]
  * 參數：
  * 1. YYYYMMDD  (選填)：指定日期，預設為今日。
- * 2. outputDir (選填)：主輸出目錄（raw/ 子目錄與報告均置於此），
- *                      預設為 <cwd>/w-data-news/tw-stock-research/<YYYYMMDD>。
+ * 2. baseOutputDir (選填)：資料輸出根目錄；腳本會自動推導
+ *                         <baseOutputDir>/tw-stock-research/<YYYYMMDD>/。
+ *                         agent 調用時應顯式傳入；若省略僅作本地手動執行時的便利 fallback。
  */
 
 const TODAY      = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
-const OUTPUT_DIR = process.argv[3] || path.join(process.cwd(), 'w-data-news', 'tw-stock-research', TODAY);
+const BASE_OUTPUT_INPUT = process.argv[3] || path.join(process.cwd(), 'w-data-news');
+const BASE_OUTPUT_DIR = resolveBaseOutputDir(BASE_OUTPUT_INPUT);
+const OUTPUT_DIR = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR    = path.join(OUTPUT_DIR, 'raw');
 const REPORT_FILE = path.join(OUTPUT_DIR, `report_${TODAY}.md`);
+
+function resolveBaseOutputDir(inputPath) {
+    const resolved = path.resolve(inputPath);
+    if (path.basename(resolved) === TODAY && path.basename(path.dirname(resolved)) === 'tw-stock-research') {
+        return path.dirname(path.dirname(resolved));
+    }
+    return resolved;
+}
 
 const readJson = (filename) => {
     const filePath = path.join(RAW_DIR, filename);
