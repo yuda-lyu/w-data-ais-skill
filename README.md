@@ -84,14 +84,22 @@ AI Agent 的技能模組庫。
 
 ```bash
 # 盤前調研（一行完成所有步驟）
-node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [outputDir]
+node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 盤後總結（一行完成所有步驟）
-node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [outputDir] [preMarketDir]
+node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
+
+# 單獨產生盤前報告（僅在 raw 資料已備妥時使用）
+node tw-stock-research/scripts/generate_report.mjs [YYYYMMDD] [outputDir]
+
+# 單獨產生盤後報告（僅在 raw 資料已備妥時使用）
+node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [outputDir] [preMarketDir]
 ```
 
 - 容錯機制：任一抓取步驟失敗自動記錄至 `error_log.jsonl`，不中斷整體流程
 - 完成訊號：`RESEARCH_COMPLETE=true` / `POST_MARKET_COMPLETE=true`（stdout）
+- `run_research.mjs` / `run_post_market.mjs` 接收的是 `baseOutputDir`，應傳入輸出根目錄，例如 `./w-data-news`
+- `generate_report.mjs` 接收的是 `outputDir`，應傳入最終輸出目錄，例如 `./w-data-news/tw-stock-post-market/YYYYMMDD`
 - 輸出位置：`w-data-news/tw-stock-research/YYYYMMDD/` / `w-data-news/tw-stock-post-market/YYYYMMDD/`
 
 ---

@@ -90,6 +90,11 @@ node /path/to/w-data-ais-skill/tw-stock-post-market/scripts/run_post_market.mjs 
      /path/to/w-data-news
 ```
 
+> 參數區分：
+> - `run_post_market.mjs` 第 3 個參數是 `baseOutputDir`，請傳入輸出根目錄，例如 `./w-data-news`
+> - `generate_report.mjs` 第 2 個參數才是 `outputDir`，請傳入最終輸出目錄，例如 `./w-data-news/tw-stock-post-market/YYYYMMDD`
+> - 不要把 `./w-data-news/tw-stock-post-market/YYYYMMDD` 傳給 `run_post_market.mjs`，否則腳本會再自動補上 `tw-stock-post-market/YYYYMMDD`
+
 `run_post_market.mjs` 自動執行以下流程：
 
 ```
@@ -344,6 +349,7 @@ node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all YYYYMMDD
 
 # 4. 產出報告
 # 語法：node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [outputDir] [preMarketDir]
+# 注意：這裡的 outputDir 是最終輸出目錄，不是 baseOutputDir
 node tw-stock-post-market/scripts/generate_report.mjs YYYYMMDD \
      ./w-data-news/tw-stock-post-market/YYYYMMDD \
      ./w-data-news/tw-stock-research/YYYYMMDD
