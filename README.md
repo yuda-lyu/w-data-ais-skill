@@ -64,11 +64,17 @@ AI Agent 的技能模組庫。
 │   └── scripts/
 │       ├── run_post_market.mjs   ← 主控腳本（推薦入口）
 │       └── generate_report.mjs
-└── tw-stock-research/
+├── tw-stock-research/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── run_research.mjs      ← 主控腳本（推薦入口）
+│       └── generate_report.mjs
+├── claude_call_codex/
+│   ├── SKILL.md
+│   └── references/
+└── claude_call_gemini/
     ├── SKILL.md
-    └── scripts/
-        ├── run_research.mjs      ← 主控腳本（推薦入口）
-        └── generate_report.mjs
+    └── references/
 ```
 
 ## 現有技能清單
@@ -102,6 +108,20 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 - 四支入口腳本都接收 `baseOutputDir`，並在內部自動推導 `tw-stock-research/YYYYMMDD/`、`tw-stock-post-market/YYYYMMDD/` 與 `raw/`
 - `baseOutputDir` 應傳入資料根目錄，例如 `./w-data-news`，不要傳入已含 `tw-stock-research/YYYYMMDD` 或 `tw-stock-post-market/YYYYMMDD` 的最終目錄
 - 輸出位置：`w-data-news/tw-stock-research/YYYYMMDD/` / `w-data-news/tw-stock-post-market/YYYYMMDD/`
+
+---
+
+### Multi-Agent 協作類
+
+| 技能 | 說明 | 前置需求 |
+|------|------|----------|
+| `claude_call_codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，實現 Claude + Codex 混合多 agent 工作流程 | `npm install -g @openai/codex` |
+| `claude_call_gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，實現 Claude + Gemini 混合多 agent 工作流程 | `npm install -g @google/gemini-cli` |
+
+- 無腳本，僅提供 `SKILL.md` 操作說明與 `references/` 參考資料
+- 兩個 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
+- Codex：需加 `--config sandbox_workspace_write.network_access=true` 啟用沙箱網路
+- Gemini：預設可連網，以 `cd` 指定工作目錄 + `--yolo` 自動核准
 
 ---
 
