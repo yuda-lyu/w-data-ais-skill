@@ -154,11 +154,24 @@ async function main() {
     }
 
     console.log('啟動瀏覽器...');
-    const browser = await puppeteer.launch({
-        executablePath: executablePath,
-        headless: "new",
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
+    let browser;
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+        try {
+            browser = await puppeteer.launch({
+                executablePath: executablePath,
+                headless: "new",
+                args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                timeout: 60000
+            });
+            break;
+        } catch (e) {
+            const attemptsLeft = MAX_RETRIES + 1 - attempt;
+            if (attemptsLeft <= 0) throw e;
+            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
+            console.warn(`[browser.launch][Retry ${attempt}/${MAX_RETRIES}] ${e.message} — 等待 ${delay / 1000}s 後重試...`);
+            await sleep(delay);
+        }
+    }
 
     try {
         const page = await browser.newPage();
