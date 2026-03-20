@@ -127,7 +127,7 @@ if (tradingCheck.error) {
 
 // ── Step 3: 依序抓取（各步驟失敗不中斷整體流程）────────────────────────────
 // 新聞類腳本：只接受 outputPath，不接受日期參數
-run('fetch-mops',         'fetch-mops/scripts/fetch_mops.mjs',                 [raw('mops.json')],               180000); // 最多 3 分鐘（Puppeteer + 重試）
+run('fetch-mops',         'fetch-mops/scripts/fetch_mops.mjs',                 [raw('mops.json')],               360000); // 最多 6 分鐘（launch retry 60s×N + goto retry + API fetches）
 run('fetch-cnyes',        'fetch-cnyes/scripts/fetch_cnyes.mjs',               [raw('cnyes.json')],               60000);
 run('fetch-statementdog', 'fetch-statementdog/scripts/fetch_statementdog.mjs', [raw('statementdog.json')],        60000);
 run('fetch-moneydj',      'fetch-moneydj/scripts/fetch_moneydj.mjs',           [raw('moneydj.json')],            300000); // 最多 5 分鐘
