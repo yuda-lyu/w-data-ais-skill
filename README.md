@@ -72,7 +72,10 @@ AI Agent 的技能模組庫。
 ├── claude_call_codex/
 │   ├── SKILL.md
 │   └── references/
-└── claude_call_gemini/
+├── claude_call_gemini/
+│   ├── SKILL.md
+│   └── references/
+└── claude_call_opencode/
     ├── SKILL.md
     └── references/
 ```
@@ -117,11 +120,13 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 |------|------|----------|
 | `claude_call_codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，實現 Claude + Codex 混合多 agent 工作流程 | `npm install -g @openai/codex` |
 | `claude_call_gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，實現 Claude + Gemini 混合多 agent 工作流程 | `npm install -g @google/gemini-cli` |
+| `claude_call_opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model 選擇（GPT、Claude、Gemini、Nemotron 等），預設免費模型 | `npm install -g opencode-ai` |
 
 - 無腳本，僅提供 `SKILL.md` 操作說明與 `references/` 參考資料
 - 兩個 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
 - Codex：需加 `--config sandbox_workspace_write.network_access=true` 啟用沙箱網路
 - Gemini：預設可連網，以 `cd` 指定工作目錄 + `--yolo` 自動核准
+- OpenCode：用 `opencode run --agent build` 執行任務，`--agent build` 已預設權限全開，不需額外旗標
 
 ---
 
@@ -199,3 +204,4 @@ npm install axios
 ## License
 
 MIT
+
