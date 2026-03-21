@@ -82,7 +82,26 @@ function isRetryable(error) {
     return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(code);
 }
 
+// ── 本地週末前置檢查（星期六/日無需呼叫 API）──────────────────────────────
+function isWeekend(dateStr) {
+    const y = parseInt(dateStr.substring(0, 4));
+    const m = parseInt(dateStr.substring(4, 6)) - 1;
+    const d = parseInt(dateStr.substring(6, 8));
+    const day = new Date(y, m, d).getDay();
+    return day === 0 || day === 6; // 0=日, 6=六
+}
+
 console.log(`檢查日期：${TODAY}`);
+
+if (isWeekend(TODAY)) {
+    const dayName = ['日', '一', '二', '三', '四', '五', '六'][new Date(parseInt(TODAY.substring(0, 4)), parseInt(TODAY.substring(4, 6)) - 1, parseInt(TODAY.substring(6, 8))).getDay()];
+    const reason = `星期${dayName}，非交易日`;
+    console.log(`結果：非交易日 ❌ (${reason})`);
+    console.log('TRADING_DAY=false');
+    writeOutput({ status: 'success', message: { date: TODAY, tradingDay: false, reason } });
+    process.exit(1);
+}
+
 console.log(`API：${url}`);
 
 async function checkTradingDay() {
@@ -92,10 +111,23 @@ async function checkTradingDay() {
             const json = JSON.parse(body);
             const stat = json.stat || '';
             if (stat === 'OK') {
-                console.log(`結果：交易日 ✅`);
-                console.log('TRADING_DAY=true');
-                writeOutput({ status: 'success', message: { date: TODAY, tradingDay: true } });
-                process.exit(0);
+                // 額外驗證：TWSE 對未來日期可能回傳 stat=OK 但 data 為空陣列
+                const tables = json.tables || [];
+                const firstTable = tables[0] || {};
+                const hasData = Array.isArray(firstTable.data) && firstTable.data.length > 0;
+                if (hasData) {
+                    console.log(`結果：交易日 ✅`);
+                    console.log('TRADING_DAY=true');
+                    writeOutput({ status: 'success', message: { date: TODAY, tradingDay: true } });
+                    process.exit(0);
+                } else {
+                    // stat=OK 但無實際資料 → 視為非交易日（未來日期或非交易日邊界情況）
+                    const reason = 'API 回傳 OK 但無交易資料（可能為未來日期或非交易日）';
+                    console.log(`結果：非交易日 ❌ (${reason})`);
+                    console.log('TRADING_DAY=false');
+                    writeOutput({ status: 'success', message: { date: TODAY, tradingDay: false, reason } });
+                    process.exit(1);
+                }
             } else {
                 // 非交易日不重試（非暫時性狀態）
                 console.log(`結果：非交易日 ❌ (${stat})`);
