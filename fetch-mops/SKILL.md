@@ -33,7 +33,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 由於 MOPS 網站結構複雜（Vue SPA + Anti-bot），建議直接使用本技能附帶的 Puppeteer 腳本進行抓取，穩定性最高。
 
 ### 前置需求
-1. 確保環境已安裝 Chrome/Chromium (`/usr/bin/google-chrome` 或類似路徑)。
+1. 確保環境已安裝 Chrome/Chromium（腳本自動偵測 Windows、Linux、macOS 三平台的瀏覽器路徑）。
 2. 在工作區安裝依賴：`npm install puppeteer-core`。
 
 ### 執行方式

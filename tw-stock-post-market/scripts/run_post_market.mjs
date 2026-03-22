@@ -28,7 +28,6 @@ const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10)
 const SKILLS_DIR      = process.argv[3] || process.cwd();
 const BASE_OUTPUT_DIR = process.argv[4] || path.join(process.cwd(), 'w-data-news');
 const OUTPUT_DIR      = path.join(BASE_OUTPUT_DIR, 'tw-stock-post-market', TODAY);
-const PRE_MARKET_DIR  = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR      = path.join(OUTPUT_DIR, 'raw');
 const ERROR_LOG    = path.join(OUTPUT_DIR, 'error_log.jsonl');
 

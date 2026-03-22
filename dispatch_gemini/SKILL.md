@@ -1,19 +1,18 @@
 ---
-name: claude-call-gemini
-description: This skill should be used when the user asks to "run gemini as an agent", "call gemini", "use gemini cli as agent", "create gemini agent", "multi-agent with gemini", "dispatch task to gemini", "launch gemini", or needs to drive Google Gemini CLI as a subprocess agent within a multi-agent workflow alongside Claude agents.
-version: 1.0.0
+name: dispatch_gemini
+description: This skill should be used when the user asks to "run gemini as an agent", "call gemini", "use gemini cli as agent", "create gemini agent", "multi-agent with gemini", "dispatch task to gemini", "launch gemini", or needs to drive Google Gemini CLI as a subprocess agent within a multi-agent workflow.
 ---
 
-# claude_call_gemini — 以 Gemini CLI 作為 Agent 驅動
+# dispatch_gemini — 以 Gemini CLI 作為 Agent 驅動
 
 ## 概述
 
-此 skill 教導 Claude 如何將 Google Gemini CLI (`gemini`) 作為獨立 agent 執行，
-實現 Claude agent ＋ Gemini agent 混合的多 agent 工作流程。
+此 skill 教導調度 AI 如何將 Google Gemini CLI (`gemini`) 作為獨立 agent 執行，
+實現調度 AI ＋ Gemini agent 混合的多 agent 工作流程。
 
 ## 何時使用此 Skill
 
-- 使用者要求同時派出 Claude agent 和 Gemini agent 執行任務
+- 使用者要求同時派出調度 AI 和 Gemini agent 執行任務
 - 需要利用 Gemini 進行程式碼生成、npm/pip 安裝等需要網路的工作
 - 建立 multi-agent pipeline，各 agent 各司其職寫入不同輸出檔案
 
@@ -70,29 +69,26 @@ gemini --yolo -m gemini-2.5-pro -p "你的任務描述"
 
 ## 多 Agent 工作流程範例
 
-當需要同時派出 Claude agent 和 Gemini agent 時，以 **背景** 方式平行執行：
+當需要同時派出調度 AI 和 Gemini agent 時，以 **背景** 方式平行執行：
 
 ### Step 1: 平行啟動兩個 agent
 
 ```
-# Claude agent — 使用 Agent tool (run_in_background: true)
-prompt: "... 寫入 result_claude.txt"
+# 調度 AI 自身的 subagent（依平台而異，例如 Agent tool / run_in_background）
+prompt: "... 寫入 result_dispatcher.txt"
 
-# Gemini agent — 使用 Bash tool (run_in_background: true)
+# Gemini agent — 使用 Bash/shell 工具（背景執行）
 command: cd 工作路徑/gemini && gemini --yolo -p "... 寫入 result.txt"
 ```
 
-> 注意：Claude subagent（Agent tool）在部分環境下無 Bash 權限，
-> 建議 Claude 側改用 Bash tool 直接執行，Gemini 側同樣用 Bash tool 呼叫 gemini CLI。
-
 ### Step 2: 等待兩者完成後讀取結果
 
-兩個背景任務都完成通知後，再用 `Read` 工具讀取兩個輸出檔案，進行彙整。
+兩個背景任務都完成通知後，再讀取兩個輸出檔案，進行彙整。
 
 ## 輸出結構建議
 
 - 每個 agent 寫入**不同檔案**，避免衝突
-- 命名慣例：`{agent_type}_result.txt`（例：`claude_result.txt`、`gemini_result.txt`）
+- 命名慣例：`{agent_type}_result.txt`（例：`dispatcher_result.txt`、`gemini_result.txt`）
 - 任務描述中明確指定絕對路徑，例如 `d:/tmp/wk/gemini/result.txt`
 
 ## 前置需求確認

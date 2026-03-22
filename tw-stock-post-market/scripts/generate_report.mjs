@@ -16,22 +16,16 @@ import path from 'path';
 
 const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
 const BASE_OUTPUT_INPUT = process.argv[3] || path.join(process.cwd(), 'w-data-news');
-const BASE_OUTPUT_DIR = resolveBaseOutputDir(BASE_OUTPUT_INPUT, process.argv[4]);
+const BASE_OUTPUT_DIR = resolveBaseOutputDir(BASE_OUTPUT_INPUT);
 const POST_MARKET_DIR = path.join(BASE_OUTPUT_DIR, 'tw-stock-post-market', TODAY);
 const PRE_MARKET_DIR  = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR         = path.join(POST_MARKET_DIR, 'raw');
 const REPORT_FILE     = path.join(POST_MARKET_DIR, `report_${TODAY}.md`);
 
-function resolveBaseOutputDir(baseOutputPath, legacyPreMarketPath) {
+function resolveBaseOutputDir(baseOutputPath) {
     const resolved = path.resolve(baseOutputPath);
     if (path.basename(resolved) === TODAY && path.basename(path.dirname(resolved)) === 'tw-stock-post-market') {
         return path.dirname(path.dirname(resolved));
-    }
-    if (legacyPreMarketPath) {
-        const legacyResolved = path.resolve(legacyPreMarketPath);
-        if (path.basename(legacyResolved) === TODAY && path.basename(path.dirname(legacyResolved)) === 'tw-stock-research') {
-            return path.dirname(path.dirname(legacyResolved));
-        }
     }
     return resolved;
 }

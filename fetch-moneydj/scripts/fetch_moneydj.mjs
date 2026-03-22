@@ -62,6 +62,7 @@ async function fetchPage(pageIndex) {
                 responseType: 'arraybuffer'
             });
 
+            // NOTE: MoneyDJ 已確認使用 UTF-8 編碼（多次實測結果正確），無需 Big5 解碼。
             const decoder = new TextDecoder('utf-8');
             const html = decoder.decode(response.data);
             const $ = cheerio.load(html);
@@ -111,6 +112,13 @@ async function main() {
         }
 
         console.log(`Total fetched: ${allNewsItems.length} items.`);
+
+        if (allNewsItems.length === 0) {
+            const errMsg = '抓取到 0 筆新聞，可能是頁面結構改變或 selector 失效，請確認 MoneyDJ 頁面是否正常。';
+            console.error(errMsg);
+            writeOutput({ type: 'error', message: errMsg });
+            process.exit(1);
+        }
 
         const payload = { status: 'success', message: allNewsItems };
         writeOutput(payload);

@@ -1,19 +1,18 @@
 ---
-name: claude-call-codex
-description: This skill should be used when the user asks to "run codex as an agent", "call codex", "use codex cli as agent", "create codex agent", "multi-agent with codex", "dispatch task to codex", "launch codex", or needs to drive OpenAI Codex CLI as a subprocess agent within a multi-agent workflow alongside Claude agents.
-version: 1.0.0
+name: dispatch_codex
+description: This skill should be used when the user asks to "run codex as an agent", "call codex", "use codex cli as agent", "create codex agent", "multi-agent with codex", "dispatch task to codex", "launch codex", or needs to drive OpenAI Codex CLI as a subprocess agent within a multi-agent workflow.
 ---
 
-# claude_call_codex — 以 Codex CLI 作為 Agent 驅動
+# dispatch_codex — 以 Codex CLI 作為 Agent 驅動
 
 ## 概述
 
-此 skill 教導 Claude 如何將 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 執行，
-實現 Claude agent ＋ Codex agent 混合的多 agent 工作流程。
+此 skill 教導調度 AI 如何將 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 執行，
+實現調度 AI ＋ Codex agent 混合的多 agent 工作流程。
 
 ## 何時使用此 Skill
 
-- 使用者要求同時派出 Claude agent 和 Codex agent 執行任務
+- 使用者要求同時派出調度 AI 和 Codex agent 執行任務
 - 需要利用 Codex 進行程式碼生成、npm/pip 安裝等需要網路的工作
 - 建立 multi-agent pipeline，各 agent 各司其職寫入不同輸出檔案
 
@@ -63,15 +62,15 @@ codex exec --full-auto --skip-git-repo-check \
 
 ## 多 Agent 工作流程範例
 
-當需要同時派出 Claude agent 和 Codex agent 時，以 **背景** 方式平行執行：
+當需要同時派出調度 AI 和 Codex agent 時，以 **背景** 方式平行執行：
 
 ### Step 1: 平行啟動兩個 agent
 
 ```
-# Claude agent — 使用 Agent tool (run_in_background: true)
-prompt: "... 寫入 result_claude.txt"
+# 調度 AI 自身的 subagent（依平台而異，例如 Agent tool / run_in_background）
+prompt: "... 寫入 result_dispatcher.txt"
 
-# Codex agent — 使用 Bash tool (run_in_background: true)
+# Codex agent — 使用 Bash/shell 工具（背景執行）
 command: codex exec --full-auto --skip-git-repo-check \
          --config sandbox_workspace_write.network_access=true \
          "... 寫入 result_codex.txt"
@@ -79,12 +78,12 @@ command: codex exec --full-auto --skip-git-repo-check \
 
 ### Step 2: 等待兩者完成後讀取結果
 
-兩個背景任務都完成通知後，再用 `Read` 工具讀取兩個輸出檔案，進行彙整。
+兩個背景任務都完成通知後，再讀取兩個輸出檔案，進行彙整。
 
 ## 輸出結構建議
 
 - 每個 agent 寫入**不同檔案**，避免衝突
-- 命名慣例：`{agent_type}_result.txt`（例：`claude_result.txt`、`codex_result.txt`）
+- 命名慣例：`{agent_type}_result.txt`（例：`dispatcher_result.txt`、`codex_result.txt`）
 - 任務描述中明確指定絕對路徑，例如 `d:/tmp/codex_result.txt`
 
 ## 前置需求確認

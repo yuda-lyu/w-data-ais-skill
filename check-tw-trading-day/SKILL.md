@@ -98,6 +98,7 @@ TRADING_DAY=false
 
 ## 判斷邏輯
 
+- **週末前置檢查**：若指定日期為週六或週日，直接判定為非交易日，不呼叫 API
 - TWSE API `stat === "OK"` → **交易日**
 - TWSE API `stat` 包含「很抱歉」 → **非交易日**
 

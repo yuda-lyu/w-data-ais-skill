@@ -43,7 +43,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 1. **安裝依賴**：`npm install axios`。
 2. **執行腳本**：`node fetch-twse/scripts/fetch_twse.mjs [stockCode|all] [date] [outputPath]`
    - `stockCode`: 股票代碼 (單檔) 或 `all`（全市場）
-   - `date`: YYYYMMDD（例如 20260210）
+   - `date`: YYYYMMDD（例如 20260210）。**注意**：個股查詢（STOCK_DAY）回傳的是該月份**整月**資料而非單日；全市場查詢（MI_INDEX）則為單日資料
    - `outputPath`: 輸出 JSON 檔案路徑
 3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `twse_STOCKCODE_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
