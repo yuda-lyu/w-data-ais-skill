@@ -16,13 +16,13 @@ import * as cheerio from 'cheerio';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: [...] }
- * - 錯誤：{ type: 'error', message: '...' }
+ * - 錯誤：{ status: 'error', message: '...' }
  */
 
 const args = process.argv.slice(2);
 const outputPathArg = args[0];
 
-const TODAY = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const TODAY = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 const outputFile = outputPathArg || `statementdog_${TODAY}.json`;
 
 const url = 'https://statementdog.com/news/latest';
@@ -56,7 +56,8 @@ async function fetchNews() {
             const response = await axios.get(url, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
+                },
+                timeout: 30000,
             });
 
             const $ = cheerio.load(response.data);
@@ -86,7 +87,7 @@ async function fetchNews() {
                 // 頁面結構問題，非暫時性，不重試
                 const errMsg = '抓取到 0 筆新聞，可能是頁面結構改變或 selector 失效，請確認財報狗頁面是否正常。';
                 console.error(errMsg);
-                writeOutput({ type: 'error', message: errMsg });
+                writeOutput({ status: 'error', message: errMsg });
                 process.exit(1);
             }
 
@@ -97,7 +98,7 @@ async function fetchNews() {
             const attemptsLeft = MAX_RETRIES + 1 - attempt;
             if (!isRetryable(error) || attemptsLeft <= 0) {
                 console.error('Error fetching news:', error.message);
-                writeOutput({ type: 'error', message: error.message });
+                writeOutput({ status: 'error', message: error.message });
                 process.exit(1);
             }
             const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
@@ -109,6 +110,6 @@ async function fetchNews() {
 
 fetchNews().catch(err => {
     console.error(err);
-    writeOutput({ type: 'error', message: err.message || String(err) });
+    writeOutput({ status: 'error', message: err.message || String(err) });
     process.exit(1);
 });

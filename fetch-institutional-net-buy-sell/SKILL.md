@@ -117,7 +117,7 @@ node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs 6499,6610 20
 錯誤（兩支腳本相同格式）：
 ```json
 {
-  "type": "error",
+  "status": "error",
   "message": "TWSE T86 API returned: 很抱歉，沒有符合條件的資料!"
 }
 ```

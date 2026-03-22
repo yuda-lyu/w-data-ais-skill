@@ -91,7 +91,7 @@ node fetch-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/20260316/
 錯誤：
 ```json
 {
-  "type": "error",
+  "status": "error",
   "message": "錯誤：找不到 Chrome 或 Edge 瀏覽器。請確認已安裝。"
 }
 ```

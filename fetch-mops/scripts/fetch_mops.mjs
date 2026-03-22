@@ -15,13 +15,13 @@ import path from 'path';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: [...] }
- * - 錯誤：{ type: 'error', message: '...' }
+ * - 錯誤：{ status: 'error', message: '...' }
  */
 
 const args = process.argv.slice(2);
 const outputPathArg = args[0];
 
-const TODAY = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const TODAY = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 const outputFile = outputPathArg || `mops_${TODAY}.json`;
 
 function writeOutput(payload) {
@@ -149,7 +149,7 @@ async function main() {
     if (!executablePath) {
         const errMsg = '錯誤：找不到 Chrome 或 Edge 瀏覽器。請確認已安裝。';
         console.error(errMsg);
-        writeOutput({ type: 'error', message: errMsg });
+        writeOutput({ status: 'error', message: errMsg });
         process.exit(1);
     }
 
@@ -161,18 +161,23 @@ async function main() {
                 executablePath: executablePath,
                 headless: "new",
                 args: ['--no-sandbox', '--disable-setuid-sandbox'],
-                timeout: 60000
+                timeout: 360000
             });
             break;
         } catch (e) {
             const attemptsLeft = MAX_RETRIES + 1 - attempt;
-            if (attemptsLeft <= 0) throw e;
+            if (attemptsLeft <= 0) {
+                console.error(`瀏覽器啟動失敗（已重試 ${MAX_RETRIES} 次）: ${e.message}`);
+                writeOutput({ status: 'error', message: `瀏覽器啟動失敗: ${e.message}` });
+                process.exit(1);
+            }
             const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
             console.warn(`[browser.launch][Retry ${attempt}/${MAX_RETRIES}] ${e.message} — 等待 ${delay / 1000}s 後重試...`);
             await sleep(delay);
         }
     }
 
+    let exitCode = 0;
     try {
         const page = await browser.newPage();
 
@@ -204,6 +209,7 @@ async function main() {
                 market: target.name,
                 marketKind: target.marketKind,
                 data: data.json || data,
+                ...(data.error && { error: data.error }),
                 timestamp: new Date().toISOString()
             });
 
@@ -223,11 +229,12 @@ async function main() {
 
     } catch (error) {
         console.error('發生錯誤:', error.message);
-        writeOutput({ type: 'error', message: error.message });
-        process.exit(1);
+        writeOutput({ status: 'error', message: error.message });
+        exitCode = 1;
     } finally {
         await browser.close();
     }
+    if (exitCode) process.exit(exitCode);
 }
 
 main();

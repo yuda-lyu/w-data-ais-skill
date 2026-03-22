@@ -1,9 +1,9 @@
 ---
-name: dispatch_codex
+name: dispatch-codex
 description: This skill should be used when the user asks to "run codex as an agent", "call codex", "use codex cli as agent", "create codex agent", "multi-agent with codex", "dispatch task to codex", "launch codex", or needs to drive OpenAI Codex CLI as a subprocess agent within a multi-agent workflow.
 ---
 
-# dispatch_codex — 以 Codex CLI 作為 Agent 驅動
+# dispatch-codex — 以 Codex CLI 作為 Agent 驅動
 
 ## 概述
 

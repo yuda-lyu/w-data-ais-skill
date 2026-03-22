@@ -12,7 +12,7 @@ import path from 'path';
  *                         agent 調用時應顯式傳入；若省略僅作本地手動執行時的便利 fallback。
  */
 
-const TODAY      = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const TODAY      = process.argv[2] || new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 const BASE_OUTPUT_INPUT = process.argv[3] || path.join(process.cwd(), 'w-data-news');
 const BASE_OUTPUT_DIR = resolveBaseOutputDir(BASE_OUTPUT_INPUT);
 const OUTPUT_DIR = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
@@ -34,7 +34,7 @@ const readJson = (filename) => {
             const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
             // Unwrap unified output format: { status: 'success', message: <data> }
             if (raw && raw.status === 'success') return raw.message;
-            if (raw && raw.type === 'error') {
+            if (raw && raw.status === 'error') {
                 console.warn(`${filename} contains error: ${raw.message}`);
                 return null;
             }
@@ -248,30 +248,47 @@ function extractAllStocks(text, nameCodeMap) {
 }
 
 // --- Helper for Impact Analysis ---
+// 否定前綴：當關鍵字前方出現這些詞時，反轉該關鍵字的多空方向
+const NEGATION_PREFIXES = ['未能', '無法', '難以', '不再', '未見', '不如預期的'];
+
 function analyzeImpact(text) {
+    // weight ≥ 2: 高確信（具體財務數據）; weight 1: 一般訊號
     const bullish = [
-        '營收創新高', '獲利大增', '獲利暴增', '獲利創新高', '業績創新高',
-        '漲停', '攻漲停', '拉漲停', '連拉',
-        '大買', '買超', '法人買超',
-        '配息創高', '股利創高', '高配息',
-        '強漲', '利多', '優於預期', '上修', '擴產',
-        '創新高', '創高', '完工', '入帳', '法說報喜',
-        '啟動', '啟用', '外資調升', '調升目標價', '衝新高',
-        '大幅成長', '超越預期', '勝訴',
+        { k: '營收創新高', w: 2 }, { k: '獲利大增', w: 2 }, { k: '獲利暴增', w: 2 },
+        { k: '獲利創新高', w: 2 }, { k: '業績創新高', w: 2 },
+        { k: '攻漲停', w: 1 }, { k: '拉漲停', w: 1 }, { k: '漲停', w: 1 }, { k: '連拉', w: 1 },
+        { k: '大買', w: 1 }, { k: '法人買超', w: 1 }, { k: '買超', w: 1 },
+        { k: '配息創高', w: 2 }, { k: '股利創高', w: 2 }, { k: '高配息', w: 1 },
+        { k: '強漲', w: 1 }, { k: '利多', w: 1 }, { k: '優於預期', w: 2 }, { k: '上修', w: 1 }, { k: '擴產', w: 1 },
+        { k: '創新高', w: 1 }, { k: '創高', w: 1 }, { k: '完工', w: 1 }, { k: '入帳', w: 1 }, { k: '法說報喜', w: 2 },
+        { k: '啟動', w: 1 }, { k: '啟用', w: 1 }, { k: '外資調升', w: 2 }, { k: '調升目標價', w: 2 }, { k: '衝新高', w: 1 },
+        { k: '大幅成長', w: 2 }, { k: '超越預期', w: 2 }, { k: '勝訴', w: 1 },
     ];
     const bearish = [
-        '營收衰退', '虧損', '淨損', '虧損擴大',
-        '跌停', '重挫',
-        '大賣', '賣超', '法人賣超',
-        '罰鍰', '違約', '遭罰',
-        '利空', '下修', '不如預期',
-        '裁員', '衰退', '減產', '敗訴',
-        '不漲反跌', '反跌', '利多出盡', '股價不漲',
+        { k: '營收衰退', w: 2 }, { k: '虧損擴大', w: 2 }, { k: '虧損', w: 2 }, { k: '淨損', w: 2 },
+        { k: '跌停', w: 1 }, { k: '重挫', w: 1 },
+        { k: '大賣', w: 1 }, { k: '法人賣超', w: 1 }, { k: '賣超', w: 1 },
+        { k: '罰鍰', w: 1 }, { k: '違約', w: 1 }, { k: '遭罰', w: 1 },
+        { k: '利空', w: 1 }, { k: '下修', w: 1 }, { k: '不如預期', w: 2 },
+        { k: '裁員', w: 1 }, { k: '衰退', w: 1 }, { k: '減產', w: 1 }, { k: '敗訴', w: 1 },
+        { k: '不漲反跌', w: 2 }, { k: '反跌', w: 1 }, { k: '利多出盡', w: 2 }, { k: '股價不漲', w: 1 },
     ];
 
+    // 檢查關鍵字是否被否定前綴修飾（出現在關鍵字前 4 字內）
+    const isNegated = (keyword) => {
+        const idx = text.indexOf(keyword);
+        if (idx <= 0) return false;
+        const prefix = text.substring(Math.max(0, idx - 4), idx);
+        return NEGATION_PREFIXES.some(neg => prefix.includes(neg));
+    };
+
     let score = 0;
-    bullish.forEach(k => { if (text.includes(k)) score++; });
-    bearish.forEach(k => { if (text.includes(k)) score--; });
+    bullish.forEach(({ k, w }) => {
+        if (text.includes(k)) score += isNegated(k) ? -w : w;
+    });
+    bearish.forEach(({ k, w }) => {
+        if (text.includes(k)) score -= isNegated(k) ? -w : w;
+    });
 
     if (score > 0) return '⬆️ 利多';
     if (score < 0) return '⬇️ 利空';

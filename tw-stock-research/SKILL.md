@@ -90,7 +90,7 @@ run_research.mjs
   │
   ├─ 2. 建立輸出目錄 w-data-news/tw-stock-research/YYYYMMDD/raw/
   │
-  ├─ 3. fetch-mops               → raw/mops.json
+  ├─ 3. fetch-mops               → raw/mops.json            ⚠️ 最多 6 分鐘（含 launch retry）
   ├─ 4. fetch-cnyes              → raw/cnyes.json
   ├─ 5. fetch-statementdog       → raw/statementdog.json
   ├─ 6. fetch-moneydj            → raw/moneydj.json        ⚠️ 最多 5 分鐘
@@ -119,7 +119,7 @@ node fetch-statementdog/scripts/fetch_statementdog.mjs                          
 node fetch-moneydj/scripts/fetch_moneydj.mjs                                       ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
 node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
 node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
-node tw-stock-research/scripts/generate_report.mjs YYYYMMDD
+node tw-stock-research/scripts/generate_report.mjs YYYYMMDD ./w-data-news
 ```
 
 > ⚠️ 新聞類腳本（mops/cnyes/statementdog/moneydj）只接受 `outputPath` 一個參數，**不接受日期**。法人類腳本（t86/3insti）參數順序為 `[all|code] [YYYYMMDD] [outputPath]`，日期須填**前一交易日**（`PREV_YYYYMMDD`），非當日——當日法人資料 15:00 後才有，盤前執行必填前一交易日。

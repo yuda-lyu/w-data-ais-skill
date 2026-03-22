@@ -106,7 +106,7 @@ https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_resu
 錯誤：
 ```json
 {
-  "type": "error",
+  "status": "error",
   "message": "TPEX API returned no data. Possibly a holiday or data not yet available."
 }
 ```

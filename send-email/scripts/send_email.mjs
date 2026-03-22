@@ -22,7 +22,7 @@ const TIMEOUT = 30000;       // ms
 
 // ---------- 工具函式 ----------
 function ts() {
-  return new Date().toISOString().replace("T", " ").slice(0, 19);
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Taipei' }).replace("T", " ").slice(0, 19);
 }
 
 function sleep(ms) {
@@ -50,7 +50,7 @@ function parseArgs() {
   if (args[0].endsWith(".json")) {
     const raw = readFileSync(resolve(args[0]), "utf-8");
     const json = JSON.parse(raw);
-    const outputPath = args[1] || `send_email_result_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.json`;
+    const outputPath = args[1] || `send_email_result_${new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, "")}.json`;
     return { payload: json, outputPath };
   }
 
@@ -63,7 +63,7 @@ function parseArgs() {
   const [gas_url, token, to, from, subject, body, outputPath] = args;
   return {
     payload: { gas_url, token, to, from, subject, body },
-    outputPath: outputPath || `send_email_result_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.json`,
+    outputPath: outputPath || `send_email_result_${new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, "")}.json`,
   };
 }
 
@@ -87,7 +87,7 @@ async function sendEmail(payload) {
   if (body) reqBody.body = body;
   if (htmlBody) reqBody.htmlBody = htmlBody;
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
     try {
       const { data } = await axios.post(gas_url, reqBody, {
         headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -106,12 +106,13 @@ async function sendEmail(payload) {
     } catch (err) {
       const status = err.response?.status;
       const isRetryable = !status || status >= 500;
+      const attemptsLeft = MAX_RETRIES + 1 - attempt;
 
-      if (!isRetryable || attempt === MAX_RETRIES) {
+      if (!isRetryable || attemptsLeft <= 0) {
         return {
           status: "error",
           message: err.response
-            ? `HTTP ${status}: ${JSON.stringify(err.response.data)}`
+            ? `HTTP ${status}: ${typeof err.response.data === 'string' ? err.response.data.slice(0, 200) : '伺服器錯誤'}`
             : err.message,
           attempt,
         };

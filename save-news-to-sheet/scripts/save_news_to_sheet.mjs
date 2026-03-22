@@ -6,7 +6,7 @@
 //   模式 B（直接參數）:   node save_news_to_sheet.mjs <gas_url> <token> <itemsNewJSON> [outputPath]
 //
 // payload.json 格式：
-//   { "gas_url", "token", "itemsNew": [ { "url", "time"?, "description", "from" } ] }
+//   { "gas_url", "token", "itemsNew": [ { "type", "url", "time"?, "description"?, "from"? } ] }
 //
 // 輸出：結果一律寫入檔案（JSON），無論成功或錯誤均寫入後才 exit。
 
@@ -22,7 +22,7 @@ const TIMEOUT = 30000;       // ms
 
 // ---------- 工具函式 ----------
 function ts() {
-  return new Date().toISOString().replace("T", " ").slice(0, 19);
+  return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Taipei' }).replace("T", " ").slice(0, 19);
 }
 
 function sleep(ms) {
@@ -35,7 +35,7 @@ function writeResult(outputPath, obj) {
 }
 
 function defaultOutputPath() {
-  return `save_news_result_${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.json`;
+  return `save_news_result_${new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, "")}.json`;
 }
 
 // ---------- 解析參數 ----------
@@ -65,8 +65,15 @@ function parseArgs() {
   }
 
   const [gas_url, token, itemsNewJSON, outputPath] = args;
+  let itemsNew;
+  try {
+    itemsNew = JSON.parse(itemsNewJSON);
+  } catch (e) {
+    console.error(`itemsNewJSON 解析失敗: ${e.message}`);
+    process.exit(1);
+  }
   return {
-    payload: { gas_url, token, itemsNew: JSON.parse(itemsNewJSON) },
+    payload: { gas_url, token, itemsNew },
     outputPath: outputPath || defaultOutputPath(),
   };
 }
@@ -85,14 +92,14 @@ async function saveNews(payload) {
   }
 
   // 驗證每筆資料至少有 url
-  const invalid = itemsNew.filter((item, i) => !item.url);
+  const invalid = itemsNew.filter((item) => !item.url);
   if (invalid.length > 0) {
     return { status: "error", message: `有 ${invalid.length} 筆資料缺少 url 欄位` };
   }
 
   const reqBody = { token, itemsNew };
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
     try {
       const { data } = await axios.post(gas_url, reqBody, {
         headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -108,12 +115,13 @@ async function saveNews(payload) {
     } catch (err) {
       const status = err.response?.status;
       const isRetryable = !status || status >= 500;
+      const attemptsLeft = MAX_RETRIES + 1 - attempt;
 
-      if (!isRetryable || attempt === MAX_RETRIES) {
+      if (!isRetryable || attemptsLeft <= 0) {
         return {
           status: "error",
           message: err.response
-            ? `HTTP ${status}: ${JSON.stringify(err.response.data)}`
+            ? `HTTP ${status}: ${typeof err.response.data === 'string' ? err.response.data.slice(0, 200) : '伺服器錯誤'}`
             : err.message,
           attempt,
         };

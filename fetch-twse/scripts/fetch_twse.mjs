@@ -17,7 +17,7 @@ import path from 'path';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: { ... } }
- * - 錯誤/無資料：{ type: 'error', message: '...' }
+ * - 錯誤/無資料：{ status: 'error', message: '...' }
  */
 
 const args = process.argv.slice(2);
@@ -29,7 +29,7 @@ let dateStr;
 if (dateArg && /^\d{8}$/.test(dateArg)) {
     dateStr = dateArg;
 } else {
-    dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    dateStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 }
 
 const isSingleStock = stockCodeArg.toLowerCase() !== 'all';
@@ -87,7 +87,7 @@ async function fetchTwse() {
                 // 非交易日或無資料，不重試
                 const errMsg = `TWSE API returned: ${data.stat}`;
                 console.error(errMsg);
-                writeOutput({ type: 'error', message: errMsg });
+                writeOutput({ status: 'error', message: errMsg });
                 process.exit(1);
             }
 
@@ -98,7 +98,7 @@ async function fetchTwse() {
             const attemptsLeft = MAX_RETRIES + 1 - attempt;
             if (!isRetryable(error) || attemptsLeft <= 0) {
                 console.error('Error fetching TWSE data:', error.message);
-                writeOutput({ type: 'error', message: error.message });
+                writeOutput({ status: 'error', message: error.message });
                 process.exit(1);
             }
             const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
@@ -110,6 +110,6 @@ async function fetchTwse() {
 
 fetchTwse().catch(err => {
     console.error(err);
-    writeOutput({ type: 'error', message: err.message || String(err) });
+    writeOutput({ status: 'error', message: err.message || String(err) });
     process.exit(1);
 });

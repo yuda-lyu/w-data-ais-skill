@@ -22,7 +22,7 @@ import path from 'path';
  * 實際輸出目錄：<baseOutputDir>/tw-stock-research/<YYYYMMDD>/
  */
 
-const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const TODAY           = process.argv[2] || new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 const SKILLS_DIR      = process.argv[3] || process.cwd();
 const BASE_OUTPUT_DIR = process.argv[4] || path.join(process.cwd(), 'w-data-news');
 const OUTPUT_DIR      = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
@@ -170,7 +170,7 @@ log('產出報告...');
 const reportResult = spawnSync(
     'node',
     [path.join(SKILLS_DIR, 'tw-stock-research/scripts/generate_report.mjs'), TODAY, BASE_OUTPUT_DIR],
-    { cwd: SKILLS_DIR, encoding: 'utf8', timeout: 30000 }
+    { cwd: SKILLS_DIR, encoding: 'utf8', timeout: 300000 }
 );
 if (reportResult.status !== 0 || reportResult.error) {
     appendErrorLog('generate_report', 'report', 'unknown',

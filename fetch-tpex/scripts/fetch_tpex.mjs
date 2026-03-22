@@ -17,7 +17,7 @@ import path from 'path';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: { source, date, count, data } }
- * - 錯誤/無資料：{ type: 'error', message: '...' }
+ * - 錯誤/無資料：{ status: 'error', message: '...' }
  */
 
 const args = process.argv.slice(2);
@@ -29,7 +29,7 @@ let dateStr;
 if (dateArg && /^\d{8}$/.test(dateArg)) {
     dateStr = dateArg;
 } else {
-    dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    dateStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 }
 
 let targetCodes = [];
@@ -100,7 +100,7 @@ async function fetchTpex() {
                 // 無資料 = 非交易日或資料未就緒，不重試
                 const errMsg = 'TPEX API returned no data. Possibly a holiday or data not yet available.';
                 console.error(errMsg);
-                writeOutput({ type: 'error', message: errMsg });
+                writeOutput({ status: 'error', message: errMsg });
                 process.exit(1);
             }
 
@@ -122,7 +122,7 @@ async function fetchTpex() {
 
             if (!retryable || attemptsLeft <= 0) {
                 console.error(`Error fetching TPEX data: ${error.message}`);
-                writeOutput({ type: 'error', message: error.message });
+                writeOutput({ status: 'error', message: error.message });
                 process.exit(1);
             }
 
@@ -135,6 +135,6 @@ async function fetchTpex() {
 
 fetchTpex().catch(err => {
     console.error(err);
-    writeOutput({ type: 'error', message: err.message || String(err) });
+    writeOutput({ status: 'error', message: err.message || String(err) });
     process.exit(1);
 });

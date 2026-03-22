@@ -158,7 +158,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 錯誤：
 ```json
 {
-  "type": "error",
+  "status": "error",
   "message": "TWSE API returned: 很抱歉，沒有符合條件的資料!"
 }
 ```

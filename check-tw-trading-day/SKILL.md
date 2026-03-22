@@ -81,7 +81,7 @@ TRADING_DAY=false
 錯誤：
 ```json
 {
-  "type": "error",
+  "status": "error",
   "message": "API request failed: ..."
 }
 ```

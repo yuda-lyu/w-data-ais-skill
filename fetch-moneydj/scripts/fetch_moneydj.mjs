@@ -16,7 +16,7 @@ import * as cheerio from 'cheerio';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: [...] }
- * - 錯誤：{ type: 'error', message: '...' }
+ * - 錯誤：{ status: 'error', message: '...' }
  *
  * ⚠️ 執行約需 1.5~3 分鐘（50 頁 + 隨機延遲）
  */
@@ -24,7 +24,7 @@ import * as cheerio from 'cheerio';
 const args = process.argv.slice(2);
 const outputPathArg = args[0];
 
-const TODAY = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const TODAY = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 const outputFile = outputPathArg || `moneydj_${TODAY}.json`;
 
 const domain  = 'https://www.moneydj.com';
@@ -116,7 +116,7 @@ async function main() {
         if (allNewsItems.length === 0) {
             const errMsg = '抓取到 0 筆新聞，可能是頁面結構改變或 selector 失效，請確認 MoneyDJ 頁面是否正常。';
             console.error(errMsg);
-            writeOutput({ type: 'error', message: errMsg });
+            writeOutput({ status: 'error', message: errMsg });
             process.exit(1);
         }
 
@@ -125,13 +125,13 @@ async function main() {
 
     } catch (error) {
         console.error('Error in main:', error.message);
-        writeOutput({ type: 'error', message: error.message });
+        writeOutput({ status: 'error', message: error.message });
         process.exit(1);
     }
 }
 
 main().catch(err => {
     console.error(err);
-    writeOutput({ type: 'error', message: err.message || String(err) });
+    writeOutput({ status: 'error', message: err.message || String(err) });
     process.exit(1);
 });

@@ -70,7 +70,7 @@ node fetch-cnyes/scripts/fetch_cnyes.mjs
 錯誤：
 ```json
 {
-  "type": "error",
+  "status": "error",
   "message": "Request failed with status code 503"
 }
 ```

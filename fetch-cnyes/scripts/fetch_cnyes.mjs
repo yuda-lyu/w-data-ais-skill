@@ -15,13 +15,13 @@ import path from 'path';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: [...] }
- * - 錯誤：{ type: 'error', message: '...' }
+ * - 錯誤：{ status: 'error', message: '...' }
  */
 
 const args = process.argv.slice(2);
 const outputPathArg = args[0];
 
-const TODAY = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const TODAY = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 const outputFile = outputPathArg || `cnyes_${TODAY}.json`;
 
 const MAX_RETRIES = 10;
@@ -122,13 +122,13 @@ async function fetchNews() {
     } catch (error) {
         console.error('Error in fetchNews:', error.message);
         if (error.response) console.error('Response data:', error.response.data);
-        writeOutput({ type: 'error', message: error.message });
+        writeOutput({ status: 'error', message: error.message });
         process.exit(1);
     }
 }
 
 fetchNews().catch(err => {
     console.error(err);
-    writeOutput({ type: 'error', message: err.message || String(err) });
+    writeOutput({ status: 'error', message: err.message || String(err) });
     process.exit(1);
 });

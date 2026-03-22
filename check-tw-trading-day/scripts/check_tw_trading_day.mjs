@@ -21,7 +21,7 @@ import path from 'path';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: { date, tradingDay: true/false } }
- * - 錯誤：{ type: 'error', message: '...' }
+ * - 錯誤：{ status: 'error', message: '...' }
  *
  * Exit Code：
  * - 0：交易日
@@ -34,7 +34,7 @@ const outputArg = process.argv[3];
 
 const TODAY = (dateArg && /^\d{8}$/.test(dateArg))
     ? dateArg
-    : new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    : new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 
 const outputFile = outputArg || `check_tw_trading_day_${TODAY}.json`;
 
@@ -142,7 +142,7 @@ async function checkTradingDay() {
             if (!retryable || attemptsLeft <= 0) {
                 console.error(`網路錯誤：${e.message}`);
                 console.log('TRADING_DAY=error');
-                writeOutput({ type: 'error', message: `網路錯誤：${e.message}` });
+                writeOutput({ status: 'error', message: `網路錯誤：${e.message}` });
                 process.exit(2);
             }
 
@@ -156,6 +156,6 @@ async function checkTradingDay() {
 checkTradingDay().catch(e => {
     console.error(`未預期錯誤：${e.message}`);
     console.log('TRADING_DAY=error');
-    writeOutput({ type: 'error', message: `未預期錯誤：${e.message}` });
+    writeOutput({ status: 'error', message: `未預期錯誤：${e.message}` });
     process.exit(2);
 });

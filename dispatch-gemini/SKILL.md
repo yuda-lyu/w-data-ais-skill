@@ -1,9 +1,9 @@
 ---
-name: dispatch_gemini
+name: dispatch-gemini
 description: This skill should be used when the user asks to "run gemini as an agent", "call gemini", "use gemini cli as agent", "create gemini agent", "multi-agent with gemini", "dispatch task to gemini", "launch gemini", or needs to drive Google Gemini CLI as a subprocess agent within a multi-agent workflow.
 ---
 
-# dispatch_gemini — 以 Gemini CLI 作為 Agent 驅動
+# dispatch-gemini — 以 Gemini CLI 作為 Agent 驅動
 
 ## 概述
 
@@ -20,10 +20,10 @@ description: This skill should be used when the user asks to "run gemini as an a
 
 ```bash
 cd "工作目錄路徑"
-gemini --yolo -p "你的任務描述"
+gemini --approval-mode=yolo -p "你的任務描述"
 
 # 指定模型（可選）
-gemini --yolo -m gemini-2.5-pro -p "你的任務描述"
+gemini --approval-mode=yolo -m gemini-2.5-pro -p "你的任務描述"
 ```
 
 ## 模型選擇
@@ -53,7 +53,7 @@ gemini --yolo -m gemini-2.5-pro -p "你的任務描述"
 | 參數 | 必要 | 說明 |
 |------|------|------|
 | `cd` 切換目錄 | ✅ | Gemini 以當前目錄為工作路徑，必須先 cd 到指定位置 |
-| `--yolo` | ✅ | 自動核准所有工具操作（等同 `--approval-mode=yolo`），不需人工確認 |
+| `--approval-mode=yolo` | ✅ | 自動核准所有工具操作，不需人工確認（`--yolo` 為舊版別名，建議改用此參數） |
 | `-p "prompt"` | ✅ | 非互動/headless 模式，直接執行單一任務後退出 |
 | `--sandbox` | ❌ 避免 | 會限制網路存取，導致 npm install 失敗 |
 
@@ -65,7 +65,7 @@ gemini --yolo -m gemini-2.5-pro -p "你的任務描述"
 |----------|------|------|
 | npm install 失敗 | 誤加了 `--sandbox` | 移除 `--sandbox` |
 | 任務在錯誤目錄執行 | 忘記 `cd` 到工作目錄 | 在 gemini 指令前加 `cd "路徑" &&` |
-| 等待人工確認而卡住 | 缺少 `--yolo` | 加上 `--yolo` 或 `--approval-mode=yolo` |
+| 等待人工確認而卡住 | 缺少自動核准參數 | 加上 `--approval-mode=yolo`（`--yolo` 亦可但為舊版別名） |
 
 ## 多 Agent 工作流程範例
 
@@ -78,7 +78,7 @@ gemini --yolo -m gemini-2.5-pro -p "你的任務描述"
 prompt: "... 寫入 result_dispatcher.txt"
 
 # Gemini agent — 使用 Bash/shell 工具（背景執行）
-command: cd 工作路徑/gemini && gemini --yolo -p "... 寫入 result.txt"
+command: cd 工作路徑/gemini && gemini --approval-mode=yolo -p "... 寫入 result.txt"
 ```
 
 ### Step 2: 等待兩者完成後讀取結果
@@ -106,3 +106,5 @@ npm install -g @google/gemini-cli
 ```bash
 export GEMINI_API_KEY=your_key_here
 ```
+
+> **Headless / CI 環境**：`--approval-mode=yolo` 為非互動模式，無法進行 OAuth 互動登入。請事先在本機完成 OAuth 認證（憑證會快取），或改用 `GEMINI_API_KEY` 環境變數。

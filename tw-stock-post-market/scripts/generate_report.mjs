@@ -14,7 +14,7 @@ import path from 'path';
  *                         agent 調用時應顯式傳入；若省略僅作本地手動執行時的便利 fallback。
  */
 
-const TODAY           = process.argv[2] || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const TODAY           = process.argv[2] || new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 const BASE_OUTPUT_INPUT = process.argv[3] || path.join(process.cwd(), 'w-data-news');
 const BASE_OUTPUT_DIR = resolveBaseOutputDir(BASE_OUTPUT_INPUT);
 const POST_MARKET_DIR = path.join(BASE_OUTPUT_DIR, 'tw-stock-post-market', TODAY);
@@ -38,7 +38,7 @@ const readJson = (filePath) => {
             const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
             // Unwrap unified output format: { status: 'success', message: <data> }
             if (raw && raw.status === 'success') return raw.message;
-            if (raw && raw.type === 'error') {
+            if (raw && raw.status === 'error') {
                 console.warn(`${filePath} contains error: ${raw.message}`);
                 return null;
             }
@@ -58,7 +58,10 @@ const readJson = (filePath) => {
 //   - 舊版 3 欄（代碼|名稱|簡要理由）亦相容
 const getPreMarketPredictions = () => {
     const preReportPath = path.join(PRE_MARKET_DIR, `report_${TODAY}.md`);
-    if (!fs.existsSync(preReportPath)) return [];
+    if (!fs.existsSync(preReportPath)) {
+        console.warn(`[盤後] 找不到盤前報告：${preReportPath}，將跳過研判比對`);
+        return [];
+    }
 
     const content = fs.readFileSync(preReportPath, 'utf8');
 
@@ -71,7 +74,10 @@ const getPreMarketPredictions = () => {
             `[\\s\\S]*?\\| 代碼[\\s\\S]*?(?=\\n###|\\n##|$)`
         );
         const match = content.match(re);
-        if (!match) return [];
+        if (!match) {
+            console.warn(`[盤後] 盤前報告中找不到「${headerKeyword}」段落，可能格式已變更`);
+            return [];
+        }
 
         return match[0].split('\n')
             .filter(line => line.startsWith('|') && !line.includes('---') && !line.includes('代碼'))
@@ -92,6 +98,10 @@ const getPreMarketPredictions = () => {
 
     const bullish = parseSection('⬆️ 利多', '⬆️ 利多');
     const bearish  = parseSection('⬇️ 利空', '⬇️ 利空');
+    const total = bullish.length + bearish.length;
+    if (total === 0) {
+        console.warn(`[盤後] 盤前報告解析結果為空（0 檔），請確認報告格式是否正確：${preReportPath}`);
+    }
     return [...bullish, ...bearish];
 };
 
@@ -254,15 +264,17 @@ const describeMatchReason = (pred, price, instNetNum) => {
 /**
  * 自動分類誤判原因，回傳 { label, category }
  * category: '大幅反向' | '明顯反向' | '小幅反向' | '收平' | '法人反向'
- * INST_THRESHOLD: 50萬股，視為明顯機構操作
+ * INST_AMT_THRESHOLD: 以金額（股數×收盤價）判斷法人操作是否顯著，
+ *   避免固定股數門檻對高低價股產生偏差（5000萬 NTD）。
  */
-const INST_THRESHOLD = 500000;
+const INST_AMT_THRESHOLD = 50_000_000;
 const classifyMisjudgment = (pred, price, instNetNum) => {
     const pct = price.changePercent;
     const isBullish = pred.impact.includes('利多');
-    const instOpposes = instNetNum !== null && (
-        (isBullish  && instNetNum < -INST_THRESHOLD) ||
-        (!isBullish && instNetNum >  INST_THRESHOLD)
+    const instAmt = instNetNum !== null ? Math.abs(instNetNum) * price.close : 0;
+    const instOpposes = instNetNum !== null && instAmt >= INST_AMT_THRESHOLD && (
+        (isBullish  && instNetNum < 0) ||
+        (!isBullish && instNetNum > 0)
     );
 
     if (isBullish) {

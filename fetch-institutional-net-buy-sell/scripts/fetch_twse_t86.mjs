@@ -16,7 +16,7 @@ import path from 'path';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: { source, date, data } }
- * - 錯誤/無資料：{ type: 'error', message: '...' }
+ * - 錯誤/無資料：{ status: 'error', message: '...' }
  */
 
 const args = process.argv.slice(2);
@@ -31,7 +31,9 @@ if (dateArg && /^\d{8}$/.test(dateArg)) {
     const d = parseInt(dateArg.substring(6, 8));
     today = new Date(y, m, d);
 } else {
-    today = new Date();
+    const taipeiStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10);
+    const [ty, tm, td] = taipeiStr.split('-').map(Number);
+    today = new Date(ty, tm - 1, td);
 }
 
 let targetCodes = [];
@@ -89,12 +91,19 @@ async function fetchTwseT86() {
                 // 非交易日或無資料，不重試
                 const errMsg = `TWSE T86 API returned: ${data.stat}`;
                 console.error(errMsg);
-                writeOutput({ type: 'error', message: errMsg });
+                writeOutput({ status: 'error', message: errMsg });
                 process.exit(1);
             }
 
             const fields  = data.fields;
             const rawData = data.data;
+
+            if (!rawData) {
+                const errMsg = 'TWSE T86: data not found in response.';
+                console.error(errMsg);
+                writeOutput({ status: 'error', message: errMsg });
+                process.exit(1);
+            }
 
             let parsedData = rawData.map(row => {
                 const obj = {};
@@ -123,7 +132,7 @@ async function fetchTwseT86() {
             const attemptsLeft = MAX_RETRIES + 1 - attempt;
             if (!isRetryable(error) || attemptsLeft <= 0) {
                 console.error('Request failed:', error.message);
-                writeOutput({ type: 'error', message: error.message });
+                writeOutput({ status: 'error', message: error.message });
                 process.exit(1);
             }
             const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
@@ -135,6 +144,6 @@ async function fetchTwseT86() {
 
 fetchTwseT86().catch(err => {
     console.error(err);
-    writeOutput({ type: 'error', message: err.message || String(err) });
+    writeOutput({ status: 'error', message: err.message || String(err) });
     process.exit(1);
 });

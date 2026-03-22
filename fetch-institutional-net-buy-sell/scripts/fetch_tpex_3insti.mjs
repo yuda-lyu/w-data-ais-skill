@@ -16,7 +16,7 @@ import path from 'path';
  *
  * 輸出（file）：
  * - 成功：{ status: 'success', message: { source, date, data } }
- * - 錯誤/無資料：{ type: 'error', message: '...' }
+ * - 錯誤/無資料：{ status: 'error', message: '...' }
  */
 
 const args = process.argv.slice(2);
@@ -31,7 +31,9 @@ if (dateArg && /^\d{8}$/.test(dateArg)) {
     const d = parseInt(dateArg.substring(6, 8));
     today = new Date(y, m, d);
 } else {
-    today = new Date();
+    const taipeiStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10);
+    const [ty, tm, td] = taipeiStr.split('-').map(Number);
+    today = new Date(ty, tm - 1, td);
 }
 
 let targetCodes = [];
@@ -91,7 +93,7 @@ async function fetchTpex3Insti() {
                 // 非交易日或無資料，不重試
                 const errMsg = 'TPEX 3insti: tables not found in response. Possibly a holiday or no data.';
                 console.error(errMsg);
-                writeOutput({ type: 'error', message: errMsg });
+                writeOutput({ status: 'error', message: errMsg });
                 process.exit(1);
             }
 
@@ -102,7 +104,7 @@ async function fetchTpex3Insti() {
             if (!rawData) {
                 const errMsg = 'TPEX 3insti: data not found in table.';
                 console.error(errMsg);
-                writeOutput({ type: 'error', message: errMsg });
+                writeOutput({ status: 'error', message: errMsg });
                 process.exit(1);
             }
 
@@ -133,7 +135,7 @@ async function fetchTpex3Insti() {
             const attemptsLeft = MAX_RETRIES + 1 - attempt;
             if (!isRetryable(error) || attemptsLeft <= 0) {
                 console.error('Request failed:', error.message);
-                writeOutput({ type: 'error', message: error.message });
+                writeOutput({ status: 'error', message: error.message });
                 process.exit(1);
             }
             const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
@@ -145,6 +147,6 @@ async function fetchTpex3Insti() {
 
 fetchTpex3Insti().catch(err => {
     console.error(err);
-    writeOutput({ type: 'error', message: err.message || String(err) });
+    writeOutput({ status: 'error', message: err.message || String(err) });
     process.exit(1);
 });

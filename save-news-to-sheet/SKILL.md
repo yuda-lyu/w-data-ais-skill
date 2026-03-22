@@ -1,9 +1,9 @@
 ---
-name: save_news_to_sheet
+name: save-news-to-sheet
 description: 透過 Google Apps Script Web App API 將新聞資料（itemsNew）寫入 Google Sheet，支援自動去重。適用於 AI Agent 儲存 RSS、爬蟲結果、新聞摘要等場景。
 ---
 
-# save_news_to_sheet — 透過 GAS Web App 儲存新聞至 Google Sheet
+# save-news-to-sheet — 透過 GAS Web App 儲存新聞至 Google Sheet
 
 ## 概述
 
@@ -16,7 +16,7 @@ description: 透過 Google Apps Script Web App API 將新聞資料（itemsNew）
 調度 AI 組成 itemsNew 陣列
 → axios POST 到 GAS /exec
 → GAS 驗證 token
-→ 以 url + description + from 去重
+→ 以 type + url + description + from 去重
 → 寫入新資料至 Sheet
 → 回傳 { ok, addCount, itemsAdd }
 ```
@@ -36,7 +36,7 @@ description: 透過 Google Apps Script Web App API 將新聞資料（itemsNew）
 ### 模式 A：JSON 檔案（推薦，適合大量資料）
 
 ```bash
-node save_news_to_sheet/scripts/save_news_to_sheet.mjs <payload.json> [outputPath]
+node save-news-to-sheet/scripts/save_news_to_sheet.mjs <payload.json> [outputPath]
 ```
 
 payload.json 格式：
@@ -47,6 +47,7 @@ payload.json 格式：
   "token": "your_secret_token",
   "itemsNew": [
     {
+      "type": "news",
       "url": "https://example.com/news-1",
       "time": "2026-03-22 09:00:00",
       "description": "新聞摘要內容",
@@ -59,20 +60,20 @@ payload.json 格式：
 ### 模式 B：直接參數（適合少量資料）
 
 ```bash
-node save_news_to_sheet/scripts/save_news_to_sheet.mjs <gas_url> <token> '<itemsNewJSON>' [outputPath]
+node save-news-to-sheet/scripts/save_news_to_sheet.mjs <gas_url> <token> '<itemsNewJSON>' [outputPath]
 ```
 
 ### 範例
 
 ```bash
 # JSON 模式 — 寄送多筆新聞
-node save_news_to_sheet/scripts/save_news_to_sheet.mjs ./news_payload.json ./result.json
+node save-news-to-sheet/scripts/save_news_to_sheet.mjs ./news_payload.json ./result.json
 
 # 參數模式 — 寄送單筆
-node save_news_to_sheet/scripts/save_news_to_sheet.mjs \
+node save-news-to-sheet/scripts/save_news_to_sheet.mjs \
   "https://script.google.com/macros/s/XXXX/exec" \
   "my_token" \
-  '[{"url":"https://example.com/a","description":"摘要","from":"source"}]'
+  '[{"type":"news","url":"https://example.com/a","time":"2026-03-22 09:00:00","description":"摘要","from":"source"}]'
 ```
 
 ## 資料欄位說明
@@ -82,6 +83,7 @@ node save_news_to_sheet/scripts/save_news_to_sheet.mjs \
 | `gas_url` | ✅ | GAS Web App 部署網址，須以 `/exec` 結尾 |
 | `token` | ✅ | GAS 端設定的驗證 token |
 | `itemsNew` | ✅ | 要新增的資料陣列 |
+| `type` | ⬜ | 資料類型，如 `news`、`rss`、`report`（為去重依據之一） |
 | `url` | ✅ | 資料網址（每筆必填，為去重依據之一） |
 | `time` | ⬜ | 時間字串，若未提供 GAS 端會自動補目前時間 |
 | `description` | ⬜ | 內容摘要（為去重依據之一） |
@@ -89,7 +91,7 @@ node save_news_to_sheet/scripts/save_news_to_sheet.mjs \
 
 ## 去重邏輯
 
-GAS 端以 `url + description + from` 三欄位組合作為唯一鍵：
+GAS 端以 `type + url + description + from` 四欄位組合作為唯一鍵：
 - 若 Sheet 已有相同組合的資料，該筆會被跳過
 - 同一次 POST 內若有重複資料，也會去重
 - `time` 不參與去重比對
@@ -155,6 +157,6 @@ GAS 端以 `url + description + from` 三欄位組合作為唯一鍵：
 
 ```bash
 # 從專案或技能庫或技能所在目錄（具有 `node_modules` 所在位置）執行
-node save_news_to_sheet/scripts/save_news_to_sheet.mjs <payload.json> [outputPath]
-node save_news_to_sheet/scripts/save_news_to_sheet.mjs <gas_url> <token> '<itemsNewJSON>' [outputPath]
+node save-news-to-sheet/scripts/save_news_to_sheet.mjs <payload.json> [outputPath]
+node save-news-to-sheet/scripts/save_news_to_sheet.mjs <gas_url> <token> '<itemsNewJSON>' [outputPath]
 ```

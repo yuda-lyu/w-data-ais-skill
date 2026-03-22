@@ -72,7 +72,7 @@ node fetch-moneydj/scripts/fetch_moneydj.mjs
 錯誤：
 ```json
 {
-  "type": "error",
+  "status": "error",
   "message": "Access denied (403)"
 }
 ```
@@ -80,12 +80,12 @@ node fetch-moneydj/scripts/fetch_moneydj.mjs
 0 筆偵測（selector 失效）：
 ```json
 {
-  "type": "error",
+  "status": "error",
   "message": "抓取到 0 筆新聞，可能是頁面結構改變或 selector 失效，請確認 MoneyDJ 頁面是否正常。"
 }
 ```
 
-> ⚠️ 抓取到 0 筆新聞時視為錯誤（selector 可能失效），輸出 `type: error` 並 exit 1。
+> ⚠️ 抓取到 0 筆新聞時視為錯誤（selector 可能失效），輸出 `status: error` 並 exit 1。
 
 ## 篩選標準
 
