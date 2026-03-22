@@ -79,6 +79,7 @@ JSON 陣列，每筆資料包含以下欄位：
 | `time` | 發布時間（UTC+8 格式：`YYYY-MM-DD HH:mm:ss`） |
 | `description` | 內容摘要或標題 |
 | `from` | 來源名稱（依清單指定） |
+| `type` | 固定值 `"news-ai"`（供 sheet 去重與分類使用，**請勿自行變更**） |
 
 輸出範例：
 
@@ -88,7 +89,8 @@ JSON 陣列，每筆資料包含以下欄位：
     "url": "https://www.ithome.com/0/931/389.htm",
     "time": "2026-03-22 10:13:57",
     "description": "LG Display 量產全球首款可變刷新率筆電面板",
-    "from": "IT之家"
+    "from": "IT之家",
+    "type": "news-ai"
   }
 ]
 ```

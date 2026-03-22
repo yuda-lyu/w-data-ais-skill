@@ -1,6 +1,6 @@
 // fetchNewsAi.mjs — 核心函式：從多個 RSS / 資料來源取得新聞，填入 from，過濾今日與昨日
 //
-// 輸出欄位：{ url, time, description, from }
+// 輸出欄位：{ url, time, description, from, type }（type 固定為 "news-ai"）
 // 依賴技能：fetch-rss、fetch-ai-news-aggregator（動態 import，啟動時偵測路徑是否存在）
 
 import { fileURLToPath } from "node:url";
@@ -97,8 +97,11 @@ export async function fetchNewsAi() {
   // 過濾今日與昨日
   const filtered = filterTodayAndYesterday(allItems);
 
-  // 依時間降冪排序
-  filtered.sort((a, b) => (b.time || "").localeCompare(a.time || ""));
+  // 統一標記 type，避免外部 agent 自行補值導致 sheet 重複
+  const typed = filtered.map((item) => ({ ...item, type: "news-ai" }));
 
-  return filtered;
+  // 依時間降冪排序
+  typed.sort((a, b) => (b.time || "").localeCompare(a.time || ""));
+
+  return typed;
 }
