@@ -32,17 +32,21 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 由於 MOPS 網站結構複雜（Vue SPA + Anti-bot），建議直接使用本技能附帶的 Puppeteer 腳本進行抓取，穩定性最高。
 
-### 前置需求
-1. 確保環境已安裝 Chrome/Chromium（腳本自動偵測 Windows、Linux、macOS 三平台的瀏覽器路徑）。
-2. 在工作區安裝依賴：`npm install puppeteer-core`。
+### 安裝指引
+
+1. 環境需安裝 Chrome 或 Chromium（腳本自動偵測 Windows、Linux、macOS 路徑）
+2. 安裝所需 npm 套件：
+
+```bash
+npm install puppeteer-core
+```
 
 ### 執行方式
 
-> 須從**專案根目錄**（`node_modules` 所在位置）執行。
+> 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
-1. **安裝依賴**：`npm install puppeteer-core`。
-2. **執行腳本**：`node fetch-mops/scripts/fetch_mops.mjs [outputPath]`
-3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `mops_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
+1. **執行腳本**：`node fetch-mops/scripts/fetch_mops.mjs [outputPath]`
+2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `mops_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：輸出至指定路徑
@@ -52,10 +56,11 @@ node fetch-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/20260316/
 ### 腳本邏輯摘要
 - 自動偵測系統瀏覽器路徑。
 - 啟動 Headless Chrome。
-- 前往 MOPS 頁面取得 Session/Referer（導航失敗自動重試，最多 10 次）。
+- 前往 MOPS 頁面取得 Session/Referer（導航失敗自動重試，最多重試 10 次，含初始請求最多執行 11 次）。
 - 使用 `page.evaluate` 於瀏覽器環境內發送 API 請求（每次 API 呼叫均有重試機制）。
 - 依序抓取上市、上櫃、興櫃、公開發行四類公告。
 - 輸出結構化 JSON。
+- **注意**：若任一市場類別抓取失敗（即使其餘成功），整體 `status` 仍為 `"error"`。呼叫端收到 `status: "error"` 時應一律視為有問題並回報，不區分全部失敗或部分失敗。
 
 ## 輸出格式
 
@@ -130,7 +135,7 @@ npm install puppeteer-core
 
 ### 2. 伺服器錯誤（502/503 等 5xx）
 
-腳本內建**自動重試機制**（最多 10 次），遇到以下情況時自動等待後重試：
+腳本內建**自動重試機制**（最多重試 10 次，含初始請求最多執行 11 次），遇到以下情況時自動等待後重試：
 - 頁面導航失敗（`page.goto` 拋出例外）
 - API 回傳 HTTP 5xx 錯誤
 - 瀏覽器內部網路錯誤（`fetch` 拋出例外）
@@ -157,7 +162,7 @@ npm install puppeteer-core
 ## 快速執行
 
 ```bash
-# 從專案根目錄執行
+# 執行時須確保 `node_modules` 可存取
 node fetch-mops/scripts/fetch_mops.mjs [outputPath]
 
 # 範例

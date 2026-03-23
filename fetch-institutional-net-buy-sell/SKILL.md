@@ -34,16 +34,17 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 建議使用本技能附帶的 Node.js 腳本進行抓取，穩定性高且支援完整資料解析。
 
-### 前置需求
-1. 確保環境已安裝 Node.js。
-2. 在工作區安裝依賴：`npm install axios`。
+### 安裝指引
+
+```bash
+npm install axios
+```
 
 ### 執行方式
 
-> 須從**專案根目錄**（`node_modules` 所在位置）執行。
+> 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
-1. **安裝依賴**：`npm install axios`。
-2. **執行抓取**：
+1. **執行抓取**：
    - **TWSE (上市)**: `node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs [stockCode|all] [date] [outputPath]`
    - **TPEX (上櫃)**: `node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs [stockCode|all] [date] [outputPath]`
 
@@ -126,7 +127,7 @@ node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs 6499,6610 20
 
 ### 1. 伺服器錯誤（502/503 等 5xx）
 
-兩支腳本皆內建**自動重試機制**（最多 10 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
+兩支腳本皆內建**自動重試機制**（最多重試 10 次，含初始請求最多執行 11 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
 
 | 重試次 | 等待時間 |
 |--------|---------|

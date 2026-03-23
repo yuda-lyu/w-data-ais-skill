@@ -48,10 +48,15 @@ function parseArgs() {
 
   // 模式 A：第一個參數以 .json 結尾 → 讀取 JSON 檔
   if (args[0].endsWith(".json")) {
-    const raw = readFileSync(resolve(args[0]), "utf-8");
-    const json = JSON.parse(raw);
     const outputPath = args[1] || `send_email_result_${new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, "")}.json`;
-    return { payload: json, outputPath };
+    try {
+      const raw = readFileSync(resolve(args[0]), "utf-8");
+      const json = JSON.parse(raw);
+      return { payload: json, outputPath };
+    } catch (e) {
+      writeResult(outputPath, { status: "error", message: `JSON 檔案讀取或解析失敗: ${e.message}` });
+      process.exit(1);
+    }
   }
 
   // 模式 B：直接傳參數

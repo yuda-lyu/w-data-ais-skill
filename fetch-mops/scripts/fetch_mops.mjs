@@ -224,8 +224,10 @@ async function main() {
 
         console.log('抓取完成。摘要:', summary);
 
-        const payload = { status: 'success', message: results };
+        const hasError = results.some(r => r.error);
+        const payload = { status: hasError ? 'error' : 'success', message: results };
         writeOutput(payload);
+        if (hasError) exitCode = 1;
 
     } catch (error) {
         console.error('發生錯誤:', error.message);

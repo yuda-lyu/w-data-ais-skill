@@ -24,13 +24,17 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞（最新 50 頁）
 由於腳本需抓取 50 頁且包含 Anti-bot 延遲機制，執行時間約需 **1.5 ~ 3 分鐘**。
 調用 `exec` 執行此腳本時，**必須設定足夠的逾時時間 (timeout)** 或使用 **背景執行 (background)**，避免 Process 被提早 Kill。
 
+### 安裝指引
+
+```bash
+npm install axios cheerio
+```
+
 ### 執行方式
 
-> 須從**專案根目錄**（`node_modules` 所在位置）執行。
 > ⚠️ 執行約需 **1.5 ~ 3 分鐘**（50 頁 + 隨機延遲），請確保逾時設定 ≥ 300000 ms 或使用背景執行。
 
-1. **安裝依賴**：`npm install axios cheerio`。
-2. **執行腳本**：`node fetch-moneydj/scripts/fetch_moneydj.mjs [outputPath]`
+1. **執行腳本**：`node fetch-moneydj/scripts/fetch_moneydj.mjs [outputPath]`
 3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `moneydj_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
@@ -87,9 +91,11 @@ node fetch-moneydj/scripts/fetch_moneydj.mjs
 
 > ⚠️ 抓取到 0 筆新聞時視為錯誤（selector 可能失效），輸出 `status: error` 並 exit 1。
 
-## 篩選標準
+## 篩選標準（Agent 層級處理）
 
-### 要抓（會影響股價）
+> ⚠️ 腳本本身**不做任何內容篩選**，會抓取 50 頁內所有新聞項目。以下標準供呼叫方 Agent 在下游過濾時參考：
+
+### 建議保留（會影響股價）
 
 - 法說會內容/展望
 - 營收公告
@@ -97,7 +103,7 @@ node fetch-moneydj/scripts/fetch_moneydj.mjs
 - 產業重大變化
 - 外資報告
 
-### 跳過
+### 建議跳過
 
 - 一般市場評論
 - 技術分析
@@ -112,9 +118,9 @@ MoneyDJ 時間格式：
 
 ## 🔧 常見問題與排除
 
-### 1. 伺服器錯誤（502/503 等 5xx）
+### 1. 伺服器錯誤（502/503 等 5xx）或反爬蟲攔截（403/429）
 
-腳本內建**自動重試機制**（最多 10 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
+腳本內建**自動重試機制**（最多重試 10 次，含初始請求最多執行 11 次），遇到 HTTP 5xx / 403 / 429 或網路錯誤時會自動等待後重試：
 
 | 重試次 | 等待時間 |
 |--------|---------|
@@ -140,7 +146,7 @@ npm install axios cheerio
 ## 快速執行
 
 ```bash
-# 從專案根目錄執行（背景執行避免逾時）
+# 執行時須確保 `node_modules` 可存取（背景執行避免逾時）
 node fetch-moneydj/scripts/fetch_moneydj.mjs [outputPath]
 
 # 範例

@@ -91,7 +91,7 @@ command: cd 工作路徑/gemini && gemini --approval-mode=yolo -p "... 寫入 re
 - 命名慣例：`{agent_type}_result.txt`（例：`dispatcher_result.txt`、`gemini_result.txt`）
 - 任務描述中明確指定絕對路徑，例如 `d:/tmp/wk/gemini/result.txt`
 
-## 前置需求確認
+## 安裝指引
 
 ```bash
 gemini --version   # 確認 gemini-cli 已安裝

@@ -17,7 +17,6 @@ description: 檢查指定日期（或今日）是否為台股交易日。透過 
 
 ## 執行方式
 
-> 須從**專案根目錄**（`node_modules` 所在位置）執行。
 
 ```bash
 # 語法
@@ -44,6 +43,13 @@ API：https://www.twse.com.tw/...
 TRADING_DAY=true
 ```
 
+或（盤前推定）
+
+```
+結果：推定交易日 ✅ (盤前/盤中：API 尚無當日收盤資料，推定為交易日（平日且非 TWSE 已知假日）)
+TRADING_DAY=true
+```
+
 或
 
 ```
@@ -51,17 +57,37 @@ TRADING_DAY=true
 TRADING_DAY=false
 ```
 
+或（API 錯誤時）
+
+```
+結果：API 錯誤
+TRADING_DAY=error
+```
+
 ### 檔案輸出（自動寫入）
 
 **預設檔名**：`check_tw_trading_day_YYYYMMDD.json`（可透過 `outputPath` 參數覆寫）
 
-交易日：
+交易日（有收盤資料）：
 ```json
 {
   "status": "success",
   "message": {
     "date": "20260316",
     "tradingDay": true
+  }
+}
+```
+
+交易日（盤前推定）：
+```json
+{
+  "status": "success",
+  "message": {
+    "date": "20260316",
+    "tradingDay": true,
+    "presumed": true,
+    "reason": "盤前/盤中：API 尚無當日收盤資料，推定為交易日（平日且非 TWSE 已知假日）"
   }
 }
 ```
@@ -98,15 +124,41 @@ TRADING_DAY=false
 
 ## 判斷邏輯
 
-- **週末前置檢查**：若指定日期為週六或週日，直接判定為非交易日，不呼叫 API
-- TWSE API `stat === "OK"` → **交易日**
-- TWSE API `stat` 包含「很抱歉」 → **非交易日**
+```
+1. 週末前置檢查 → 週六/日直接判定非交易日（2019 年起無例外）
+2. TWSE MI_INDEX API 查詢：
+   ├─ stat≠OK（「很抱歉…」）      → 非交易日（TWSE 明確否認）
+   ├─ stat=OK + data 非空         → 交易日（有收盤資料）
+   └─ stat=OK + data 為空         → 依時間區分：
+        ├─ 查詢日期=今日 且 < 14:30 → 推定交易日（盤前/盤中，收盤資料尚未就緒）
+        ├─ 查詢日期=今日 且 ≥ 14:30 → 非交易日（收盤資料應已就緒卻沒有）
+        └─ 查詢日期≠今日            → 非交易日（未來日期或資料不存在）
+3. 網路錯誤（重試 10 次仍失敗）    → TRADING_DAY=error (exit 2)
+```
+
+### 為什麼 stat=OK + data=[] 不等於非交易日？
+
+MI_INDEX 是「每日**收盤**行情」API（約 14:30~16:00 更新），不是交易日曆 API：
+- **國定假日**：TWSE 回傳 `stat≠OK`（明確否認），不會走到 data=[] 分支
+- **盤前查當日**：TWSE 回傳 `stat=OK`（未否認交易日），但收盤資料尚未產生 → data=[]
+- **未來日期**：同樣 `stat=OK` + data=[]，因日期有效但資料不存在
+
+因此 `stat=OK + data=[]` 需結合「是否為當日」和「當前時間」判斷。
+
+### 盤前推定的安全性
+
+推定為交易日時，JSON 輸出包含 `"presumed": true` 欄位。推定的前提：
+1. 已通過 isWeekend() → 不是週六日
+2. TWSE 回傳 stat=OK → **未被 TWSE 日曆標記為假日**
+3. 當前時間 < 14:30 → 收盤資料確實尚未就緒
+
+唯一誤判風險：颱風假等**臨時停市**（TWSE 可能來不及更新 API）。此情形極罕見（一年 0~2 次），且後續子腳本會各自失敗並記錄錯誤，不會產生錯誤資料。
 
 ## 🔧 常見問題與排除
 
 ### 1. 伺服器錯誤（502/503 等 5xx）
 
-腳本內建**自動重試機制**（最多 10 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
+腳本內建**自動重試機制**（最多重試 10 次，含初始請求最多執行 11 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
 
 | 重試次 | 等待時間 |
 |--------|---------|
@@ -123,7 +175,7 @@ TRADING_DAY=false
 ## 快速執行
 
 ```bash
-# 從專案根目錄執行
+# 執行時須確保 `node_modules` 可存取
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPath]
 # 讀取 stdout 中的 TRADING_DAY=true/false
 # 若 TRADING_DAY=false，跳過後續台股任務

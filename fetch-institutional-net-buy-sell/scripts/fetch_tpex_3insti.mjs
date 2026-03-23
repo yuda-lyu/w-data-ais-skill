@@ -30,6 +30,10 @@ if (dateArg && /^\d{8}$/.test(dateArg)) {
     const m = parseInt(dateArg.substring(4, 6)) - 1;
     const d = parseInt(dateArg.substring(6, 8));
     today = new Date(y, m, d);
+    if (today.getFullYear() !== y || today.getMonth() !== m || today.getDate() !== d) {
+        console.error(`日期無效：${dateArg}`);
+        process.exit(1);
+    }
 } else {
     const taipeiStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10);
     const [ty, tm, td] = taipeiStr.split('-').map(Number);
@@ -119,11 +123,13 @@ async function fetchTpex3Insti() {
             });
 
             if (targetCodes.length > 0) {
-                const codeField = fields.find(f => f.trim() === '代號');
+                const codeField = fields.find(f => f === '代號') || fields.find(f => f === '證券代號') || fields.find(f => f.includes('代號'));
                 if (codeField) {
                     processedData = processedData.filter(item => targetCodes.includes(item[codeField]));
                 } else {
-                    console.warn('Cannot filter by code: code field not found in response');
+                    console.error('[fetch-tpex-3insti] 無法篩選個股：回應中找不到「代號」欄位，中止以避免回傳未過濾的全市場資料');
+                    writeOutput({ status: 'error', message: '無法篩選個股：API 回應中找不到代號欄位' });
+                    process.exit(1);
                 }
             }
 

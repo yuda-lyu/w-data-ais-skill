@@ -21,6 +21,7 @@ const POST_MARKET_DIR = path.join(BASE_OUTPUT_DIR, 'tw-stock-post-market', TODAY
 const PRE_MARKET_DIR  = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR         = path.join(POST_MARKET_DIR, 'raw');
 const REPORT_FILE     = path.join(POST_MARKET_DIR, `report_${TODAY}.md`);
+const ERROR_LOG       = path.join(POST_MARKET_DIR, 'error_log.jsonl');
 
 function resolveBaseOutputDir(baseOutputPath) {
     const resolved = path.resolve(baseOutputPath);
@@ -31,6 +32,21 @@ function resolveBaseOutputDir(baseOutputPath) {
 }
 
 // --- Helper Functions ---
+
+function appendErrorLog(source, phase, type, message) {
+    try {
+        fs.mkdirSync(path.dirname(ERROR_LOG), { recursive: true });
+        const entry = {
+            timestamp: new Date().toISOString(),
+            date: TODAY,
+            source,
+            phase,
+            error: { type, message },
+            resolution: 'failed',
+        };
+        fs.appendFileSync(ERROR_LOG, JSON.stringify(entry) + '\n');
+    } catch (_) { /* ignore log errors */ }
+}
 
 const readJson = (filePath) => {
     try {
@@ -59,7 +75,9 @@ const readJson = (filePath) => {
 const getPreMarketPredictions = () => {
     const preReportPath = path.join(PRE_MARKET_DIR, `report_${TODAY}.md`);
     if (!fs.existsSync(preReportPath)) {
-        console.warn(`[盤後] 找不到盤前報告：${preReportPath}，將跳過研判比對`);
+        const msg = `找不到盤前報告：${preReportPath}，將跳過研判比對`;
+        console.warn(`[盤後] ${msg}`);
+        appendErrorLog('generate_report', 'pre-market', 'file_not_found', msg);
         return [];
     }
 
@@ -75,7 +93,9 @@ const getPreMarketPredictions = () => {
         );
         const match = content.match(re);
         if (!match) {
-            console.warn(`[盤後] 盤前報告中找不到「${headerKeyword}」段落，可能格式已變更`);
+            const msg = `盤前報告中找不到「${headerKeyword}」段落，可能格式已變更`;
+            console.warn(`[盤後] ${msg}`);
+            appendErrorLog('generate_report', 'pre-market', 'section_not_found', msg);
             return [];
         }
 
@@ -100,7 +120,9 @@ const getPreMarketPredictions = () => {
     const bearish  = parseSection('⬇️ 利空', '⬇️ 利空');
     const total = bullish.length + bearish.length;
     if (total === 0) {
-        console.warn(`[盤後] 盤前報告解析結果為空（0 檔），請確認報告格式是否正確：${preReportPath}`);
+        const msg = `盤前報告解析結果為空（0 檔），請確認報告格式是否正確：${preReportPath}`;
+        console.warn(`[盤後] ${msg}`);
+        appendErrorLog('generate_report', 'pre-market', 'empty_parse_result', msg);
     }
     return [...bullish, ...bearish];
 };
@@ -304,6 +326,10 @@ let report = `# 台股盤後總結報告（${reportDate}）\n\n`;
 report += `> 執行時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}\n`;
 report += `> 盤前調研：[report_${TODAY}.md](../../tw-stock-research/${TODAY}/report_${TODAY}.md)\n`;
 report += `> 資料來源：證交所、櫃買中心\n\n`;
+
+if (predictions.length === 0) {
+    report += `> ⚠️ **警告：盤前研判資料為空**（找不到盤前報告或解析結果為 0 檔），以下研判驗證區塊將無內容。\n\n`;
+}
 
 let stats = { total: 0, correct: 0, wrong: 0, neutral: 0,
               bullishTotal: 0, bullishCorrect: 0, bearishTotal: 0, bearishCorrect: 0 };

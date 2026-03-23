@@ -13,20 +13,21 @@ description: 取得 AI News Aggregator 最近 24 小時的 AI 新聞並轉換為
 
 ```text
 固定資料來源 URL（latest-24h.json）
-→ axios GET 取得 JSON（內建重試機制：5xx / 網路錯誤自動重試最多 5 次，線性遞增退避 3s→6s→…→15s）
+→ axios GET 取得 JSON（內建重試機制：5xx / 網路錯誤自動重試最多 5 次，含初始請求最多執行 6 次，線性遞增退避 3s→6s→…→15s）
 → 解析 items 陣列
-→ 轉換為統一格式 { url, time, description, from }
+→ 轉換為統一格式 { url, time, title, description, from }
 → 輸出 JSON 陣列
 ```
 
-## 前置需求
+## 安裝指引
 
-1. Node.js 已安裝
-2. 依賴已安裝：`npm install axios`
+```bash
+npm install axios
+```
 
 ## 執行方式
 
-> 須從**專案或技能庫或技能所在目錄**（具有 `node_modules` 所在位置）執行。
+> 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
 ### 基本用法
 
@@ -54,7 +55,8 @@ JSON 陣列，每筆資料包含以下欄位：
 |------|------|
 | `url` | 新聞文章連結 |
 | `time` | 發布時間（已轉換為 UTC+8 格式：`YYYY-MM-DD HH:mm:ss`） |
-| `description` | 新聞標題 |
+| `title` | 新聞標題 |
+| `description` | 空字串（此來源無摘要） |
 | `from` | 新聞來源 |
 
 輸出範例：
@@ -64,7 +66,8 @@ JSON 陣列，每筆資料包含以下欄位：
   {
     "url": "https://example.com/article",
     "time": "2026-03-22 08:49:15",
-    "description": "AI 新聞標題",
+    "title": "AI 新聞標題",
+    "description": "",
     "from": "TechCrunch"
   }
 ]
@@ -81,13 +84,13 @@ JSON 陣列，每筆資料包含以下欄位：
 | 錯誤 | 原因 | 解法 |
 |------|------|------|
 | `Request failed with status code 404` | 資料來源 URL 失效 | 確認 GitHub 原始檔案路徑是否變更 |
-| `timeout of 30000ms exceeded` | GitHub 回應過慢 | 已內建自動重試（最多 5 次），仍失敗請確認網路連線 |
-| `Request failed with status code 5xx` | 伺服器暫時錯誤 | 已內建自動重試（最多 5 次，線性遞增退避），仍失敗請稍後再試 |
+| `timeout of 30000ms exceeded` | GitHub 回應過慢 | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），仍失敗請確認網路連線 |
+| `Request failed with status code 5xx` | 伺服器暫時錯誤 | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次，線性遞增退避），仍失敗請稍後再試 |
 | `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios` |
 
 ## 快速執行
 
 ```bash
-# 從專案或技能庫或技能所在目錄（具有 `node_modules` 所在位置）執行
+# 執行時須確保 `node_modules` 可存取
 node fetch-ai-news-aggregator/scripts/fetch_ai_news_aggregator.mjs [outputPath]
 ```

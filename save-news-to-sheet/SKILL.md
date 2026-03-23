@@ -16,22 +16,26 @@ description: 透過 Google Apps Script Web App API 將新聞資料（itemsNew）
 調度 AI 組成 itemsNew 陣列
 → axios POST 到 GAS /exec
 → GAS 驗證 token
-→ 以 type + url + description + from 去重
+→ 以 type + url + title + description + from 去重
 → 寫入新資料至 Sheet
 → 回傳 { ok, addCount, itemsAdd }
 ```
 
+## 安裝指引
+
+```bash
+npm install axios
+```
+
 ## 前置需求
 
-1. Node.js 已安裝
-2. 依賴已安裝：`npm install axios`
-3. 使用者須提供：
-   - `gas_url` — GAS Web App 部署網址（須以 `/exec` 結尾）
-   - `token` — GAS 端設定的驗證 token
+使用者須提供：
+- `gas_url` — GAS Web App 部署網址（須以 `/exec` 結尾）
+- `token` — GAS 端設定的驗證 token
 
 ## 執行方式
 
-> 須從**專案或技能庫或技能所在目錄**（具有 `node_modules` 所在位置）執行。
+> 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
 ### 模式 A：JSON 檔案（推薦，適合大量資料）
 
@@ -50,6 +54,7 @@ payload.json 格式：
       "type": "news",
       "url": "https://example.com/news-1",
       "time": "2026-03-22 09:00:00",
+      "title": "新聞標題",
       "description": "新聞摘要內容",
       "from": "reuters"
     }
@@ -73,7 +78,7 @@ node save-news-to-sheet/scripts/save_news_to_sheet.mjs ./news_payload.json ./res
 node save-news-to-sheet/scripts/save_news_to_sheet.mjs \
   "https://script.google.com/macros/s/XXXX/exec" \
   "my_token" \
-  '[{"type":"news","url":"https://example.com/a","time":"2026-03-22 09:00:00","description":"摘要","from":"source"}]'
+  '[{"type":"news","url":"https://example.com/a","time":"2026-03-22 09:00:00","title":"標題","description":"摘要","from":"source"}]'
 ```
 
 ## 資料欄位說明
@@ -86,15 +91,17 @@ node save-news-to-sheet/scripts/save_news_to_sheet.mjs \
 | `type` | ⬜ | 資料類型，如 `news`、`rss`、`report`（為去重依據之一） |
 | `url` | ✅ | 資料網址（每筆必填，為去重依據之一） |
 | `time` | ⬜ | 時間字串，若未提供 GAS 端會自動補目前時間 |
+| `title` | ⬜ | 文章 / 影片標題（為去重依據之一） |
 | `description` | ⬜ | 內容摘要（為去重依據之一） |
 | `from` | ⬜ | 資料來源（為去重依據之一） |
 
 ## 去重邏輯
 
-GAS 端以 `type + url + description + from` 四欄位組合作為唯一鍵：
+GAS 端以 `type + url + title + description + from` 五欄位組合作為唯一鍵：
 - 若 Sheet 已有相同組合的資料，該筆會被跳過
 - 同一次 POST 內若有重複資料，也會去重
 - `time` 不參與去重比對
+- Node.js 端僅驗證每筆 `url` 欄位存在（必填），其餘欄位之去重邏輯由 GAS 後端處理
 
 ## 輸出格式
 
@@ -150,13 +157,13 @@ GAS 端以 `type + url + description + from` 四欄位組合作為唯一鍵：
 | `Unauthorized` / `token 驗證失敗` | token 錯誤 | 確認 token 大小寫與內容完全一致 |
 | `找不到工作表` | sheetName 設定與實際不符 | 確認 GAS 端 CONFIG.sheetName 與工作表名稱一致 |
 | `addCount: 0` | 全部資料已存在 | 正常行為，去重後無新資料需寫入 |
-| 5xx 伺服器錯誤 | GAS 暫時不可用 | 腳本內建自動重試（最多 5 次），等待 3s → 6s → ... → 上限 15s |
+| 5xx 伺服器錯誤 | GAS 暫時不可用 | 腳本內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），等待 3s → 6s → ... → 上限 15s |
 | `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios` |
 
 ## 快速執行
 
 ```bash
-# 從專案或技能庫或技能所在目錄（具有 `node_modules` 所在位置）執行
+# 執行時須確保 `node_modules` 可存取
 node save-news-to-sheet/scripts/save_news_to_sheet.mjs <payload.json> [outputPath]
 node save-news-to-sheet/scripts/save_news_to_sheet.mjs <gas_url> <token> '<itemsNewJSON>' [outputPath]
 ```

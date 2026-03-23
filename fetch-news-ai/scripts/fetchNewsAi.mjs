@@ -1,24 +1,24 @@
 // fetchNewsAi.mjs — 核心函式：從多個 RSS / 資料來源取得新聞，填入 from，過濾今日與昨日
 //
-// 輸出欄位：{ url, time, description, from, type }（type 固定為 "news-ai"）
+// 輸出欄位：{ url, time, title, description, from, type }（type 固定為 "news-ai"）
 // 依賴技能：fetch-rss、fetch-ai-news-aggregator（動態 import，啟動時偵測路徑是否存在）
 
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import path from "node:path";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = new URL('.', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+const skillsDir = path.resolve(__dirname, '..', '..');
 
 // ---------- 動態載入相依技能 ----------
-async function loadDependency(relPath, exportName) {
-  const abs = resolve(__dirname, relPath);
+async function loadDependency(absPath, exportName) {
   try {
-    const mod = await import(abs);
+    const mod = await import(pathToFileURL(absPath).href);
     if (typeof mod[exportName] !== "function") {
-      throw new Error(`模組 ${abs} 未匯出函式 "${exportName}"`);
+      throw new Error(`模組 ${absPath} 未匯出函式 "${exportName}"`);
     }
     return mod[exportName];
   } catch (err) {
-    throw new Error(`無法載入相依技能 ${relPath}: ${err.message}`);
+    throw new Error(`無法載入相依技能 ${absPath}: ${err.message}`);
   }
 }
 
@@ -61,10 +61,10 @@ function filterTodayAndYesterday(items) {
 export async function fetchNewsAi() {
   // 動態載入相依技能（啟動時偵測，路徑錯誤立即報錯）
   const fetchRSS = await loadDependency(
-    "../../fetch-rss/scripts/fetchRSS.mjs", "fetchRSS"
+    path.join(skillsDir, 'fetch-rss', 'scripts', 'fetchRSS.mjs'), "fetchRSS"
   );
   const fetchAiNewsAggregator = await loadDependency(
-    "../../fetch-ai-news-aggregator/scripts/fetchAiNewsAggregator.mjs", "fetchAiNewsAggregator"
+    path.join(skillsDir, 'fetch-ai-news-aggregator', 'scripts', 'fetchAiNewsAggregator.mjs'), "fetchAiNewsAggregator"
   );
 
   // 並行取得所有來源

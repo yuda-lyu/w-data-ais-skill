@@ -27,6 +27,14 @@ const outputPathArg = args[2];
 
 let dateStr;
 if (dateArg && /^\d{8}$/.test(dateArg)) {
+    const _y = parseInt(dateArg.substring(0, 4));
+    const _m = parseInt(dateArg.substring(4, 6));
+    const _d = parseInt(dateArg.substring(6, 8));
+    const testDate = new Date(_y, _m - 1, _d);
+    if (testDate.getFullYear() !== _y || testDate.getMonth() !== _m - 1 || testDate.getDate() !== _d) {
+        console.error(`日期參數無效：不合法的日期 (${dateArg})，年=${_y} 月=${_m} 日=${_d}`);
+        process.exit(1);
+    }
     dateStr = dateArg;
 } else {
     dateStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
@@ -107,6 +115,12 @@ async function fetchTpex() {
             let resultData = rows;
             if (targetCodes.length > 0) {
                 resultData = resultData.filter(row => targetCodes.includes(row[0]));
+                if (resultData.length === 0) {
+                    const errMsg = `指定個股 ${targetCodes.join(',')} 不在上櫃資料中（可能為上市股或代碼有誤）`;
+                    console.error(errMsg);
+                    writeOutput({ status: 'error', message: errMsg });
+                    process.exit(1);
+                }
             }
 
             const payload = {

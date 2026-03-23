@@ -119,7 +119,7 @@ command: opencode run --agent build -m "opencode/nemotron-3-super-free" "... 寫
 - 命名慣例：`{agent_type}_result.txt`（例：`dispatcher_result.txt`、`opencode_result.txt`）
 - 任務描述中明確指定絕對路徑，例如 `d:/tmp/opencode_result.txt`
 
-## 前置需求確認
+## 安裝指引
 
 ```bash
 opencode --version   # 確認 opencode 已安裝

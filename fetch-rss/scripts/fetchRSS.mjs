@@ -1,6 +1,6 @@
 // fetchRSS.mjs — 核心函式：取得 RSS 內容並轉換為統一格式的 items 陣列
 //
-// 輸出欄位：{ url, time, description, from }
+// 輸出欄位：{ url, time, title, description, from }
 
 import axios from "axios";
 import Parser from "rss-parser";
@@ -56,7 +56,8 @@ export async function fetchRSS(rssUrl) {
       const items = feed.items.map((item) => ({
         url: (item.link || "").trim(),
         time: toUTC8(item.isoDate || item.pubDate || ""),
-        description: (item.contentSnippet || item.summary || item.title || "").trim(),
+        title: (item.title || "").trim(),
+        description: (item.contentSnippet || item.summary || "").trim(),
         from: (item.creator || feedFrom).trim(),
       }));
 

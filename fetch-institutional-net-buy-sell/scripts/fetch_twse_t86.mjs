@@ -30,6 +30,10 @@ if (dateArg && /^\d{8}$/.test(dateArg)) {
     const m = parseInt(dateArg.substring(4, 6)) - 1;
     const d = parseInt(dateArg.substring(6, 8));
     today = new Date(y, m, d);
+    if (today.getFullYear() !== y || today.getMonth() !== m || today.getDate() !== d) {
+        console.error(`日期無效：${dateArg}`);
+        process.exit(1);
+    }
 } else {
     const taipeiStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10);
     const [ty, tm, td] = taipeiStr.split('-').map(Number);
@@ -120,7 +124,9 @@ async function fetchTwseT86() {
                 if (codeField) {
                     parsedData = parsedData.filter(item => targetCodes.includes(item[codeField]));
                 } else {
-                    console.warn('Cannot filter by code: code field not found in response');
+                    console.error('[fetch-twse-t86] 無法篩選個股：回應中找不到「證券代號」欄位，中止以避免回傳未過濾的全市場資料');
+                    writeOutput({ status: 'error', message: '無法篩選個股：API 回應中找不到證券代號欄位' });
+                    process.exit(1);
                 }
             }
 

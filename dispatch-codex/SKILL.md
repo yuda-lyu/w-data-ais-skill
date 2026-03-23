@@ -86,7 +86,7 @@ command: codex exec --full-auto --skip-git-repo-check \
 - 命名慣例：`{agent_type}_result.txt`（例：`dispatcher_result.txt`、`codex_result.txt`）
 - 任務描述中明確指定絕對路徑，例如 `d:/tmp/codex_result.txt`
 
-## 前置需求確認
+## 安裝指引
 
 ```bash
 codex --version   # 確認 codex-cli 已安裝

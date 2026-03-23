@@ -6,7 +6,7 @@
 //   模式 B（直接參數）:   node save_news_to_sheet.mjs <gas_url> <token> <itemsNewJSON> [outputPath]
 //
 // payload.json 格式：
-//   { "gas_url", "token", "itemsNew": [ { "type", "url", "time"?, "description"?, "from"? } ] }
+//   { "gas_url", "token", "itemsNew": [ { "type", "url", "time"?, "title"?, "description"?, "from"? } ] }
 //
 // 輸出：結果一律寫入檔案（JSON），無論成功或錯誤均寫入後才 exit。
 
@@ -52,10 +52,15 @@ function parseArgs() {
 
   // 模式 A：第一個參數以 .json 結尾 → 讀取 JSON 檔
   if (args[0].endsWith(".json")) {
-    const raw = readFileSync(resolve(args[0]), "utf-8");
-    const json = JSON.parse(raw);
     const outputPath = args[1] || defaultOutputPath();
-    return { payload: json, outputPath };
+    try {
+      const raw = readFileSync(resolve(args[0]), "utf-8");
+      const json = JSON.parse(raw);
+      return { payload: json, outputPath };
+    } catch (e) {
+      writeResult(outputPath, { status: "error", message: `JSON 檔案讀取或解析失敗: ${e.message}` });
+      process.exit(1);
+    }
   }
 
   // 模式 B：直接傳參數

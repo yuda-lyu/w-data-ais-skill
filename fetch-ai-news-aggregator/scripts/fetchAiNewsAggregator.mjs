@@ -1,6 +1,6 @@
 // fetchAiNewsAggregator.mjs — 核心函式：取得 AI News Aggregator 新聞並轉換為統一格式
 //
-// 輸出欄位：{ url, time, description, from }
+// 輸出欄位：{ url, time, title, description, from }
 
 import axios from "axios";
 
@@ -45,7 +45,8 @@ export async function fetchAiNewsAggregator() {
       return rawItems.map((item) => ({
         url: (item.url || "").trim(),
         time: toUTC8(item.published_at || ""),
-        description: (item.title || "").trim(),
+        title: (item.title || "").trim(),
+        description: "",
         from: (item.source || "").trim(),
       }));
     } catch (err) {

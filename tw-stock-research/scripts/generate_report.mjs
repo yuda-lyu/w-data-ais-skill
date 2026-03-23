@@ -308,8 +308,9 @@ function isRoutineDisclosure(title) {
 
 // Compute impact map from all news
 // instMap (optional): code → instNetNum，用於計算法人確認欄位
+// 同一股票出現多則新聞時，彙總多空訊號取淨方向；若多空相消則排除
 function computeImpactMap(newsItems, nameCodeMap, instMap) {
-    const map = new Map(); // code → { name, impact, reason, instNetNum }
+    const aggMap = new Map(); // code → { name, bullish, bearish, reasons[] }
     if (Array.isArray(newsItems)) {
         newsItems.forEach(item => {
             const title = item.title || '';
@@ -317,12 +318,25 @@ function computeImpactMap(newsItems, nameCodeMap, instMap) {
             const impact = analyzeImpact(title);
             if (impact === '➖ 中性') return;
             extractAllStocks(title, nameCodeMap).forEach(stock => {
-                if (!map.has(stock.code)) {
-                    const instNetNum = instMap ? (instMap.get(stock.code) ?? null) : null;
-                    map.set(stock.code, { name: stock.name, impact, reason: title, instNetNum });
+                if (!aggMap.has(stock.code)) {
+                    aggMap.set(stock.code, { name: stock.name, bullish: 0, bearish: 0, reasons: [] });
                 }
+                const entry = aggMap.get(stock.code);
+                if (impact === '⬆️ 利多') entry.bullish++;
+                else entry.bearish++;
+                entry.reasons.push(title);
             });
         });
+    }
+    // 彙總：取淨方向，多空相消則排除
+    const map = new Map();
+    for (const [code, agg] of aggMap) {
+        const net = agg.bullish - agg.bearish;
+        if (net === 0) continue; // 多空訊號相消 → 中性，略過
+        const impact = net > 0 ? '⬆️ 利多' : '⬇️ 利空';
+        const reason = agg.reasons[0]; // 取第一則（最新）作為代表理由
+        const instNetNum = instMap ? (instMap.get(code) ?? null) : null;
+        map.set(code, { name: agg.name, impact, reason, instNetNum });
     }
     return map;
 }
@@ -389,18 +403,19 @@ function generateDecisionSection(impactMap, twseData, tpexData) {
     let section = `## 💡 投資決策重點\n\n`;
 
     // Top institutional buys (positive net buy/sell)
-    const twseTop = (twseData?.data || [])
-        .filter(i => isStockCode(i['證券代號'] || '') && parseNum(i['三大法人買賣超股數']) > 0)
-        .sort((a, b) => parseNum(b['三大法人買賣超股數']) - parseNum(a['三大法人買賣超股數']))
-        .slice(0, 5);
-    const tpexTop = (tpexData?.data || [])
-        .filter(i => isStockCode(i['代號'] || '') && parseNum(i['三大法人買賣超股數合計']) > 0)
-        .sort((a, b) => parseNum(b['三大法人買賣超股數合計']) - parseNum(a['三大法人買賣超股數合計']))
+    // 統一取得買超股數，合併 TWSE + TPEX 後按金額排序再取 Top 5
+    const getNetBuy = (item) => parseNum(item['三大法人買賣超股數'] || item['三大法人買賣超股數合計'] || '0');
+    const twseBuys = (twseData?.data || [])
+        .filter(i => isStockCode(i['證券代號'] || '') && parseNum(i['三大法人買賣超股數']) > 0);
+    const tpexBuys = (tpexData?.data || [])
+        .filter(i => isStockCode(i['代號'] || '') && parseNum(i['三大法人買賣超股數合計']) > 0);
+    const topBuys = [...twseBuys, ...tpexBuys]
+        .sort((a, b) => getNetBuy(b) - getNetBuy(a))
         .slice(0, 5);
 
-    if (twseTop.length > 0 || tpexTop.length > 0) {
+    if (topBuys.length > 0) {
         section += `### 🏦 法人重點買超（前一交易日前5名）\n`;
-        [...twseTop, ...tpexTop].slice(0, 5).forEach(item => {
+        topBuys.forEach(item => {
             const code = item['證券代號'] || item['代號'] || '';
             const name = item['證券名稱'] || item['名稱'] || '';
             const val = item['三大法人買賣超股數'] || item['三大法人買賣超股數合計'] || '';
@@ -431,7 +446,7 @@ function generateDecisionSection(impactMap, twseData, tpexData) {
         section += '\n';
     }
 
-    if (twseTop.length === 0 && tpexTop.length === 0 && impactMap.size === 0) {
+    if (topBuys.length === 0 && impactMap.size === 0) {
         section += `(今日無明顯投資訊號)\n\n`;
     }
 
@@ -564,9 +579,11 @@ report += `## 📰 新聞精選\n\n`;
 if (cnyesData && Array.isArray(cnyesData)) {
     report += `### 鉅亨網 (Anue)\n`;
     cnyesData.slice(0, 15).forEach(news => {
-        report += `- [${news.title}](${news.href || news.link || '#'}) (${news.time})\n`;
+        report += `- [${news.title}](${news.link || '#'}) (${news.time})\n`;
     });
     report += `\n`;
+} else {
+    report += `### 鉅亨網 (Anue)\n(無鉅亨網資料)\n\n`;
 }
 
 if (statementdogData && Array.isArray(statementdogData)) {
@@ -575,6 +592,8 @@ if (statementdogData && Array.isArray(statementdogData)) {
         report += `- [${news.title}](${news.link || '#'}) (${news.time})\n`;
     });
     report += `\n`;
+} else {
+    report += `### 財報狗 (StatementDog)\n(無財報狗資料)\n\n`;
 }
 
 const moneydjList = Array.isArray(moneydjData) ? moneydjData
@@ -589,7 +608,11 @@ if (moneydjList) {
             report += `- [${news.title}](${news.link || '#'}) (${news.time})\n`;
         });
         report += `\n`;
+    } else {
+        report += `### MoneyDJ\n(過濾後無有效新聞)\n\n`;
     }
+} else {
+    report += `### MoneyDJ\n(無 MoneyDJ 資料)\n\n`;
 }
 
 // 4. 投資決策重點 (Fix 3)

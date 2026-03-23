@@ -36,7 +36,7 @@ const BASE_DELAY_MS = 5000;
 const MAX_DELAY_MS  = 30000;
 function isRetryable(error) {
     const status = error.response?.status;
-    if (status) return status >= 500;
+    if (status) return status >= 500 || status === 403 || status === 429;
     return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
 }
 
@@ -57,9 +57,10 @@ async function fetchPage(pageIndex) {
         try {
             const response = await axios.get(url, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
                 },
-                responseType: 'arraybuffer'
+                responseType: 'arraybuffer',
+                timeout: 30000,
             });
 
             // NOTE: MoneyDJ 已確認使用 UTF-8 編碼（多次實測結果正確），無需 Big5 解碼。

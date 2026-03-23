@@ -37,7 +37,7 @@ function isRetryable(error) {
 async function fetchWithRetry(url, params) {
     for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
         try {
-            return await axios.get(url, { params });
+            return await axios.get(url, { params, timeout: 30000 });
         } catch (error) {
             const attemptsLeft = MAX_RETRIES + 1 - attempt;
             if (!isRetryable(error) || attemptsLeft <= 0) throw error;
@@ -113,7 +113,7 @@ async function fetchNews() {
         const parsedItems = finalItems.map(item => ({
             time: formatTime(item.publishAt),
             title: item.title,
-            href: `https://news.cnyes.com/news/id/${item.newsId}`
+            link: `https://news.cnyes.com/news/id/${item.newsId}`
         }));
 
         const payload = { status: 'success', message: parsedItems };

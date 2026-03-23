@@ -44,7 +44,7 @@ const MAX_DELAY_MS  = 30000;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 function isRetryable(error) {
     const status = error.response?.status;
-    if (status) return status >= 500;
+    if (status) return status >= 500 || status === 403 || status === 429;
     return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
 }
 
@@ -55,7 +55,7 @@ async function fetchNews() {
         try {
             const response = await axios.get(url, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
                 },
                 timeout: 30000,
             });
@@ -63,22 +63,42 @@ async function fetchNews() {
             const $ = cheerio.load(response.data);
             const newsItems = [];
 
-            $('.statementdog-news-list-item').each((index, element) => {
-                const titleElement = $(element).find('.statementdog-news-list-item-title');
-                const linkElement  = $(element).find('.statementdog-news-list-item-link');
-                const timeElement  = $(element).find('.statementdog-news-list-item-date');
+            // 主要 selector；若財報狗改版導致 selector 失效，fallback 使用 article/a 通用結構
+            const PRIMARY_ITEM     = '.statementdog-news-list-item';
+            const PRIMARY_TITLE    = '.statementdog-news-list-item-title';
+            const PRIMARY_LINK     = '.statementdog-news-list-item-link';
+            const PRIMARY_DATE     = '.statementdog-news-list-item-date';
+            const FALLBACK_ITEM    = 'article, .news-item, [class*="news"][class*="item"]';
+            const FALLBACK_TITLE   = 'h2, h3, [class*="title"]';
+            const FALLBACK_LINK    = 'a[href]';
+            const FALLBACK_DATE    = 'time, [class*="date"], [class*="time"]';
 
-                if (titleElement.length && linkElement.length) {
-                    const title = titleElement.text().trim();
-                    let link = linkElement.attr('href');
-                    let time = timeElement.text().trim();
+            const usePrimary = $(PRIMARY_ITEM).length > 0;
+            const itemSel  = usePrimary ? PRIMARY_ITEM  : FALLBACK_ITEM;
+            const titleSel = usePrimary ? PRIMARY_TITLE : FALLBACK_TITLE;
+            const linkSel  = usePrimary ? PRIMARY_LINK  : FALLBACK_LINK;
+            const dateSel  = usePrimary ? PRIMARY_DATE  : FALLBACK_DATE;
 
-                    if (link && !link.startsWith('http')) {
-                        link = `https://statementdog.com${link}`;
-                    }
+            if (!usePrimary) {
+                console.warn('主要 CSS selector 未匹配，嘗試 fallback selector...');
+            }
 
-                    newsItems.push({ time, title, link });
+            $(itemSel).each((index, element) => {
+                const titleElement = $(element).find(titleSel);
+                const linkElement  = usePrimary ? $(element).find(linkSel) : $(element).find(linkSel).first();
+                const timeElement  = $(element).find(dateSel);
+
+                const title = titleElement.text().trim();
+                let link = linkElement.attr('href');
+                let time = timeElement.text().trim();
+
+                if (!title || !link) return;
+
+                if (link && !link.startsWith('http')) {
+                    link = `https://statementdog.com${link.startsWith('/') ? '' : '/'}${link}`;
                 }
+
+                newsItems.push({ time, title, link });
             });
 
             console.log(`Extracted News Items: ${newsItems.length}`);

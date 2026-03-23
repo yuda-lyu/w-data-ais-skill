@@ -40,13 +40,13 @@ Gemini CLI **沒有** `--workdir` 參數，工作目錄由 shell 的當前目錄
 ```bash
 # 方法 1：先 cd 再執行
 cd "D:/work/my-app"
-gemini --yolo -p "任務"
+gemini --approval-mode=yolo -p "任務"
 
 # 方法 2：單行串接
-cd "D:/work/my-app" && gemini --yolo -p "任務"
+cd "D:/work/my-app" && gemini --approval-mode=yolo -p "任務"
 
 # 方法 3：在 prompt 中明確指定絕對路徑
-gemini --yolo -p "在 D:/work/my-app 目錄下執行 npm install"
+gemini --approval-mode=yolo -p "在 D:/work/my-app 目錄下執行 npm install"
 ```
 
 ## Session 管理（多階段 pipeline）

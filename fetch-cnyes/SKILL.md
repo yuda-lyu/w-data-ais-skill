@@ -20,17 +20,18 @@ description: 抓取鉅亨網（Anue）台股即時新聞（近 10 天，最多 1
 
 建議使用本技能附帶的 Node.js 腳本進行抓取，該腳本直接呼叫鉅亨網 API，比瀏覽器渲染更快速且穩定。
 
-### 前置需求
-1. 確保環境已安裝 Node.js。
-2. 在工作區安裝依賴：`npm install axios`。
+### 安裝指引
+
+```bash
+npm install axios
+```
 
 ### 執行方式
 
-> 須從**專案根目錄**（`node_modules` 所在位置）執行。
+> 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
-1. **安裝依賴**：`npm install axios`。
-2. **執行腳本**：`node fetch-cnyes/scripts/fetch_cnyes.mjs [outputPath]`
-3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `cnyes_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
+1. **執行腳本**：`node fetch-cnyes/scripts/fetch_cnyes.mjs [outputPath]`
+2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `cnyes_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：指定輸出路徑
@@ -61,7 +62,7 @@ node fetch-cnyes/scripts/fetch_cnyes.mjs
     {
       "time": "2026-02-05 07:45:00",
       "title": "台積電法說會釋正向展望 外資連三買",
-      "href": "https://news.cnyes.com/news/id/..."
+      "link": "https://news.cnyes.com/news/id/..."
     }
   ]
 }
@@ -93,7 +94,7 @@ node fetch-cnyes/scripts/fetch_cnyes.mjs
 
 ## 個股識別（Agent 層級處理）
 
-腳本輸出僅含 `time`、`title`、`href` 三個欄位，不包含股票代碼。
+腳本輸出僅含 `time`、`title`、`link` 三個欄位，不包含股票代碼。
 呼叫方 Agent 須自行從標題識別個股：
 - 標題包含「(2330)」→ code: 2330
 - 標題包含公司名稱 → 對應查詢代碼
@@ -103,7 +104,7 @@ node fetch-cnyes/scripts/fetch_cnyes.mjs
 
 ### 1. 伺服器錯誤（502/503 等 5xx）
 
-腳本內建**自動重試機制**（最多 10 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
+腳本內建**自動重試機制**（最多重試 10 次，含初始請求最多執行 11 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
 
 | 重試次 | 等待時間 |
 |--------|---------|
@@ -129,7 +130,7 @@ npm install axios
 ## 快速執行
 
 ```bash
-# 從專案根目錄執行
+# 執行時須確保 `node_modules` 可存取
 node fetch-cnyes/scripts/fetch_cnyes.mjs [outputPath]
 
 # 範例

@@ -7,6 +7,12 @@ description: 台股盤前調研技能。從 5 個來源（MOPS、鉅亨網、財
 
 從 5 個來源**序列**抓取**近兩日（昨日+今日）**重大訊息，篩選會影響股價的公告/新聞，產出**盤前調研報告**。
 
+## 安裝指引
+
+```bash
+npm install axios cheerio puppeteer-core
+```
+
 ## 🚦 交易日檢查（必要）
 
 執行前**必須先檢查當日是否為台股交易日**，若非交易日則跳過不執行。
@@ -23,6 +29,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 > 詳見 `check-tw-trading-day` 技能。
 > ⚠️ 務必指定 `outputPath`，否則輸出檔案會寫入專案根目錄。調用方應傳入 `./w-data-news/tw-stock-research/YYYYMMDD/raw/trading_day.json`。
+> ℹ️ 盤前執行時（< 14:30），TWSE 尚無當日收盤資料，`check-tw-trading-day` 會以「平日 + TWSE 未否認」推定為交易日（`presumed: true`），確保盤前調研不被誤擋。
 
 ### 非交易日處理
 
@@ -94,8 +101,8 @@ run_research.mjs
   ├─ 4. fetch-cnyes              → raw/cnyes.json
   ├─ 5. fetch-statementdog       → raw/statementdog.json
   ├─ 6. fetch-moneydj            → raw/moneydj.json        ⚠️ 最多 5 分鐘
-  ├─ 7. fetch-twse-t86 (all, 前一交易日)     → raw/institutional_twse.json
-  ├─ 8. fetch-tpex-3insti (all, 前一交易日)  → raw/institutional_tpex.json
+  ├─ 7. fetch-twse-t86 (all, 前一交易日)     → raw/institutional_twse.json   ← 採用 30 個工作日回溯查找
+  ├─ 8. fetch-tpex-3insti (all, 前一交易日)  → raw/institutional_tpex.json   ← 採用 30 個工作日回溯查找
   │
   └─ 9. generate_report.mjs      → report_YYYYMMDD.md
 ```
@@ -104,13 +111,13 @@ run_research.mjs
 
 **法人資料往前偵測**：法人腳本（TWSE/TPEX）以前一工作日為起點，若 TWSE API 回傳無資料（公假日），自動往前推一個工作日，最多回溯 **30 個工作日**（可涵蓋農曆春節等長假）。
 
-> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-moneydj 的 50 頁爬取）。外層 exec 呼叫時請設定 **timeout ≥ 600000 ms（10 分鐘）**，避免 SIGTERM 中斷。
+> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-moneydj 的 50 頁爬取）。各子程序 timeout 累計最大值可達約 900 秒，外層 exec 呼叫時請設定 **timeout ≥ 900000 ms（15 分鐘）**，避免 SIGTERM 中斷。
 
 **完成訊號**：腳本成功產出報告後，會在 stdout 輸出 `RESEARCH_COMPLETE=true`，接著立即 `process.exit(0)`。外層呼叫方可偵測此字串判斷執行成功，無需等待其他 I/O。
 
 ### 手動逐步模式（除錯用）
 
-需要單獨重跑某一來源時才使用，各腳本皆須從**專案根目錄**執行：
+需要單獨重跑某一來源時才使用，各腳本執行環境須可存取 `node_modules`（含所需依賴套件）：
 
 ```bash
 node fetch-mops/scripts/fetch_mops.mjs                                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json

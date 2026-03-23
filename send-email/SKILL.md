@@ -20,17 +20,21 @@ description: 透過 Google Apps Script Web App API 寄送 Email（純文字或 H
 → 回傳 { ok, message, quotaRemaining }
 ```
 
+## 安裝指引
+
+```bash
+npm install axios
+```
+
 ## 前置需求
 
-1. Node.js 已安裝
-2. 依賴已安裝：`npm install axios`
-3. 使用者須提供：
-   - `gas_url` — GAS Web App 部署網址（須以 `/exec` 結尾）
-   - `token` — GAS 端設定的驗證 token
+使用者須提供：
+- `gas_url` — GAS Web App 部署網址（須以 `/exec` 結尾）
+- `token` — GAS 端設定的驗證 token
 
 ## 執行方式
 
-> 須從**專案或技能庫或技能所在目錄**（具有 `node_modules` 所在位置）執行。
+> 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
 ### 模式 A：JSON 檔案（推薦，適合 HTML 信件）
 
@@ -137,7 +141,7 @@ node send-email/scripts/send_email.mjs \
 | `Unauthorized` | token 錯誤 | 確認 token 大小寫與內容完全一致 |
 | `Missing body/htmlBody` | 兩者皆未提供 | 至少提供 `body` 或 `htmlBody` |
 | 中文亂碼 | 編碼問題 | 腳本已內建 `charset=utf-8`，通常無須額外處理 |
-| 5xx 伺服器錯誤 | GAS 暫時不可用 | 腳本內建自動重試（最多 5 次），等待 3s → 6s → ... → 上限 15s |
+| 5xx 伺服器錯誤 | GAS 暫時不可用 | 腳本內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），等待 3s → 6s → ... → 上限 15s |
 | `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios` |
 
 ## HTML 信件建議
@@ -149,7 +153,7 @@ node send-email/scripts/send_email.mjs \
 ## 快速執行
 
 ```bash
-# 從專案或技能庫或技能所在目錄（具有 `node_modules` 所在位置）執行
+# 執行時須確保 `node_modules` 可存取
 node send-email/scripts/send_email.mjs <payload.json> [outputPath]
 node send-email/scripts/send_email.mjs <gas_url> <token> <to> <from> <subject> <body> [outputPath]
 ```
