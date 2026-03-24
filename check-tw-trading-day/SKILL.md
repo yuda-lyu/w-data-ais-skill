@@ -175,7 +175,7 @@ MI_INDEX 是「每日**收盤**行情」API（約 14:30~16:00 更新），不是
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取
+# 無需額外安裝套件（僅使用 Node.js 內建模組）
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPath]
 # 讀取 stdout 中的 TRADING_DAY=true/false
 # 若 TRADING_DAY=false，跳過後續台股任務
