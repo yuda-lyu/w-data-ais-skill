@@ -22,6 +22,14 @@ description: 抓取鉅亨網（Anue）台股即時新聞（近 10 天，最多 1
 
 ### 安裝指引
 
+所需套件：`axios`
+
+執行前請先驗證套件是否可用：
+```bash
+node -e "require('axios'); console.log('deps OK')"
+```
+
+若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
 npm install axios
 ```

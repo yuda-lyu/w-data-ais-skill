@@ -34,9 +34,15 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 ### 安裝指引
 
-1. 環境需安裝 Chrome 或 Chromium（腳本自動偵測 Windows、Linux、macOS 路徑）
-2. 安裝所需 npm 套件：
+所需套件：`puppeteer-core`
+額外需求：環境需安裝 Chrome 或 Chromium（腳本自動偵測 Windows、Linux、macOS 路徑）
 
+執行前請先驗證套件是否可用：
+```bash
+node -e "require('puppeteer-core'); console.log('deps OK')"
+```
+
+若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
 npm install puppeteer-core
 ```

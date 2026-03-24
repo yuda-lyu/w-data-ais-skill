@@ -9,6 +9,15 @@ description: 台股盤前調研技能。從 5 個來源（MOPS、鉅亨網、財
 
 ## 安裝指引
 
+所需套件：`axios`、`cheerio`、`puppeteer-core`
+額外需求：環境需安裝 Chrome 或 Chromium（fetch-mops 腳本自動偵測路徑）
+
+執行前請先驗證套件是否可用：
+```bash
+node -e "require('axios'); require('cheerio'); require('puppeteer-core'); console.log('deps OK')"
+```
+
+若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
 npm install axios cheerio puppeteer-core
 ```
