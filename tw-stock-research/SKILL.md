@@ -113,10 +113,15 @@ run_research.mjs
   ├─ 7. fetch-twse-t86 (all, 前一交易日)     → raw/institutional_twse.json   ← 採用 30 個工作日回溯查找
   ├─ 8. fetch-tpex-3insti (all, 前一交易日)  → raw/institutional_tpex.json   ← 採用 30 個工作日回溯查找
   │
-  └─ 9. generate_report.mjs      → report_YYYYMMDD.md
+  ├─ 9. fetch-twse (all, 前一交易日)         → raw/prices_twse.json          ← 昨日 OHLC（二次審計用）
+  ├─ 10. fetch-tpex (all, 前一交易日)        → raw/prices_tpex.json          ← 昨日 OHLC（二次審計用）
+  │
+  └─ 11. generate_report.mjs     → report_YYYYMMDD.md（含二次審計）
 ```
 
 **容錯機制**：任一抓取步驟失敗時，錯誤自動記錄至 `error_log.jsonl`，**不中斷整體流程**，繼續執行下一步。報告產出失敗則 exit 2。
+
+**二次審計**：步驟 9-10 抓取昨日全市場 OHLC 股價（上市 TWSE + 上櫃 TPEX），供 `generate_report.mjs` 對報告中提及「漲停」「跌停」的個股進行交叉驗證。審計結果直接嵌入影響總表並產出獨立審計紀錄區塊。若 OHLC 抓取失敗，報告仍可產出但標註「未驗證」。
 
 **法人資料往前偵測**：法人腳本（TWSE/TPEX）以前一工作日為起點，若 TWSE API 回傳無資料（公假日），自動往前推一個工作日，最多回溯 **30 個工作日**（可涵蓋農曆春節等長假）。
 
@@ -202,7 +207,9 @@ w-data-news/tw-stock-research/
         ├── statementdog.json
         ├── moneydj.json
         ├── institutional_twse.json
-        └── institutional_tpex.json
+        ├── institutional_tpex.json
+        ├── prices_twse.json        # 昨日上市 OHLC（二次審計用）
+        └── prices_tpex.json        # 昨日上櫃 OHLC（二次審計用）
 ```
 
 ## 📝 錯誤紀錄機制
@@ -297,7 +304,7 @@ w-data-news/tw-stock-research/
 - 負向關鍵字（`不漲反跌`、`反跌`、`利多出盡`、`股價不漲`）列於全域 bearish 扣分列表，對所有新聞生效（非僅限利多新聞）。
 - 法人確認欄位：透過 `buildInstMap()` 建立法人買賣超對照表，對每檔個股查詢前一交易日三大法人淨買賣超（股數）。
 - **信心等級**：法人方向與研判一致 → ★★★；無法人資料 → ★★☆；法人方向相反 → ★☆☆。
-- **前日已漲停警示**：利多個股且新聞理由含「漲停」時，自動在理由欄前加 `⚠️前日已漲停｜`（利多出盡風險提示）。
+- **昨日漲停/跌停警示（二次審計驗證）**：利多個股且新聞同一子句中提及該股「漲停」時，以昨日實際 OHLC 交叉驗證（漲停條件：收盤≈最高 且 漲幅≥9.5%）。驗證通過顯示 `⚠️昨日漲停(+X.X%)｜`，未通過則顯示 `📊昨收XXX(+X.X%)｜`（實際漲跌），無 OHLC 資料則標註 `⚠️昨日疑似漲停(未驗證)｜`。跌停亦同理驗證。
 - 表格依信心等級降序排列（★★★ 在前）。
 - 利多/利空分兩張子表輸出，各自獨立排序。
 - 提取 4 碼股票代碼（括號法 + 名稱查找法，nameCodeMap 含法人資料 + MOPS + COMPANY_ALIASES）。

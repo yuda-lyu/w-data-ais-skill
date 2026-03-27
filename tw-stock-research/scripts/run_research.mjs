@@ -190,6 +190,25 @@ if (instFetched) {
         ['all', instDateT2, raw('prices_tpex_t2.json')], 60000);
 }
 
+// ── Step 3.7: 抓取期貨資料（大盤方向 + 外資期貨 + P/C ratio）─────────────────
+if (instFetched) {
+    log(`抓取期貨資料（${instDate}）...`);
+    run('fetch-taifex',
+        'fetch-taifex/scripts/fetch_taifex.mjs',
+        [instDate, raw('taifex.json')], 60000);
+}
+
+// ── Step 3.8: 抓取融資融券（散戶槓桿 + 做空指標）────────────────────────────
+if (instFetched) {
+    log(`抓取融資融券（${instDate}）...`);
+    run('fetch-twse-margin',
+        'fetch-margin-trading/scripts/fetch_twse_margin.mjs',
+        ['all', instDate, raw('margin_twse.json')], 60000);
+    run('fetch-tpex-margin',
+        'fetch-margin-trading/scripts/fetch_tpex_margin.mjs',
+        ['all', instDate, raw('margin_tpex.json')], 60000);
+}
+
 // ── Step 4: 產出報告 ──────────────────────────────────────────────────────────
 log('產出報告...');
 const reportResult = spawnSync(
