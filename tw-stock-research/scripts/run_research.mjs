@@ -165,6 +165,31 @@ if (!instFetched) {
     appendErrorLog('fetch-twse-t86', 'fetch', 'unknown', `回溯 ${MAX_INST_LOOKBACK} 日仍無資料`, '');
 }
 
+// ── Step 3.5: 抓取昨日股價 OHLC（用於二次審計）──────────────────────────────
+if (instFetched) {
+    log(`抓取昨日股價（${instDate}）供二次審計...`);
+    run('fetch-twse-prices',
+        'fetch-twse/scripts/fetch_twse.mjs',
+        ['all', instDate, raw('prices_twse.json')], 60000);
+    run('fetch-tpex-prices',
+        'fetch-tpex/scripts/fetch_tpex.mjs',
+        ['all', instDate, raw('prices_tpex.json')], 60000);
+} else {
+    log('⚠️ 無法確定前一交易日，跳過 OHLC 抓取');
+}
+
+// ── Step 3.6: 抓取前天股價 OHLC（用於新聞日期交叉審計）──────────────────────
+const instDateT2 = prevWeekday(instDate);
+if (instFetched) {
+    log(`抓取前天股價（${instDateT2}）供新聞日期交叉審計...`);
+    run('fetch-twse-prices-t2',
+        'fetch-twse/scripts/fetch_twse.mjs',
+        ['all', instDateT2, raw('prices_twse_t2.json')], 60000);
+    run('fetch-tpex-prices-t2',
+        'fetch-tpex/scripts/fetch_tpex.mjs',
+        ['all', instDateT2, raw('prices_tpex_t2.json')], 60000);
+}
+
 // ── Step 4: 產出報告 ──────────────────────────────────────────────────────────
 log('產出報告...');
 const reportResult = spawnSync(

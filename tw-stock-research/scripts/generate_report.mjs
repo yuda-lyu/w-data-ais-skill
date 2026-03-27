@@ -52,8 +52,25 @@ const statementdogData = readJson('statementdog.json');
 const moneydjData = readJson('moneydj.json');
 const twseData = readJson('institutional_twse.json');
 const tpexData = readJson('institutional_tpex.json');
+const twsePricesData = readJson('prices_twse.json');
+const tpexPricesData = readJson('prices_tpex.json');
+const twsePricesDataT2 = readJson('prices_twse_t2.json');
+const tpexPricesDataT2 = readJson('prices_tpex_t2.json');
 
 const reportDate = `${TODAY.substring(0, 4)}/${TODAY.substring(4, 6)}/${TODAY.substring(6, 8)}`;
+
+// 往前推一個工作日（跳過週六日）
+function prevWeekday(dateStr) {
+    const y = parseInt(dateStr.substring(0, 4));
+    const m = parseInt(dateStr.substring(4, 6)) - 1;
+    const d = parseInt(dateStr.substring(6, 8));
+    const dt = new Date(y, m, d);
+    do { dt.setDate(dt.getDate() - 1); } while (dt.getDay() === 0 || dt.getDay() === 6);
+    const yyyy = dt.getFullYear();
+    const mm   = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd   = String(dt.getDate()).padStart(2, '0');
+    return `${yyyy}${mm}${dd}`;
+}
 
 // --- MoneyDJ 例行公告過濾（行政/法規性公告，不影響投資決策）---
 const MONEYDJ_SKIP_PATTERNS = [
@@ -306,6 +323,9 @@ function isRoutineDisclosure(title) {
     return patterns.some(re => re.test(title));
 }
 
+// Clickbait penalty: titles matching these patterns get 0.5x weight
+const CLICKBAIT_RE = /[~～！]{2,}|黑馬|曝光|飆股|必看/;
+
 // Compute impact map from all news
 // instMap (optional): code → instNetNum，用於計算法人確認欄位
 // 同一股票出現多則新聞時，彙總多空訊號取淨方向；若多空相消則排除
@@ -317,13 +337,15 @@ function computeImpactMap(newsItems, nameCodeMap, instMap) {
             if (isRoutineDisclosure(title)) return; // skip routine annual disclosures
             const impact = analyzeImpact(title);
             if (impact === '➖ 中性') return;
+            // Clickbait penalty: reduce weight by 0.5x
+            const weight = CLICKBAIT_RE.test(title) ? 0.5 : 1;
             extractAllStocks(title, nameCodeMap).forEach(stock => {
                 if (!aggMap.has(stock.code)) {
                     aggMap.set(stock.code, { name: stock.name, bullish: 0, bearish: 0, reasons: [] });
                 }
                 const entry = aggMap.get(stock.code);
-                if (impact === '⬆️ 利多') entry.bullish++;
-                else entry.bearish++;
+                if (impact === '⬆️ 利多') entry.bullish += weight;
+                else entry.bearish += weight;
                 entry.reasons.push(title);
             });
         });
@@ -341,7 +363,7 @@ function computeImpactMap(newsItems, nameCodeMap, instMap) {
     return map;
 }
 
-function generateImpactTable(impactMap) {
+function generateImpactTable(impactMap, priceMap, priceMapT2, volumeMap, instMap, marketChangePct, allNewsItems) {
     let output = `## 📊 個股影響總表\n\n`;
 
     if (impactMap.size === 0) {
@@ -367,20 +389,187 @@ function generateImpactTable(impactMap) {
         return `${prefix}${dir} ${Math.abs(instNetNum).toLocaleString()}`;
     };
 
+    // 子句級漲停/跌停判斷：以標點切分子句，只有個股名稱與關鍵字出現在同一子句才算
+    const stockInClauseWith = (stockName, stockCode, reasonText, keyword) => {
+        if (!reasonText.includes(keyword)) return false;
+        const clauses = reasonText.split(/[，；。！？]/);
+        return clauses.some(clause =>
+            clause.includes(keyword) &&
+            (clause.includes(stockName) || clause.includes(stockCode))
+        );
+    };
+
+    // --- 新聞日期解析：將各種時間格式轉為 YYYYMMDD ---
+    const parseNewsDate = (timeStr) => {
+        if (!timeStr) return null;
+        // Format: "2026-03-26 11:59:01" or "2026-03-26"
+        let m = String(timeStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (m) return `${m[1]}${m[2]}${m[3]}`;
+        // Format: "2026/03/26"
+        m = String(timeStr).match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+        if (m) return `${m[1]}${m[2]}${m[3]}`;
+        // Format: "03/27 10:24" (no year — assume current year from TODAY)
+        m = String(timeStr).match(/^(\d{2})\/(\d{2})/);
+        if (m) return `${TODAY.substring(0, 4)}${m[1]}${m[2]}`;
+        return null;
+    };
+
+    // Determine T-1 and T-2 dates for audit date matching
+    const instDateT1 = prevWeekday(TODAY);
+    const instDateT2 = prevWeekday(instDateT1);
+    const t1DateShort = `${instDateT1.substring(4, 6)}/${instDateT1.substring(6, 8)}`;
+    const t2DateShort = `${instDateT2.substring(4, 6)}/${instDateT2.substring(6, 8)}`;
+
+    // 找出新聞中提及特定股票+關鍵字的新聞日期
+    const findNewsDateForStock = (stockName, stockCode, keyword) => {
+        if (!allNewsItems || !Array.isArray(allNewsItems)) return null;
+        for (const item of allNewsItems) {
+            const title = item.title || '';
+            if (!title.includes(keyword)) continue;
+            const clauses = title.split(/[，；。！？]/);
+            const inClause = clauses.some(clause =>
+                clause.includes(keyword) &&
+                (clause.includes(stockName) || clause.includes(stockCode))
+            );
+            if (inClause) return parseNewsDate(item.time);
+        }
+        return null;
+    };
+
+    // 二次審計：以實際 OHLC 驗證漲停/跌停
+    // 支持 T-1 和 T-2 日期交叉審計
+    // 漲停條件：收盤≈最高 且 漲幅 ≥ 9.5%
+    // 跌停條件：收盤≈最低 且 跌幅 ≤ -9.5%
+    const verifyPriceAction = (code, keyword, useMap) => {
+        const pm = useMap || priceMap;
+        const price = pm ? pm.get(code) : null;
+        if (!price) return { hasData: false };
+        if (keyword === '漲停') {
+            const confirmed = Math.abs(price.close - price.high) < 0.011 && price.changePercent >= 9.5;
+            return { hasData: true, confirmed, price };
+        }
+        if (keyword === '跌停') {
+            const confirmed = Math.abs(price.close - price.low) < 0.011 && price.changePercent <= -9.5;
+            return { hasData: true, confirmed, price };
+        }
+        return { hasData: true, confirmed: false, price };
+    };
+
+    // 審計紀錄收集器
+    const auditLog = [];
+
+    // Helper: perform audit with date-aware T-1/T-2 matching
+    const performAudit = (code, stockName, keyword, reason) => {
+        let priceTag = '';
+        const newsDate = findNewsDateForStock(stockName, code, keyword);
+        const matchedT2 = newsDate && newsDate === instDateT2;
+
+        // Try T-2 first if news date matches T-2
+        if (matchedT2 && priceMapT2) {
+            const vT2 = verifyPriceAction(code, keyword, priceMapT2);
+            if (vT2.hasData && vT2.confirmed) {
+                // Confirmed on T-2; also show T-1 follow-through
+                const vT1 = verifyPriceAction(code, keyword, priceMap);
+                const t1Info = vT1.hasData
+                    ? ` → ${t1DateShort} ${vT1.price.changePercent >= 0 ? '+' : ''}${vT1.price.changePercent.toFixed(1)}%`
+                    : '';
+                const limitLabel = keyword === '漲停' ? '漲停' : '跌停';
+                const sign = vT2.price.changePercent >= 0 ? '+' : '';
+                priceTag = `⚠️${t2DateShort} ${limitLabel}(${sign}${vT2.price.changePercent.toFixed(1)}%)${t1Info}｜`;
+                const resultLabel = vT1.hasData
+                    ? `✅ 確認(T-2${t1Info.includes('-') ? ', 回落' : ''})`
+                    : '✅ 確認(T-2)';
+                auditLog.push({ code, name: stockName, claim: keyword, result: resultLabel,
+                    close: vT2.price.close, high: keyword === '漲停' ? vT2.price.high : vT2.price.low,
+                    pct: vT2.price.changePercent,
+                    t1pct: vT1.hasData ? vT1.price.changePercent : null,
+                    newsDate: t2DateShort });
+                return priceTag;
+            }
+        }
+
+        // Default: verify against T-1
+        const v = verifyPriceAction(code, keyword, priceMap);
+        if (keyword === '漲停') {
+            if (v.hasData && v.confirmed) {
+                priceTag = `⚠️昨日漲停(+${v.price.changePercent.toFixed(1)}%)｜`;
+                auditLog.push({ code, name: stockName, claim: '漲停', result: '✅ 確認',
+                    close: v.price.close, high: v.price.high, pct: v.price.changePercent });
+            } else if (v.hasData) {
+                // If T-1 didn't confirm but T-2 has data, try T-2 as fallback
+                if (priceMapT2) {
+                    const vT2 = verifyPriceAction(code, keyword, priceMapT2);
+                    if (vT2.hasData && vT2.confirmed) {
+                        const t1Sign = v.price.changePercent >= 0 ? '+' : '';
+                        priceTag = `⚠️${t2DateShort} 漲停(+${vT2.price.changePercent.toFixed(1)}%) → ${t1DateShort} 回落(${t1Sign}${v.price.changePercent.toFixed(1)}%)｜`;
+                        auditLog.push({ code, name: stockName, claim: '漲停', result: '✅ 確認(T-2, 回落)',
+                            close: vT2.price.close, high: vT2.price.high, pct: vT2.price.changePercent,
+                            t1pct: v.price.changePercent, newsDate: t2DateShort });
+                        return priceTag;
+                    }
+                }
+                const sign = v.price.changePercent >= 0 ? '+' : '';
+                priceTag = `📊昨收${v.price.close}(${sign}${v.price.changePercent.toFixed(1)}%)｜`;
+                auditLog.push({ code, name: stockName, claim: '漲停', result: '❌ 非漲停',
+                    close: v.price.close, high: v.price.high, pct: v.price.changePercent });
+            } else {
+                priceTag = '⚠️昨日疑似漲停(未驗證)｜';
+                auditLog.push({ code, name: stockName, claim: '漲停', result: '⚠️ 無資料',
+                    close: '-', high: '-', pct: '-' });
+            }
+        } else if (keyword === '跌停') {
+            if (v.hasData && v.confirmed) {
+                priceTag = `⚠️昨日跌停(${v.price.changePercent.toFixed(1)}%)｜`;
+                auditLog.push({ code, name: stockName, claim: '跌停', result: '✅ 確認',
+                    close: v.price.close, high: v.price.low, pct: v.price.changePercent });
+            } else if (v.hasData) {
+                // If T-1 didn't confirm but T-2 has data, try T-2 as fallback
+                if (priceMapT2) {
+                    const vT2 = verifyPriceAction(code, keyword, priceMapT2);
+                    if (vT2.hasData && vT2.confirmed) {
+                        const t1Sign = v.price.changePercent >= 0 ? '+' : '';
+                        priceTag = `⚠️${t2DateShort} 跌停(${vT2.price.changePercent.toFixed(1)}%) → ${t1DateShort} 反彈(${t1Sign}${v.price.changePercent.toFixed(1)}%)｜`;
+                        auditLog.push({ code, name: stockName, claim: '跌停', result: '✅ 確認(T-2, 反彈)',
+                            close: vT2.price.close, high: vT2.price.low, pct: vT2.price.changePercent,
+                            t1pct: v.price.changePercent, newsDate: t2DateShort });
+                        return priceTag;
+                    }
+                }
+                const sign = v.price.changePercent >= 0 ? '+' : '';
+                priceTag = `📊昨收${v.price.close}(${sign}${v.price.changePercent.toFixed(1)}%)｜`;
+                auditLog.push({ code, name: stockName, claim: '跌停', result: '❌ 非跌停',
+                    close: v.price.close, high: v.price.low, pct: v.price.changePercent });
+            } else {
+                priceTag = '⚠️昨日疑似跌停(未驗證)｜';
+                auditLog.push({ code, name: stockName, claim: '跌停', result: '⚠️ 無資料',
+                    close: '-', high: '-', pct: '-' });
+            }
+        }
+        return priceTag;
+    };
+
     const renderTable = (entries) => {
         let t = `| 代碼 | 名稱 | 信心 | 法人動向 | 簡要理由 |\n`;
         t += `|------|------|------|----------|----------|\n`;
-        // 信心高排前，相同信心維持原序
         const sorted = [...entries].sort((a, b) =>
             getConfidence(b[1].impact, b[1].instNetNum) - getConfidence(a[1].impact, a[1].instNetNum)
         );
         sorted.forEach(([code, info]) => {
             const conf = getConfidence(info.impact, info.instNetNum);
-            // 若理由含「漲停」代表前日已大漲，加警示（利多出盡風險）
-            const limitUpWarn = info.impact.includes('利多') && info.reason.includes('漲停')
-                ? '⚠️前日已漲停｜' : '';
+            let priceTag = '';
+
+            // 漲停驗證（利多個股）— 使用日期交叉審計
+            if (info.impact.includes('利多') && stockInClauseWith(info.name, code, info.reason, '漲停')) {
+                priceTag = performAudit(code, info.name, '漲停', info.reason);
+            }
+
+            // 跌停驗證（利空個股）— 使用日期交叉審計
+            if (info.impact.includes('利空') && stockInClauseWith(info.name, code, info.reason, '跌停')) {
+                priceTag = performAudit(code, info.name, '跌停', info.reason);
+            }
+
             const reason = info.reason.length > 40 ? info.reason.substring(0, 40) + '...' : info.reason;
-            t += `| ${code} | ${info.name} | ${confLabel(conf)} | ${fmtInst(info.impact, info.instNetNum)} | ${limitUpWarn}${reason} |\n`;
+            t += `| ${code} | ${info.name} | ${confLabel(conf)} | ${fmtInst(info.impact, info.instNetNum)} | ${priceTag}${reason} |\n`;
         });
         return t + '\n';
     };
@@ -388,13 +577,113 @@ function generateImpactTable(impactMap) {
     const bullish = [...impactMap.entries()].filter(([, v]) => v.impact === '⬆️ 利多');
     const bearish = [...impactMap.entries()].filter(([, v]) => v.impact === '⬇️ 利空');
 
+    // Change 5: Market direction confidence adjustment
     output += `### ⬆️ 利多（${bullish.length} 檔）\n\n`;
+    if (marketChangePct <= -1) {
+        output += `> ⚠️ 大盤重挫逾 1%，利多個股開盤恐受壓，追高風險升高\n\n`;
+    }
     output += bullish.length > 0 ? renderTable(bullish) : `(無)\n\n`;
 
     output += `### ⬇️ 利空（${bearish.length} 檔）\n\n`;
+    if (marketChangePct >= 1) {
+        output += `> 📈 大盤強漲，利空個股跌幅可能受限\n\n`;
+    }
     output += bearish.length > 0 ? renderTable(bearish) : `(無)\n\n`;
 
     output += `> 信心說明：★★★ 法人方向一致｜★★☆ 無法人資料｜★☆☆ 法人方向相反（高風險）\n\n`;
+
+    // 二次審計紀錄
+    if (auditLog.length > 0) {
+        output += `### 🔍 二次審計（昨日股價驗證）\n\n`;
+        output += `> 針對報告中提及「漲停」「跌停」之個股，以昨日實際 OHLC 交叉驗證。\n`;
+        output += `> 支援 T-2 日期交叉比對：若新聞來自前天，以前天股價驗證，並顯示昨日後續走勢。\n\n`;
+        output += `| 代碼 | 名稱 | 新聞提及 | 昨收 | 最高 | 昨漲跌% | 結果 |\n`;
+        output += `|------|------|----------|------|------|---------|------|\n`;
+        auditLog.forEach(a => {
+            const pctStr = typeof a.pct === 'number' ? `${a.pct >= 0 ? '+' : ''}${a.pct.toFixed(1)}%` : a.pct;
+            const t1Str = a.t1pct != null ? ` (T-1: ${a.t1pct >= 0 ? '+' : ''}${a.t1pct.toFixed(1)}%)` : '';
+            const dateStr = a.newsDate ? ` [${a.newsDate}]` : '';
+            output += `| ${a.code} | ${a.name} | ${a.claim}${dateStr} | ${a.close} | ${a.high} | ${pctStr}${t1Str} | ${a.result} |\n`;
+        });
+        output += `\n`;
+    }
+
+    // --- Change 4: 做空候選清單 ---
+    const shortCandidates = [];
+    // From audit log: confirmed limit-up + institutional selling
+    auditLog.forEach(a => {
+        if (a.result.includes('✅') && a.claim === '漲停') {
+            const instNet = instMap ? instMap.get(a.code) : null;
+            if (instNet !== null && instNet < 0) {
+                shortCandidates.push({
+                    code: a.code, name: a.name,
+                    changePct: a.pct,
+                    instDir: `賣超 ${Math.abs(instNet).toLocaleString()}`,
+                    risk: '漲停+法人賣超',
+                });
+            }
+        }
+    });
+    // Large gain + institutional selling (changePercent > 7% AND instNetNum < 0)
+    for (const [code, info] of impactMap) {
+        if (shortCandidates.some(c => c.code === code)) continue; // avoid duplicates
+        const price = priceMap ? priceMap.get(code) : null;
+        const instNet = info.instNetNum;
+        if (price && price.changePercent > 7 && instNet !== null && instNet < 0) {
+            shortCandidates.push({
+                code, name: info.name,
+                changePct: price.changePercent,
+                instDir: `賣超 ${Math.abs(instNet).toLocaleString()}`,
+                risk: '大漲+法人賣超',
+            });
+        }
+    }
+
+    if (shortCandidates.length > 0) {
+        output += `### ⚠️ 利多出盡 / 做空候選\n\n`;
+        output += `> 昨日漲停 + 法人反向賣超 = 高機率回落標的\n\n`;
+        output += `| 代碼 | 名稱 | 昨漲跌% | 法人動向 | 風險因子 |\n`;
+        output += `|------|------|---------|----------|----------|\n`;
+        shortCandidates.forEach(c => {
+            const sign = c.changePct >= 0 ? '+' : '';
+            output += `| ${c.code} | ${c.name} | ${sign}${c.changePct.toFixed(1)}% | ${c.instDir} | ${c.risk} |\n`;
+        });
+        output += `\n`;
+    }
+
+    // --- Change 2: 上榜個股昨日價量明細 ---
+    const priceDetailRows = [];
+    for (const [code, info] of impactMap) {
+        const price = priceMap ? priceMap.get(code) : null;
+        if (!price) continue;
+        const vol = volumeMap ? (volumeMap.get(code) || 0) : 0;
+        const volLots = Math.round(vol / 1000); // 股 → 張
+        const instNet = info.instNetNum;
+        let instRatio = '-';
+        if (instNet !== null && vol > 0) {
+            // Both instNetNum and vol are in shares (股)
+            instRatio = `${(Math.abs(instNet) / vol * 100).toFixed(1)}%`;
+        }
+        const sign = price.changePercent >= 0 ? '+' : '';
+        priceDetailRows.push({
+            code, name: info.name,
+            open: price.open, high: price.high, low: price.low, close: price.close,
+            changePct: `${sign}${price.changePercent.toFixed(1)}%`,
+            volLots: volLots.toLocaleString(),
+            instRatio,
+        });
+    }
+
+    if (priceDetailRows.length > 0) {
+        output += `### 📊 上榜個股昨日價量明細\n\n`;
+        output += `| 代碼 | 名稱 | 昨開 | 昨高 | 昨低 | 昨收 | 漲跌% | 成交量(張) | 法人佔比 |\n`;
+        output += `|------|------|------|------|------|------|-------|-----------|----------|\n`;
+        priceDetailRows.forEach(r => {
+            output += `| ${r.code} | ${r.name} | ${r.open} | ${r.high} | ${r.low} | ${r.close} | ${r.changePct} | ${r.volLots} | ${r.instRatio} |\n`;
+        });
+        output += `\n`;
+    }
+
     return output;
 }
 
@@ -473,17 +762,181 @@ function buildInstMap(twseData, tpexData) {
     return map;
 }
 
+// --- Build price map from OHLC data (for 二次審計) ---
+function buildPriceMap(twsePrices, tpexPrices) {
+    const map = new Map(); // code → { open, high, low, close, change, prevClose, changePercent }
+    const pf = (s) => { const v = parseFloat(String(s || '0').replace(/,/g, '')); return isNaN(v) ? 0 : v; };
+
+    // TWSE MI_INDEX: tables 格式（2026 年後新版），個股資料在 title 含「每日收盤行情」的 table
+    // fields 動態查找以適應欄位順序變動；方向欄位可能含 HTML（如 <p style= color:red>+</p>）
+    if (twsePrices && twsePrices.tables) {
+        const stockTable = twsePrices.tables.find(t => t.title && t.title.includes('每日收盤行情'));
+        if (stockTable && stockTable.data) {
+            const fields = stockTable.fields || [];
+            const fi = (name) => fields.indexOf(name);
+            const iCode = fi('證券代號'), iOpen = fi('開盤價'), iHigh = fi('最高價');
+            const iLow = fi('最低價'), iClose = fi('收盤價'), iDir = fi('漲跌(+/-)'), iChange = fi('漲跌價差');
+            if (iCode >= 0 && iClose >= 0) {
+                stockTable.data.forEach(row => {
+                    const code = String(row[iCode] || '').trim();
+                    if (!isStockCode(code)) return;
+                    const open = pf(row[iOpen]), high = pf(row[iHigh]), low = pf(row[iLow]), close = pf(row[iClose]);
+                    const dirStr = String(row[iDir] || '+');
+                    const sign = dirStr.includes('-') ? -1 : 1;
+                    const change = sign * pf(row[iChange]);
+                    const prevClose = close - change;
+                    const changePercent = prevClose > 0 ? +(change / prevClose * 100).toFixed(2) : 0;
+                    map.set(code, { open, high, low, close, change, prevClose, changePercent });
+                });
+            }
+        }
+    }
+
+    // TPEX: data[i] = [代號, 名稱, 收盤, 漲跌, 開盤, 最高, 最低, 成交股數, ...]
+    if (tpexPrices && tpexPrices.data) {
+        tpexPrices.data.forEach(row => {
+            const code = String(row[0] || '').trim();
+            if (!isStockCode(code)) return;
+            const close = pf(row[2]), change = pf(row[3]);
+            const open = pf(row[4]), high = pf(row[5]), low = pf(row[6]);
+            const prevClose = close - change;
+            const changePercent = prevClose > 0 ? +(change / prevClose * 100).toFixed(2) : 0;
+            map.set(code, { open, high, low, close, change, prevClose, changePercent });
+        });
+    }
+
+    return map;
+}
+
+// --- Build volume map from OHLC data (for 個股價量明細) ---
+function buildVolumeMap(twsePrices, tpexPrices) {
+    const map = new Map(); // code → volumeShares (in 股)
+    const pn = (s) => parseInt(String(s || '0').replace(/,/g, '')) || 0;
+
+    // TWSE Table 8: 成交股數
+    if (twsePrices && twsePrices.tables) {
+        const stockTable = twsePrices.tables.find(t => t.title && t.title.includes('每日收盤行情'));
+        if (stockTable && stockTable.data) {
+            const fields = stockTable.fields || [];
+            const iCode = fields.indexOf('證券代號');
+            const iVol = fields.indexOf('成交股數');
+            if (iCode >= 0 && iVol >= 0) {
+                stockTable.data.forEach(row => {
+                    const code = String(row[iCode] || '').trim();
+                    if (!isStockCode(code)) return;
+                    map.set(code, pn(row[iVol]));
+                });
+            }
+        }
+    }
+
+    // TPEX: data[i][8] is 成交股數
+    if (tpexPrices && tpexPrices.data) {
+        tpexPrices.data.forEach(row => {
+            const code = String(row[0] || '').trim();
+            if (!isStockCode(code)) return;
+            map.set(code, pn(row[8]));
+        });
+    }
+
+    return map;
+}
+
+// --- 大盤概況 ---
+function generateMarketSummary(twsePrices) {
+    let output = `## 📈 大盤概況（前一交易日）\n\n`;
+
+    if (!twsePrices || !twsePrices.tables) {
+        output += `(無 TWSE 行情資料)\n\n`;
+        return { output, marketChangePct: 0 };
+    }
+
+    // Table 0: 價格指數 — 發行量加權股價指數
+    let indexClose = '-', indexChange = '-', indexChangePct = 0, indexChangeStr = '-';
+    const table0 = twsePrices.tables.find(t => t.title && t.title.includes('價格指數') && !t.title.includes('跨市場') && !t.title.includes('指數公司'));
+    if (table0 && table0.data) {
+        const row = table0.data.find(r => String(r[0] || '').includes('發行量加權股價'));
+        if (row) {
+            indexClose = row[1] || '-';
+            // Parse direction from HTML in 漲跌(+/-)
+            const dirHtml = String(row[2] || '+');
+            const sign = dirHtml.includes('-') ? '-' : '+';
+            const points = row[3] || '0';
+            const pct = row[4] || '0';
+            // pct field may already contain sign, so use absolute value and apply direction from HTML
+            indexChangePct = Math.abs(parseFloat(pct)) * (sign === '-' ? -1 : 1);
+            indexChangeStr = `${sign}${points}, ${indexChangePct >= 0 ? '+' : ''}${indexChangePct.toFixed(2)}%`;
+        }
+    }
+
+    // Table 6: 大盤統計資訊 — 1.一般股票
+    let volumeStr = '-';
+    const table6 = twsePrices.tables.find(t => t.title && t.title.includes('大盤統計資訊'));
+    if (table6 && table6.data) {
+        const row = table6.data.find(r => String(r[0] || '').includes('1.一般股票'));
+        if (row) {
+            const amount = parseInt(String(row[1] || '0').replace(/,/g, '')) || 0;
+            const amountYi = Math.round(amount / 100000000);
+            volumeStr = `${amountYi.toLocaleString()} 億`;
+        }
+    }
+
+    // Table 7: 漲跌證券數合計 — 股票 column (index 2)
+    let upCount = '-', downCount = '-', flatCount = '-', untradedCount = '-';
+    const table7 = twsePrices.tables.find(t => t.title && t.title.includes('漲跌證券數合計'));
+    if (table7 && table7.data) {
+        // The format is e.g. "362(20)" for stocks — we need the number before the parenthesis
+        const extractCount = (rowName) => {
+            const row = table7.data.find(r => String(r[0] || '').startsWith(rowName));
+            if (!row) return '-';
+            const val = String(row[2] || '0');
+            // Extract main count, stripping "(漲停/跌停)" parenthetical
+            const match = val.match(/^([\d,]+)/);
+            return match ? match[1] : val;
+        };
+        upCount = extractCount('上漲');
+        downCount = extractCount('下跌');
+        flatCount = extractCount('持平');
+        untradedCount = extractCount('未成交');
+    }
+
+    output += `| 指標 | 數值 |\n`;
+    output += `|------|------|\n`;
+    output += `| 加權指數 | ${indexClose} (${indexChangeStr}) |\n`;
+    output += `| 成交量（一般股票） | ${volumeStr} |\n`;
+    output += `| 上漲 / 下跌 / 持平 | ${upCount} / ${downCount} / ${flatCount} |\n`;
+    output += `\n`;
+
+    // Market direction assessment
+    let directionNote = '';
+    if (indexChangePct <= -1) {
+        directionNote = '> ⚠️ 大盤重挫';
+    } else if (indexChangePct <= -0.3) {
+        directionNote = '> 📉 大盤下跌';
+    } else if (indexChangePct >= 0.3) {
+        directionNote = '> 📈 大盤上漲';
+    } else {
+        directionNote = '> ➖ 大盤持平';
+    }
+    output += directionNote + `\n\n`;
+
+    return { output, marketChangePct: indexChangePct };
+}
+
 // --- Build name→code map ---
 const nameCodeMap = buildNameCodeMap(twseData, tpexData, mopsData);
 const instMap     = buildInstMap(twseData, tpexData);
+const priceMap    = buildPriceMap(twsePricesData, tpexPricesData);
+const priceMapT2  = buildPriceMap(twsePricesDataT2, tpexPricesDataT2);
+const volumeMap   = buildVolumeMap(twsePricesData, tpexPricesData);
 
-// Collect all news for analysis
+// Collect all news for analysis (tag each item with its source)
 let allNews = [];
-if (cnyesData && Array.isArray(cnyesData)) allNews = allNews.concat(cnyesData);
-if (statementdogData && Array.isArray(statementdogData)) allNews = allNews.concat(statementdogData);
+if (cnyesData && Array.isArray(cnyesData)) allNews = allNews.concat(cnyesData.map(n => ({...n, _source: 'cnyes'})));
+if (statementdogData && Array.isArray(statementdogData)) allNews = allNews.concat(statementdogData.map(n => ({...n, _source: 'statementdog'})));
 if (moneydjData) {
-    if (Array.isArray(moneydjData)) allNews = allNews.concat(moneydjData);
-    else if (moneydjData.data) allNews = allNews.concat(moneydjData.data);
+    if (Array.isArray(moneydjData)) allNews = allNews.concat(moneydjData.map(n => ({...n, _source: 'moneydj'})));
+    else if (moneydjData.data) allNews = allNews.concat(moneydjData.data.map(n => ({...n, _source: 'moneydj'})));
 }
 
 // Compute impact map once (shared between table + decision section)
@@ -494,10 +947,14 @@ report += `> 調研日期：${TODAY}\n`;
 report += `> 執行時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}\n`;
 report += `> 來源：MOPS (公開資訊觀測站)、鉅亨網、財報狗、MoneyDJ、證交所/櫃買中心\n\n`;
 
-// 0. 個股影響總表
-report += generateImpactTable(impactMap);
+// 0. 大盤概況（前一交易日）
+const { output: marketSummary, marketChangePct } = generateMarketSummary(twsePricesData);
+report += marketSummary;
 
-// 1. 三大法人買賣超
+// 1. 個股影響總表
+report += generateImpactTable(impactMap, priceMap, priceMapT2, volumeMap, instMap, marketChangePct, allNews);
+
+// 2. 三大法人買賣超
 report += `## 💰 三大法人買賣超重點\n\n`;
 
 const processInst = (data, marketName) => {
