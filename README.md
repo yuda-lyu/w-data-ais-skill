@@ -30,35 +30,41 @@ AI Agent 的技能模組庫。
 │   ├── SKILL.md
 │   └── scripts/
 │       └── check_tw_trading_day.mjs
-├── fetch-cnyes/
+├── fetch-tw-cnyes/
 │   ├── SKILL.md
 │   └── scripts/
 │       └── fetch_cnyes.mjs
-├── fetch-institutional-net-buy-sell/
+├── fetch-tw-futures/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── fetch_taifex.mjs
+├── fetch-tw-institutional/
 │   ├── SKILL.md
 │   └── scripts/
 │       ├── fetch_tpex_3insti.mjs
 │       └── fetch_twse_t86.mjs
-├── fetch-moneydj/
+├── fetch-tw-margin/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_twse_margin.mjs
+│       └── fetch_tpex_margin.mjs
+├── fetch-tw-moneydj/
 │   ├── SKILL.md
 │   └── scripts/
 │       └── fetch_moneydj.mjs
-├── fetch-mops/
+├── fetch-tw-mops/
 │   ├── SKILL.md
 │   └── scripts/
 │       └── fetch_mops.mjs
-├── fetch-statementdog/
+├── fetch-tw-statementdog/
 │   ├── SKILL.md
 │   └── scripts/
 │       └── fetch_statementdog.mjs
-├── fetch-tpex/
+├── fetch-tw-stock/
 │   ├── SKILL.md
 │   └── scripts/
-│       └── fetch_tpex.mjs
-├── fetch-twse/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── fetch_twse.mjs
+│       ├── fetch_twse_stock.mjs
+│       └── fetch_tpex_stock.mjs
 ├── tw-stock-post-market/
 │   ├── SKILL.md
 │   └── scripts/
@@ -134,13 +140,14 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Puppeteer + 內部 API | `fetch_mops.mjs` | `puppeteer-core` |
-| `fetch-cnyes` | 抓取鉅亨網台股即時新聞（近 100 筆） | `fetch_cnyes.mjs` | `axios` |
-| `fetch-statementdog` | 抓取財報狗產業分析與個股新聞 | `fetch_statementdog.mjs` | `axios`, `cheerio` |
-| `fetch-moneydj` | 抓取 MoneyDJ 法說/營收新聞（50 頁，~1.5~3 分鐘） | `fetch_moneydj.mjs` | `axios`, `cheerio` |
-| `fetch-twse` | 抓取證交所上市股票收盤資料（個股或全市場） | `fetch_twse.mjs` | `axios` |
-| `fetch-tpex` | 抓取櫃買中心上櫃股票收盤資料（個股或全市場） | `fetch_tpex.mjs` | `axios` |
-| `fetch-institutional-net-buy-sell` | 抓取三大法人買賣超（官方 TWSE T86 + TPEX 3Insti），支援指定日期與代碼 | `fetch_twse_t86.mjs`, `fetch_tpex_3insti.mjs` | `axios` |
+| `fetch-tw-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Puppeteer + 內部 API | `fetch_mops.mjs` | `puppeteer-core` |
+| `fetch-tw-cnyes` | 抓取鉅亨網台股即時新聞（近 100 筆） | `fetch_cnyes.mjs` | `axios` |
+| `fetch-tw-statementdog` | 抓取財報狗產業分析與個股新聞 | `fetch_statementdog.mjs` | `axios`, `cheerio` |
+| `fetch-tw-moneydj` | 抓取 MoneyDJ 法說/營收新聞（50 頁，~1.5~3 分鐘） | `fetch_moneydj.mjs` | `axios`, `cheerio` |
+| `fetch-tw-stock` | 抓取台股收盤資料（上市 TWSE + 上櫃 TPEX），合併為單一技能 | `fetch_twse_stock.mjs`, `fetch_tpex_stock.mjs` | `axios` |
+| `fetch-tw-institutional` | 抓取三大法人買賣超（官方 TWSE T86 + TPEX 3Insti），支援指定日期與代碼 | `fetch_twse_t86.mjs`, `fetch_tpex_3insti.mjs` | `axios` |
+| `fetch-tw-futures` | 抓取期交所（TAIFEX）台指期行情、法人未平倉、P/C Ratio | `fetch_taifex.mjs` | `axios` |
+| `fetch-tw-margin` | 抓取融資融券餘額（上市 TWSE + 上櫃 TPEX） | `fetch_twse_margin.mjs`, `fetch_tpex_margin.mjs` | `axios` |
 
 #### Fetcher 通用特性
 
@@ -152,13 +159,14 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 參數格式 |
 |------|----------|
-| `fetch-mops` | `[outputPath]` |
-| `fetch-cnyes` | `[outputPath]` |
-| `fetch-statementdog` | `[outputPath]` |
-| `fetch-moneydj` | `[outputPath]` |
-| `fetch-twse` | `[stockCode\|all] [date] [outputPath]` |
-| `fetch-tpex` | `[stockCode\|all] [date] [outputPath]` |
-| `fetch-institutional-net-buy-sell` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
+| `fetch-tw-mops` | `[outputPath]` |
+| `fetch-tw-cnyes` | `[outputPath]` |
+| `fetch-tw-statementdog` | `[outputPath]` |
+| `fetch-tw-moneydj` | `[outputPath]` |
+| `fetch-tw-stock` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
+| `fetch-tw-institutional` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
+| `fetch-tw-futures` | `[YYYYMMDD] [outputPath]` |
+| `fetch-tw-margin` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
 
 ---
 

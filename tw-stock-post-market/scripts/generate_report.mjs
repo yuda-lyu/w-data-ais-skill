@@ -127,7 +127,7 @@ const getPreMarketPredictions = () => {
     return [...bullish, ...bearish];
 };
 
-// 取得今日收盤價（由 fetch-twse / fetch-tpex 腳本產出，readJson 已自動解包 status/message 包裝）
+// 取得今日收盤價（由 fetch-tw-stock 腳本產出，readJson 已自動解包 status/message 包裝）
 //
 // prices_twse.json 解包後：MI_INDEX 格式
 //   { stat, fields9: [...], data9: [[證券代號, 證券名稱, ..., 開盤價(idx5), ..., 收盤價(idx8), ...]] }
@@ -192,7 +192,7 @@ const getPrices = () => {
     return combined;
 };
 
-// 取得法人買賣超（由 fetch-institutional-net-buy-sell 腳本產出，readJson 已自動解包 status/message 包裝）
+// 取得法人買賣超（由 fetch-tw-institutional 腳本產出，readJson 已自動解包 status/message 包裝）
 //
 // institutional_twse.json 解包後：
 //   { source, date, data: [{ 證券代號, 證券名稱, 三大法人買賣超股數, ... }] }

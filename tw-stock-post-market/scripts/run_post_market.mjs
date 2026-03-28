@@ -115,18 +115,18 @@ if (tradingCheck.error) {
 
 // ── Step 3: 抓取收盤價 ────────────────────────────────────────────────────────
 run('fetch-twse',
-    'fetch-twse/scripts/fetch_twse.mjs',
+    'fetch-tw-stock/scripts/fetch_twse_stock.mjs',
     ['all', TODAY, raw('prices_twse.json')], 60000);
 run('fetch-tpex',
-    'fetch-tpex/scripts/fetch_tpex.mjs',
+    'fetch-tw-stock/scripts/fetch_tpex_stock.mjs',
     ['all', TODAY, raw('prices_tpex.json')], 60000);
 
 // ── Step 4: 抓取三大法人買賣超 ────────────────────────────────────────────────
 run('fetch-twse-t86',
-    'fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs',
+    'fetch-tw-institutional/scripts/fetch_twse_t86.mjs',
     ['all', TODAY, raw('institutional_twse.json')], 60000);
 run('fetch-tpex-3insti',
-    'fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs',
+    'fetch-tw-institutional/scripts/fetch_tpex_3insti.mjs',
     ['all', TODAY, raw('institutional_tpex.json')], 60000);
 
 // ── Step 5: 產出報告 ──────────────────────────────────────────────────────────

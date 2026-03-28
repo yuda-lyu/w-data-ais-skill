@@ -1,5 +1,5 @@
 ---
-name: fetch-statementdog
+name: fetch-tw-statementdog
 description: 抓取財報狗（Statementdog）最新產業分析與個股新聞，回傳結構化 JSON。適用於台股調研、基本面分析、產業趨勢研究。
 ---
 
@@ -38,15 +38,15 @@ npm install axios cheerio
 
 > 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
-1. **執行腳本**：`node fetch-statementdog/scripts/fetch_statementdog.mjs [outputPath]`
+1. **執行腳本**：`node fetch-tw-statementdog/scripts/fetch_statementdog.mjs [outputPath]`
 2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `statementdog_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：指定輸出路徑
-node fetch-statementdog/scripts/fetch_statementdog.mjs ./w-data-news/tw-stock-research/20260316/raw/statementdog.json
+node fetch-tw-statementdog/scripts/fetch_statementdog.mjs ./w-data-news/tw-stock-research/20260316/raw/statementdog.json
 
 # 範例：無指定路徑，自動產生 statementdog_YYYYMMDD.json
-node fetch-statementdog/scripts/fetch_statementdog.mjs
+node fetch-tw-statementdog/scripts/fetch_statementdog.mjs
 ```
 
 ### 腳本邏輯摘要
@@ -148,8 +148,8 @@ npm install axios cheerio
 
 ```bash
 # 執行時須確保 `node_modules` 可存取
-node fetch-statementdog/scripts/fetch_statementdog.mjs [outputPath]
+node fetch-tw-statementdog/scripts/fetch_statementdog.mjs [outputPath]
 
 # 範例
-node fetch-statementdog/scripts/fetch_statementdog.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
+node fetch-tw-statementdog/scripts/fetch_statementdog.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
 ```

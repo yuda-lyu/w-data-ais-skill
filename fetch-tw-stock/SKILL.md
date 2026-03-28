@@ -1,24 +1,25 @@
 ---
-name: fetch-twse
-description: 抓取證交所（TWSE）股票收盤資料。支援個股或全市場查詢，回傳結構化 JSON。適用於台股盤後分析、開收盤價查詢、漲跌幅統計。
+name: fetch-tw-stock
+description: 抓取台股收盤資料（上市 TWSE + 上櫃 TPEX）。支援指定日期與股票代碼，回傳結構化 JSON（OHLC、成交量、本益比等）。適用於盤後分析、價量查詢、上市/上櫃資料整合。
 ---
 
-# 證交所資料抓取
+# 台股收盤資料抓取（上市 TWSE + 上櫃 TPEX）
 
-從臺灣證券交易所（TWSE）抓取股票收盤資料。
+從臺灣證券交易所（TWSE）與櫃買中心（TPEX）抓取股票收盤資料。
 
 ## 網站資訊
 
 | 項目 | 說明 |
 |------|------|
-| 網址 | https://www.twse.com.tw |
+| 網址 (上市) | https://www.twse.com.tw |
+| 網址 (上櫃) | https://www.tpex.org.tw/ |
 | 資料類型 | 開收盤價、成交量、漲跌幅 |
 | 抓取方式 | API（JSON 格式） |
 | 更新時間 | 每日 14:30 後（收盤後） |
 
 ## 🚦 交易日檢查（建議）
 
-TWSE 股價資料僅在台股交易日產生。建議執行前先確認：
+股價資料僅在台股交易日產生。建議執行前先確認：
 
 ```bash
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
@@ -46,11 +47,13 @@ node -e "require('axios'); console.log('deps OK')"
 npm install axios
 ```
 
+## 上市（TWSE）
+
 ### 執行方式
 
 > 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
-1. **執行腳本**：`node fetch-twse/scripts/fetch_twse.mjs [stockCode|all] [date] [outputPath]`
+1. **執行腳本**：`node fetch-tw-stock/scripts/fetch_twse_stock.mjs [stockCode|all] [date] [outputPath]`
    - `stockCode`: 股票代碼 (單檔) 或 `all`（全市場）
    - `date`: YYYYMMDD（例如 20260210）；可省略，預設為今日。
    > ⚠️ **注意**：個股查詢（STOCK_DAY）回傳的是該月份**整月**資料而非單日；全市場查詢（MI_INDEX）則為單日資料
@@ -59,22 +62,22 @@ npm install axios
 
 ```bash
 # 範例：抓取全市場 (2026/02/10) 並輸出至檔案
-node fetch-twse/scripts/fetch_twse.mjs all 20260210 ./data/twse.json
+node fetch-tw-stock/scripts/fetch_twse_stock.mjs all 20260210 ./data/twse.json
 
 # 範例：抓取個股 (2026/02/10) 並輸出至檔案
-node fetch-twse/scripts/fetch_twse.mjs 2330 20260210 ./data/twse_2330.json
+node fetch-tw-stock/scripts/fetch_twse_stock.mjs 2330 20260210 ./data/twse_2330.json
 
 # 範例：抓取個股 (今日)，自動產生 twse_2330_YYYYMMDD.json
-node fetch-twse/scripts/fetch_twse.mjs 2330
+node fetch-tw-stock/scripts/fetch_twse_stock.mjs 2330
 ```
 
 ---
 
-## API 端點 (Legacy)
+### API 端點 (Legacy)
 
 以下說明為直接呼叫 API 的方式，僅供參考。
 
-### 1. 個股日成交資訊
+#### 1. 個股日成交資訊
 
 ```
 https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=YYYYMMDD&stockNo=XXXX
@@ -102,7 +105,7 @@ https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=YYYYMMDD&sto
 }
 ```
 
-### 2. 全市場成交資訊
+#### 2. 全市場成交資訊
 
 ```
 https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYYMMDD&type=ALLBUT0999
@@ -121,7 +124,7 @@ https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYYMMDD&type
 | `ALL` | 全部 |
 | `IND` | 大盤指數 |
 
-### 3. 交易日檢查
+#### 3. 交易日檢查
 
 ```bash
 curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYYMMDD&type=IND" | jq '.stat'
@@ -129,7 +132,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 # "很抱歉，沒有符合條件的資料!" = 非交易日
 ```
 
-## 輸出格式
+### TWSE 輸出格式
 
 **預設檔名**：`twse_STOCKCODE_YYYYMMDD.json`（全市場時為 `twse_ALL_YYYYMMDD.json`）
 
@@ -173,21 +176,95 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 }
 ```
 
+---
+
+## 上櫃（TPEX）
+
+### 執行方式
+
+1. **執行腳本**：`node fetch-tw-stock/scripts/fetch_tpex_stock.mjs [stockCode|all] [date] [outputPath]`
+   - `stockCode`: 股票代碼（單檔或逗號分隔）或 `all`（全市場）
+   - `date`: YYYYMMDD（例如 20260210）；可省略，預設為今日
+   - `outputPath`: 輸出 JSON 檔案路徑
+2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `tpex_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
+
+```bash
+# 範例：抓取全市場 (2026/02/10) 並輸出至檔案
+node fetch-tw-stock/scripts/fetch_tpex_stock.mjs all 20260210 ./data/tpex.json
+
+# 範例：抓取特定個股 (2026/02/10) 並輸出至檔案
+node fetch-tw-stock/scripts/fetch_tpex_stock.mjs 6499 20260210 ./data/tpex_6499.json
+
+# 範例：抓取特定個股 (今日)，自動產生 tpex_6499_YYYYMMDD.json
+node fetch-tw-stock/scripts/fetch_tpex_stock.mjs 6499
+
+# 範例：逗號分隔多檔查詢
+node fetch-tw-stock/scripts/fetch_tpex_stock.mjs 6499,4977 20260210 ./data/tpex_multi.json
+```
+
+### TPEX API 端點
+
+#### 上櫃股票行情（指定交易日、全市場）
+
+```
+https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php
+  ?l=zh-tw
+  &d=YYY/MM/DD
+  &s=0,asc,0
+  &o=json
+```
+
+- `d`：民國日期（例如 `115/02/05`）
+- `o=json`：JSON 回傳
+
+**回傳格式（2026 年後新版）**：`{ stat, tables: [{ title: "上櫃股票行情", fields: [...], data: [[...], ...] }] }`
+
+欄位順序（`tables[0].data` 每列）：`[0]=代號, [1]=名稱, [2]=收盤, [3]=漲跌, [4]=開盤, [5]=最高, [6]=最低, [7]=成交股數, ...`
+
+> 腳本使用新版 `tables` 格式解析回傳資料。
+
+### TPEX 輸出格式
+
+**預設檔名**：`tpex_YYYYMMDD.json`（指定個股時為 `tpex_CODE_YYYYMMDD.json`，多檔時為 `tpex_CODE1_CODE2_YYYYMMDD.json`）
+
+成功：
+```json
+{
+  "status": "success",
+  "message": {
+    "source": "tpex",
+    "date": "20260205",
+    "count": 800,
+    "data": [
+      ["6499", "益安", "45.50", "+0.50", "45.00", "46.00", "44.50", "1,234,567"]
+    ]
+  }
+}
+```
+
+錯誤：
+```json
+{
+  "status": "error",
+  "message": "TPEX API returned no data. Possibly a holiday or data not yet available."
+}
+```
+
+---
+
 ## 注意事項
 
 ### 上市 vs 上櫃
 
-- **上市股票**：使用 TWSE API（本技能）
-- **上櫃股票**：需使用 TPEX API（櫃買中心）
-  - 網址：`https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php`
-  - 格式不同，需另外處理
+- **上市股票**：使用 TWSE 腳本（`fetch_twse_stock.mjs`）
+- **上櫃股票**：使用 TPEX 腳本（`fetch_tpex_stock.mjs`）
 
 ### 股票代碼判斷
 
-| 代碼開頭 | 市場 | API |
-|----------|------|-----|
-| 1xxx~9xxx（4碼） | 通常上市 | TWSE |
-| 部分 4 碼 | 可能上櫃 | TPEX |
+| 代碼開頭 | 市場 | 腳本 |
+|----------|------|------|
+| 1xxx~9xxx（4碼） | 通常上市 | fetch_twse_stock.mjs |
+| 部分 4 碼 | 可能上櫃 | fetch_tpex_stock.mjs |
 
 建議：先查 TWSE，若無資料再查 TPEX
 
@@ -201,7 +278,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 ### 1. 伺服器錯誤（502/503 等 5xx）
 
-腳本內建**自動重試機制**（最多重試 10 次，含初始請求最多執行 11 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
+兩支腳本皆內建**自動重試機制**（最多重試 10 次，含初始請求最多執行 11 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
 
 | 重試次 | 等待時間 |
 |--------|---------|
@@ -213,7 +290,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 若 10 次後仍失敗，才寫入錯誤並 exit 1。
 
-> 查無資料（`stat !== 'OK'`）**不會**觸發重試（非暫時性狀態）。
+> 查無資料（`stat !== 'OK'` 或資料列為空）**不會**觸發重試（非暫時性狀態）。
 
 ### 2. 執行錯誤 (Module not found)
 
@@ -226,21 +303,26 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 npm install axios
 ```
 
-### 3. 查無資料 (很抱歉，沒有符合條件的資料!)
+### 3. 查無資料
 
 **原因**：
 - 該日為非交易日（假日）。
 - 尚未開盤或尚未收盤（資料未產生）。
 - 股票代碼錯誤或已下市。
-- 該股票為「上櫃」而非「上市」（請改用 `fetch-tpex`）。
+- 上市股票用了 TPEX 腳本（或反之），請改用對應腳本。
 
 ## 快速執行
 
 ```bash
 # 執行時須確保 `node_modules` 可存取
-node fetch-twse/scripts/fetch_twse.mjs [stockCode|all] [date] [outputPath]
+
+# TWSE（上市）
+node fetch-tw-stock/scripts/fetch_twse_stock.mjs [stockCode|all] [date] [outputPath]
+
+# TPEX（上櫃）
+node fetch-tw-stock/scripts/fetch_tpex_stock.mjs [stockCode|all] [date] [outputPath]
 
 # 範例：全市場
-node fetch-twse/scripts/fetch_twse.mjs all 20260316 ./w-data-news/tw-stock-post-market/20260316/raw/prices_twse.json
+node fetch-tw-stock/scripts/fetch_twse_stock.mjs all 20260316 ./w-data-news/tw-stock-post-market/20260316/raw/prices_twse.json
+node fetch-tw-stock/scripts/fetch_tpex_stock.mjs all 20260316 ./w-data-news/tw-stock-post-market/20260316/raw/prices_tpex.json
 ```
-

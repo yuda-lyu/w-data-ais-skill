@@ -1,5 +1,5 @@
 ---
-name: fetch-taifex
+name: fetch-tw-futures
 description: 抓取台灣期貨交易所（TAIFEX）資料。包含台指期行情（TX 近月合約開高低收結算價）、三大法人期貨未平倉、Put/Call Ratio。適用於期貨盤後分析、法人籌碼追蹤。
 ---
 
@@ -50,17 +50,17 @@ npm install axios
 
 > 執行環境須可存取 `node_modules`（含所需依賴套件）。
 
-1. **執行腳本**：`node fetch-taifex/scripts/fetch_taifex.mjs [YYYYMMDD] [outputPath]`
+1. **執行腳本**：`node fetch-tw-futures/scripts/fetch_taifex.mjs [YYYYMMDD] [outputPath]`
    - `YYYYMMDD`: 查詢日期（例如 20260326）；可省略，預設為今日。
    - `outputPath`: 輸出 JSON 檔案路徑；可省略，預設為 `taifex_YYYYMMDD.json`。
 2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：抓取 2026/03/26 資料
-node fetch-taifex/scripts/fetch_taifex.mjs 20260326
+node fetch-tw-futures/scripts/fetch_taifex.mjs 20260326
 
 # 範例：抓取今日資料並輸出至指定路徑
-node fetch-taifex/scripts/fetch_taifex.mjs 20260326 ./data/taifex.json
+node fetch-tw-futures/scripts/fetch_taifex.mjs 20260326 ./data/taifex.json
 ```
 
 ### 抓取內容
@@ -238,8 +238,8 @@ npm install axios
 
 ```bash
 # 執行時須確保 `node_modules` 可存取
-node fetch-taifex/scripts/fetch_taifex.mjs [YYYYMMDD] [outputPath]
+node fetch-tw-futures/scripts/fetch_taifex.mjs [YYYYMMDD] [outputPath]
 
 # 範例：抓取特定日期
-node fetch-taifex/scripts/fetch_taifex.mjs 20260326 ./data/taifex.json
+node fetch-tw-futures/scripts/fetch_taifex.mjs 20260326 ./data/taifex.json
 ```

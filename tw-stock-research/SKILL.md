@@ -10,7 +10,7 @@ description: 台股盤前調研技能。從 5 個來源（MOPS、鉅亨網、財
 ## 安裝指引
 
 所需套件：`axios`、`cheerio`、`puppeteer-core`
-額外需求：環境需安裝 Chrome 或 Chromium（fetch-mops 腳本自動偵測路徑）
+額外需求：環境需安裝 Chrome 或 Chromium（fetch-tw-mops 腳本自動偵測路徑）
 
 執行前請先驗證套件是否可用：
 ```bash
@@ -56,11 +56,11 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 | 來源 | 抓取技能 | 資料類型 | 時間範圍 |
 |------|----------|----------|----------|
-| MOPS | `fetch-mops` | 官方公告 | 昨日+今日 |
-| 鉅亨網 | `fetch-cnyes` | 即時新聞 | 昨日+今日 |
-| 財報狗 | `fetch-statementdog` | 產業分析 | 昨日+今日 |
-| MoneyDJ | `fetch-moneydj` | 法說/營收 | 昨日+今日 |
-| 法人買賣超（官方） | `fetch-institutional-net-buy-sell` | 三大法人買賣超（外資/投信/自營/合計）；可指定日期 | 昨日或前一交易日 |
+| MOPS | `fetch-tw-mops` | 官方公告 | 昨日+今日 |
+| 鉅亨網 | `fetch-tw-cnyes` | 即時新聞 | 昨日+今日 |
+| 財報狗 | `fetch-tw-statementdog` | 產業分析 | 昨日+今日 |
+| MoneyDJ | `fetch-tw-moneydj` | 法說/營收 | 昨日+今日 |
+| 法人買賣超（官方） | `fetch-tw-institutional` | 三大法人買賣超（外資/投信/自營/合計）；可指定日期 | 昨日或前一交易日 |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
 
@@ -106,15 +106,15 @@ run_research.mjs
   │
   ├─ 2. 建立輸出目錄 w-data-news/tw-stock-research/YYYYMMDD/raw/
   │
-  ├─ 3. fetch-mops               → raw/mops.json            ⚠️ 最多 6 分鐘（含 launch retry）
-  ├─ 4. fetch-cnyes              → raw/cnyes.json
-  ├─ 5. fetch-statementdog       → raw/statementdog.json
-  ├─ 6. fetch-moneydj            → raw/moneydj.json        ⚠️ 最多 5 分鐘
-  ├─ 7. fetch-twse-t86 (all, 前一交易日)     → raw/institutional_twse.json   ← 採用 30 個工作日回溯查找
-  ├─ 8. fetch-tpex-3insti (all, 前一交易日)  → raw/institutional_tpex.json   ← 採用 30 個工作日回溯查找
+  ├─ 3. fetch-tw-mops             → raw/mops.json            ⚠️ 最多 6 分鐘（含 launch retry）
+  ├─ 4. fetch-tw-cnyes            → raw/cnyes.json
+  ├─ 5. fetch-tw-statementdog     → raw/statementdog.json
+  ├─ 6. fetch-tw-moneydj          → raw/moneydj.json        ⚠️ 最多 5 分鐘
+  ├─ 7. fetch-tw-institutional (twse-t86, all, 前一交易日)   → raw/institutional_twse.json   ← 採用 30 個工作日回溯查找
+  ├─ 8. fetch-tw-institutional (tpex-3insti, all, 前一交易日) → raw/institutional_tpex.json   ← 採用 30 個工作日回溯查找
   │
-  ├─ 9. fetch-twse (all, 前一交易日)         → raw/prices_twse.json          ← 昨日 OHLC（二次審計用）
-  ├─ 10. fetch-tpex (all, 前一交易日)        → raw/prices_tpex.json          ← 昨日 OHLC（二次審計用）
+  ├─ 9. fetch-tw-stock (twse, all, 前一交易日)   → raw/prices_twse.json          ← 昨日 OHLC（二次審計用）
+  ├─ 10. fetch-tw-stock (tpex, all, 前一交易日)  → raw/prices_tpex.json          ← 昨日 OHLC（二次審計用）
   │
   └─ 11. generate_report.mjs     → report_YYYYMMDD.md（含二次審計）
 ```
@@ -125,7 +125,7 @@ run_research.mjs
 
 **法人資料往前偵測**：法人腳本（TWSE/TPEX）以前一工作日為起點，若 TWSE API 回傳無資料（公假日），自動往前推一個工作日，最多回溯 **30 個工作日**（可涵蓋農曆春節等長假）。
 
-> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-moneydj 的 50 頁爬取）。各子程序 timeout 累計最大值可達約 900 秒，外層 exec 呼叫時請設定 **timeout ≥ 900000 ms（15 分鐘）**，避免 SIGTERM 中斷。
+> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-tw-moneydj 的 50 頁爬取）。各子程序 timeout 累計最大值可達約 900 秒，外層 exec 呼叫時請設定 **timeout ≥ 900000 ms（15 分鐘）**，避免 SIGTERM 中斷。
 
 **完成訊號**：腳本成功產出報告後，會在 stdout 輸出 `RESEARCH_COMPLETE=true`，接著立即 `process.exit(0)`。外層呼叫方可偵測此字串判斷執行成功，無需等待其他 I/O。
 
@@ -134,12 +134,12 @@ run_research.mjs
 需要單獨重跑某一來源時才使用，各腳本執行環境須可存取 `node_modules`（含所需依賴套件）：
 
 ```bash
-node fetch-mops/scripts/fetch_mops.mjs                                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
-node fetch-cnyes/scripts/fetch_cnyes.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
-node fetch-statementdog/scripts/fetch_statementdog.mjs                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
-node fetch-moneydj/scripts/fetch_moneydj.mjs                                       ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
-node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
-node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
+node fetch-tw-mops/scripts/fetch_mops.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
+node fetch-tw-cnyes/scripts/fetch_cnyes.mjs                                         ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
+node fetch-tw-statementdog/scripts/fetch_statementdog.mjs                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
+node fetch-tw-moneydj/scripts/fetch_moneydj.mjs                                     ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
+node fetch-tw-institutional/scripts/fetch_twse_t86.mjs    all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
+node fetch-tw-institutional/scripts/fetch_tpex_3insti.mjs all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
 node tw-stock-research/scripts/generate_report.mjs YYYYMMDD ./w-data-news
 ```
 
@@ -224,7 +224,7 @@ w-data-news/tw-stock-research/
 {
   "timestamp": "2026-02-05T00:15:30.000Z",
   "date": "20260205",
-  "source": "fetch-mops",
+  "source": "fetch-tw-mops",
   "phase": "fetch",
   "error": {
     "type": "unknown",
@@ -241,7 +241,7 @@ w-data-news/tw-stock-research/
 |------|------|------|
 | `timestamp` | ✅ | ISO 8601 格式（UTC，`Z` 結尾） |
 | `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 來源：fetch-mops / fetch-cnyes / fetch-statementdog / fetch-moneydj / fetch-twse-t86 / fetch-tpex-3insti / generate_report |
+| `source` | ✅ | 來源：fetch-tw-mops / fetch-tw-cnyes / fetch-tw-statementdog / fetch-tw-moneydj / fetch-twse-t86 / fetch-tpex-3insti / generate_report |
 | `phase` | ✅ | 階段：fetch / report |
 | `error.type` | ✅ | 錯誤類型：timeout / unknown |
 | `error.message` | ✅ | 簡短錯誤訊息 |
@@ -332,7 +332,7 @@ npm install axios cheerio puppeteer-core
 ### 2. 瀏覽器未找到
 
 **症狀**：
-- 腳本輸出 `Error: Browser not found.` (fetch-mops)
+- 腳本輸出 `Error: Browser not found.` (fetch-tw-mops)
 
 **解決方法**：
 - 確認系統已安裝 Chrome/Chromium。
@@ -364,12 +364,12 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-new
 npm install axios cheerio puppeteer-core
 
 # 3. 依序抓取（outputPath 必須為完整相對路徑）
-node fetch-mops/scripts/fetch_mops.mjs                                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
-node fetch-cnyes/scripts/fetch_cnyes.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
-node fetch-statementdog/scripts/fetch_statementdog.mjs                             ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
-node fetch-moneydj/scripts/fetch_moneydj.mjs                                       ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
-node fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs    all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
-node fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
+node fetch-tw-mops/scripts/fetch_mops.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
+node fetch-tw-cnyes/scripts/fetch_cnyes.mjs                                         ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
+node fetch-tw-statementdog/scripts/fetch_statementdog.mjs                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/statementdog.json
+node fetch-tw-moneydj/scripts/fetch_moneydj.mjs                                     ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
+node fetch-tw-institutional/scripts/fetch_twse_t86.mjs    all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_twse.json
+node fetch-tw-institutional/scripts/fetch_tpex_3insti.mjs all PREV_YYYYMMDD   ./w-data-news/tw-stock-research/YYYYMMDD/raw/institutional_tpex.json
 
 # 4. 產出報告
 # 語法：node tw-stock-research/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]

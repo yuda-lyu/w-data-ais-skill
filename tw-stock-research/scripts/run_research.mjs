@@ -127,10 +127,10 @@ if (tradingCheck.error) {
 
 // ── Step 3: 依序抓取（各步驟失敗不中斷整體流程）────────────────────────────
 // 新聞類腳本：只接受 outputPath，不接受日期參數
-run('fetch-mops',         'fetch-mops/scripts/fetch_mops.mjs',                 [raw('mops.json')],               360000); // 最多 6 分鐘（launch retry 60s×N + goto retry + API fetches）
-run('fetch-cnyes',        'fetch-cnyes/scripts/fetch_cnyes.mjs',               [raw('cnyes.json')],               60000);
-run('fetch-statementdog', 'fetch-statementdog/scripts/fetch_statementdog.mjs', [raw('statementdog.json')],        60000);
-run('fetch-moneydj',      'fetch-moneydj/scripts/fetch_moneydj.mjs',           [raw('moneydj.json')],            300000); // 最多 5 分鐘
+run('fetch-mops',         'fetch-tw-mops/scripts/fetch_mops.mjs',                 [raw('mops.json')],               360000); // 最多 6 分鐘（launch retry 60s×N + goto retry + API fetches）
+run('fetch-cnyes',        'fetch-tw-cnyes/scripts/fetch_cnyes.mjs',               [raw('cnyes.json')],               60000);
+run('fetch-statementdog', 'fetch-tw-statementdog/scripts/fetch_statementdog.mjs', [raw('statementdog.json')],        60000);
+run('fetch-moneydj',      'fetch-tw-moneydj/scripts/fetch_moneydj.mjs',           [raw('moneydj.json')],            300000); // 最多 5 分鐘
 
 // 法人資料腳本：往前偵測，直到找到有效交易日（最多回溯 30 個工作日）
 // - 以 TWSE 回應是否成功作為「是否為交易日」的主判斷依據
@@ -142,13 +142,13 @@ let instFetched = false;
 for (let i = 0; i < MAX_INST_LOOKBACK; i++) {
     log(`嘗試法人資料日期：${instDate}（第 ${i + 1} 次）`);
     const twseOk = run('fetch-twse-t86',
-        'fetch-institutional-net-buy-sell/scripts/fetch_twse_t86.mjs',
+        'fetch-tw-institutional/scripts/fetch_twse_t86.mjs',
         ['all', instDate, raw('institutional_twse.json')], 60000);
 
     if (twseOk) {
         // TWSE 成功 → 確認為交易日，接著抓 TPEX
         run('fetch-tpex-3insti',
-            'fetch-institutional-net-buy-sell/scripts/fetch_tpex_3insti.mjs',
+            'fetch-tw-institutional/scripts/fetch_tpex_3insti.mjs',
             ['all', instDate, raw('institutional_tpex.json')], 60000);
         log(`法人資料日期確認：${instDate} ✅`);
         instFetched = true;
@@ -169,10 +169,10 @@ if (!instFetched) {
 if (instFetched) {
     log(`抓取昨日股價（${instDate}）供二次審計...`);
     run('fetch-twse-prices',
-        'fetch-twse/scripts/fetch_twse.mjs',
+        'fetch-tw-stock/scripts/fetch_twse_stock.mjs',
         ['all', instDate, raw('prices_twse.json')], 60000);
     run('fetch-tpex-prices',
-        'fetch-tpex/scripts/fetch_tpex.mjs',
+        'fetch-tw-stock/scripts/fetch_tpex_stock.mjs',
         ['all', instDate, raw('prices_tpex.json')], 60000);
 } else {
     log('⚠️ 無法確定前一交易日，跳過 OHLC 抓取');
@@ -183,10 +183,10 @@ const instDateT2 = prevWeekday(instDate);
 if (instFetched) {
     log(`抓取前天股價（${instDateT2}）供新聞日期交叉審計...`);
     run('fetch-twse-prices-t2',
-        'fetch-twse/scripts/fetch_twse.mjs',
+        'fetch-tw-stock/scripts/fetch_twse_stock.mjs',
         ['all', instDateT2, raw('prices_twse_t2.json')], 60000);
     run('fetch-tpex-prices-t2',
-        'fetch-tpex/scripts/fetch_tpex.mjs',
+        'fetch-tw-stock/scripts/fetch_tpex_stock.mjs',
         ['all', instDateT2, raw('prices_tpex_t2.json')], 60000);
 }
 
@@ -194,7 +194,7 @@ if (instFetched) {
 if (instFetched) {
     log(`抓取期貨資料（${instDate}）...`);
     run('fetch-taifex',
-        'fetch-taifex/scripts/fetch_taifex.mjs',
+        'fetch-tw-futures/scripts/fetch_taifex.mjs',
         [instDate, raw('taifex.json')], 60000);
 }
 
@@ -202,10 +202,10 @@ if (instFetched) {
 if (instFetched) {
     log(`抓取融資融券（${instDate}）...`);
     run('fetch-twse-margin',
-        'fetch-margin-trading/scripts/fetch_twse_margin.mjs',
+        'fetch-tw-margin/scripts/fetch_twse_margin.mjs',
         ['all', instDate, raw('margin_twse.json')], 60000);
     run('fetch-tpex-margin',
-        'fetch-margin-trading/scripts/fetch_tpex_margin.mjs',
+        'fetch-tw-margin/scripts/fetch_tpex_margin.mjs',
         ['all', instDate, raw('margin_tpex.json')], 60000);
 }
 
