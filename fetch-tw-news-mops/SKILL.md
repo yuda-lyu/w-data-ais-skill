@@ -1,5 +1,5 @@
 ---
-name: fetch-tw-mops
+name: fetch-tw-news-mops
 description: 抓取 MOPS（公開資訊觀測站）重大公告，回傳結構化 JSON。適用於台股調研、個股公告查詢、財報/訴訟/庫藏股等即時資訊。
 ---
 
@@ -49,14 +49,14 @@ npm install puppeteer-core
 
 ### 執行方式
 
-> 執行環境須可存取 `node_modules`（含所需依賴套件）。
+> 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。
 
-1. **執行腳本**：`node fetch-tw-mops/scripts/fetch_mops.mjs [outputPath]`
+1. **執行腳本**：`node fetch-tw-news-mops/scripts/fetch_mops.mjs [outputPath]`
 2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `mops_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：輸出至指定路徑
-node fetch-tw-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/20260316/raw/mops.json
+node fetch-tw-news-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/20260316/raw/mops.json
 ```
 
 ### 腳本邏輯摘要
@@ -168,9 +168,9 @@ npm install puppeteer-core
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取
-node fetch-tw-mops/scripts/fetch_mops.mjs [outputPath]
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
+node fetch-tw-news-mops/scripts/fetch_mops.mjs [outputPath]
 
 # 範例
-node fetch-tw-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
+node fetch-tw-news-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json
 ```

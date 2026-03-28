@@ -1,5 +1,5 @@
 ---
-name: fetch-tw-cnyes
+name: fetch-tw-news-cnyes
 description: 抓取鉅亨網（Anue）台股即時新聞（近 10 天，最多 100 筆），回傳結構化 JSON。適用於台股調研、產業新聞、法人動態等即時資訊。
 ---
 
@@ -36,17 +36,17 @@ npm install axios
 
 ### 執行方式
 
-> 執行環境須可存取 `node_modules`（含所需依賴套件）。
+> 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。
 
-1. **執行腳本**：`node fetch-tw-cnyes/scripts/fetch_cnyes.mjs [outputPath]`
+1. **執行腳本**：`node fetch-tw-news-cnyes/scripts/fetch_cnyes.mjs [outputPath]`
 2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `cnyes_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：指定輸出路徑
-node fetch-tw-cnyes/scripts/fetch_cnyes.mjs ./w-data-news/tw-stock-research/20260316/raw/cnyes.json
+node fetch-tw-news-cnyes/scripts/fetch_cnyes.mjs ./w-data-news/tw-stock-research/20260316/raw/cnyes.json
 
 # 範例：無指定路徑，自動產生 cnyes_YYYYMMDD.json
-node fetch-tw-cnyes/scripts/fetch_cnyes.mjs
+node fetch-tw-news-cnyes/scripts/fetch_cnyes.mjs
 ```
 
 ### 腳本邏輯摘要
@@ -138,9 +138,9 @@ npm install axios
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取
-node fetch-tw-cnyes/scripts/fetch_cnyes.mjs [outputPath]
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
+node fetch-tw-news-cnyes/scripts/fetch_cnyes.mjs [outputPath]
 
 # 範例
-node fetch-tw-cnyes/scripts/fetch_cnyes.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
+node fetch-tw-news-cnyes/scripts/fetch_cnyes.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/cnyes.json
 ```

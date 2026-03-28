@@ -1,5 +1,5 @@
 ---
-name: fetch-tw-margin
+name: fetch-tw-data-margin
 description: 抓取台股融資融券（信用交易）餘額資料。支援上市（TWSE）與上櫃（TPEX）全市場或指定個股查詢，回傳結構化 JSON。適用於盤後分析融資融券增減、資券變化追蹤、籌碼面研判。
 ---
 
@@ -49,11 +49,11 @@ npm install axios
 
 ### 執行方式
 
-> 執行環境須可存取 `node_modules`（含所需依賴套件）。
+> 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。
 
 1. **執行抓取**：
-   - **TWSE (上市)**: `node fetch-tw-margin/scripts/fetch_twse_margin.mjs [stockCode|all] [date] [outputPath]`
-   - **TPEX (上櫃)**: `node fetch-tw-margin/scripts/fetch_tpex_margin.mjs [stockCode|all] [date] [outputPath]`
+   - **TWSE (上市)**: `node fetch-tw-data-margin/scripts/fetch_twse_margin.mjs [stockCode|all] [date] [outputPath]`
+   - **TPEX (上櫃)**: `node fetch-tw-data-margin/scripts/fetch_tpex_margin.mjs [stockCode|all] [date] [outputPath]`
 
    參數說明：
    - `stockCode`: 股票代碼（單檔或逗號分隔）或 `all`（全市場，預設）
@@ -62,19 +62,19 @@ npm install axios
 
 ```bash
 # 範例：抓取 TWSE 全市場融資融券 (2026/03/26)，輸出至檔案
-node fetch-tw-margin/scripts/fetch_twse_margin.mjs all 20260326 ./data/twse_margin.json
+node fetch-tw-data-margin/scripts/fetch_twse_margin.mjs all 20260326 ./data/twse_margin.json
 
 # 範例：抓取 TPEX 全市場融資融券 (2026/03/26)，輸出至檔案
-node fetch-tw-margin/scripts/fetch_tpex_margin.mjs all 20260326 ./data/tpex_margin.json
+node fetch-tw-data-margin/scripts/fetch_tpex_margin.mjs all 20260326 ./data/tpex_margin.json
 
 # 範例：抓取特定個股
-node fetch-tw-margin/scripts/fetch_twse_margin.mjs 2330 20260326 ./data/margin_2330.json
+node fetch-tw-data-margin/scripts/fetch_twse_margin.mjs 2330 20260326 ./data/margin_2330.json
 
 # 範例：逗號分隔多檔查詢
-node fetch-tw-margin/scripts/fetch_twse_margin.mjs 2330,2317 20260326
+node fetch-tw-data-margin/scripts/fetch_twse_margin.mjs 2330,2317 20260326
 
 # 範例：抓取上櫃特定個股
-node fetch-tw-margin/scripts/fetch_tpex_margin.mjs 3293 20260326
+node fetch-tw-data-margin/scripts/fetch_tpex_margin.mjs 3293 20260326
 ```
 
 ### 輸出結果
@@ -204,11 +204,11 @@ npm install axios
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取
-node fetch-tw-margin/scripts/fetch_twse_margin.mjs [stockCode|all] [date] [outputPath]
-node fetch-tw-margin/scripts/fetch_tpex_margin.mjs [stockCode|all] [date] [outputPath]
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
+node fetch-tw-data-margin/scripts/fetch_twse_margin.mjs [stockCode|all] [date] [outputPath]
+node fetch-tw-data-margin/scripts/fetch_tpex_margin.mjs [stockCode|all] [date] [outputPath]
 
 # 範例：全市場
-node fetch-tw-margin/scripts/fetch_twse_margin.mjs all 20260326 ./data/margin_twse.json
-node fetch-tw-margin/scripts/fetch_tpex_margin.mjs all 20260326 ./data/margin_tpex.json
+node fetch-tw-data-margin/scripts/fetch_twse_margin.mjs all 20260326 ./data/margin_twse.json
+node fetch-tw-data-margin/scripts/fetch_tpex_margin.mjs all 20260326 ./data/margin_tpex.json
 ```

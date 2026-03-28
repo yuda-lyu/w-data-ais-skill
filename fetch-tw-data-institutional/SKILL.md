@@ -1,9 +1,9 @@
 ---
-name: fetch-tw-institutional
+name: fetch-tw-data-institutional
 description: 抓取台股「三大法人買賣超」指定日期、指定個股的明細資料（外資/投信/自營/合計）。優先使用官方來源（TWSE + TPEX）以確保穩定性與可指定日期。適用於：(1) 盤後報告逐檔補齊法人買賣超、(2) 驗證盤前研判（法人買超/賣超）是否延續、(3) 需要可重複、可追溯的法人資料抓取流程。
 ---
 
-# fetch-tw-institutional（法人買賣超；官方版）
+# fetch-tw-data-institutional（法人買賣超；官方版）
 
 > 歷史版本曾使用 Goodinfo 網頁榜單抓取（Top10），但無法覆蓋「每一檔個股」且受 anti-bot 影響。
 > 目前此技能改為 **官方來源優先**（TWSE + TPEX），支援「指定日期 + 指定代碼」穩定抓取。
@@ -50,11 +50,11 @@ npm install axios
 
 ### 執行方式
 
-> 執行環境須可存取 `node_modules`（含所需依賴套件）。
+> 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。
 
 1. **執行抓取**：
-   - **TWSE (上市)**: `node fetch-tw-institutional/scripts/fetch_twse_t86.mjs [stockCode|all] [date] [outputPath]`
-   - **TPEX (上櫃)**: `node fetch-tw-institutional/scripts/fetch_tpex_3insti.mjs [stockCode|all] [date] [outputPath]`
+   - **TWSE (上市)**: `node fetch-tw-data-institutional/scripts/fetch_twse_t86.mjs [stockCode|all] [date] [outputPath]`
+   - **TPEX (上櫃)**: `node fetch-tw-data-institutional/scripts/fetch_tpex_3insti.mjs [stockCode|all] [date] [outputPath]`
 
    參數說明：
    - `stockCode`: 股票代碼（單檔或逗號分隔）或 `all`
@@ -63,13 +63,13 @@ npm install axios
 
 ```bash
 # 範例：抓取 TWSE 全市場 (2026/02/10)，輸出至檔案
-node fetch-tw-institutional/scripts/fetch_twse_t86.mjs all 20260210 ./data/twse_t86.json
+node fetch-tw-data-institutional/scripts/fetch_twse_t86.mjs all 20260210 ./data/twse_t86.json
 
 # 範例：抓取 TPEX 全市場 (2026/02/10)，輸出至檔案
-node fetch-tw-institutional/scripts/fetch_tpex_3insti.mjs all 20260210 ./data/tpex_3insti.json
+node fetch-tw-data-institutional/scripts/fetch_tpex_3insti.mjs all 20260210 ./data/tpex_3insti.json
 
 # 範例：抓取 TPEX 特定個股
-node fetch-tw-institutional/scripts/fetch_tpex_3insti.mjs 6499,6610 20260210
+node fetch-tw-data-institutional/scripts/fetch_tpex_3insti.mjs 6499,6610 20260210
 ```
 
 ### 輸出結果
@@ -171,9 +171,15 @@ npm install axios
 
 ## 快速執行
 
-```
-請使用 fetch-tw-institutional 技能抓取法人買賣超（使用 Axios 腳本）：
-1. 確保 npm 依賴已安裝
-2. 執行 scripts/fetch_twse_t86.mjs 或 scripts/fetch_tpex_3insti.mjs [stockCode|all] [date] [outputPath]
-3. 讀取並解析 JSON 輸出
+```bash
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
+# TWSE 上市法人買賣超
+node fetch-tw-data-institutional/scripts/fetch_twse_t86.mjs [stockCode|all] [date] [outputPath]
+
+# TPEX 上櫃法人買賣超
+node fetch-tw-data-institutional/scripts/fetch_tpex_3insti.mjs [stockCode|all] [date] [outputPath]
+
+# 範例：全市場
+node fetch-tw-data-institutional/scripts/fetch_twse_t86.mjs all 20260316 ./w-data-news/tw-stock-research/20260316/raw/institutional_twse.json
+node fetch-tw-data-institutional/scripts/fetch_tpex_3insti.mjs all 20260316 ./w-data-news/tw-stock-research/20260316/raw/institutional_tpex.json
 ```

@@ -43,7 +43,7 @@ npm install axios
 
 ## 執行方式
 
-> 執行環境須可存取 `node_modules`（含所需依賴套件）。
+> 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。
 
 ### 模式 A：JSON 檔案（推薦，適合大量資料）
 
@@ -171,7 +171,7 @@ GAS 端以 `type + url + title + description + from` 五欄位組合作為唯一
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
 node save-news-to-sheet/scripts/save_news_to_sheet.mjs <payload.json> [outputPath]
 node save-news-to-sheet/scripts/save_news_to_sheet.mjs <gas_url> <token> '<itemsNewJSON>' [outputPath]
 ```

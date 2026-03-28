@@ -35,7 +35,7 @@ npm install axios
 
 ## 執行方式
 
-> 執行環境須可存取 `node_modules`（含所需依賴套件）。
+> 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。
 
 ### 基本用法
 
@@ -99,6 +99,6 @@ JSON 陣列，每筆資料包含以下欄位：
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
 node fetch-ai-news-aggregator/scripts/fetch_ai_news_aggregator.mjs [outputPath]
 ```

@@ -1,5 +1,5 @@
 ---
-name: fetch-tw-moneydj
+name: fetch-tw-news-moneydj
 description: 抓取 MoneyDJ 理財網法說會與營收新聞（最新 50 頁），回傳結構化 JSON。適用於台股調研、法說會追蹤、營收公告分析。
 ---
 
@@ -42,15 +42,15 @@ npm install axios cheerio
 
 > ⚠️ 執行約需 **1.5 ~ 3 分鐘**（50 頁 + 隨機延遲），請確保逾時設定 ≥ 300000 ms 或使用背景執行。
 
-1. **執行腳本**：`node fetch-tw-moneydj/scripts/fetch_moneydj.mjs [outputPath]`
+1. **執行腳本**：`node fetch-tw-news-moneydj/scripts/fetch_moneydj.mjs [outputPath]`
 3. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `moneydj_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：指定輸出路徑
-node fetch-tw-moneydj/scripts/fetch_moneydj.mjs ./w-data-news/tw-stock-research/20260316/raw/moneydj.json
+node fetch-tw-news-moneydj/scripts/fetch_moneydj.mjs ./w-data-news/tw-stock-research/20260316/raw/moneydj.json
 
 # 範例：無指定路徑，自動產生 moneydj_YYYYMMDD.json
-node fetch-tw-moneydj/scripts/fetch_moneydj.mjs
+node fetch-tw-news-moneydj/scripts/fetch_moneydj.mjs
 ```
 
 ### 腳本邏輯摘要
@@ -154,9 +154,9 @@ npm install axios cheerio
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取（背景執行避免逾時）
-node fetch-tw-moneydj/scripts/fetch_moneydj.mjs [outputPath]
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
+node fetch-tw-news-moneydj/scripts/fetch_moneydj.mjs [outputPath]
 
 # 範例
-node fetch-tw-moneydj/scripts/fetch_moneydj.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
+node fetch-tw-news-moneydj/scripts/fetch_moneydj.mjs ./w-data-news/tw-stock-research/YYYYMMDD/raw/moneydj.json
 ```

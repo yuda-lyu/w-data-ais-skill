@@ -1,5 +1,5 @@
 ---
-name: fetch-tw-stock
+name: fetch-tw-data-stock
 description: 抓取台股收盤資料（上市 TWSE + 上櫃 TPEX）。支援指定日期與股票代碼，回傳結構化 JSON（OHLC、成交量、本益比等）。適用於盤後分析、價量查詢、上市/上櫃資料整合。
 ---
 
@@ -51,9 +51,9 @@ npm install axios
 
 ### 執行方式
 
-> 執行環境須可存取 `node_modules`（含所需依賴套件）。
+> 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。
 
-1. **執行腳本**：`node fetch-tw-stock/scripts/fetch_twse_stock.mjs [stockCode|all] [date] [outputPath]`
+1. **執行腳本**：`node fetch-tw-data-stock/scripts/fetch_twse_stock.mjs [stockCode|all] [date] [outputPath]`
    - `stockCode`: 股票代碼 (單檔) 或 `all`（全市場）
    - `date`: YYYYMMDD（例如 20260210）；可省略，預設為今日。
    > ⚠️ **注意**：個股查詢（STOCK_DAY）回傳的是該月份**整月**資料而非單日；全市場查詢（MI_INDEX）則為單日資料
@@ -62,13 +62,13 @@ npm install axios
 
 ```bash
 # 範例：抓取全市場 (2026/02/10) 並輸出至檔案
-node fetch-tw-stock/scripts/fetch_twse_stock.mjs all 20260210 ./data/twse.json
+node fetch-tw-data-stock/scripts/fetch_twse_stock.mjs all 20260210 ./data/twse.json
 
 # 範例：抓取個股 (2026/02/10) 並輸出至檔案
-node fetch-tw-stock/scripts/fetch_twse_stock.mjs 2330 20260210 ./data/twse_2330.json
+node fetch-tw-data-stock/scripts/fetch_twse_stock.mjs 2330 20260210 ./data/twse_2330.json
 
 # 範例：抓取個股 (今日)，自動產生 twse_2330_YYYYMMDD.json
-node fetch-tw-stock/scripts/fetch_twse_stock.mjs 2330
+node fetch-tw-data-stock/scripts/fetch_twse_stock.mjs 2330
 ```
 
 ---
@@ -182,7 +182,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 ### 執行方式
 
-1. **執行腳本**：`node fetch-tw-stock/scripts/fetch_tpex_stock.mjs [stockCode|all] [date] [outputPath]`
+1. **執行腳本**：`node fetch-tw-data-stock/scripts/fetch_tpex_stock.mjs [stockCode|all] [date] [outputPath]`
    - `stockCode`: 股票代碼（單檔或逗號分隔）或 `all`（全市場）
    - `date`: YYYYMMDD（例如 20260210）；可省略，預設為今日
    - `outputPath`: 輸出 JSON 檔案路徑
@@ -190,16 +190,16 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 
 ```bash
 # 範例：抓取全市場 (2026/02/10) 並輸出至檔案
-node fetch-tw-stock/scripts/fetch_tpex_stock.mjs all 20260210 ./data/tpex.json
+node fetch-tw-data-stock/scripts/fetch_tpex_stock.mjs all 20260210 ./data/tpex.json
 
 # 範例：抓取特定個股 (2026/02/10) 並輸出至檔案
-node fetch-tw-stock/scripts/fetch_tpex_stock.mjs 6499 20260210 ./data/tpex_6499.json
+node fetch-tw-data-stock/scripts/fetch_tpex_stock.mjs 6499 20260210 ./data/tpex_6499.json
 
 # 範例：抓取特定個股 (今日)，自動產生 tpex_6499_YYYYMMDD.json
-node fetch-tw-stock/scripts/fetch_tpex_stock.mjs 6499
+node fetch-tw-data-stock/scripts/fetch_tpex_stock.mjs 6499
 
 # 範例：逗號分隔多檔查詢
-node fetch-tw-stock/scripts/fetch_tpex_stock.mjs 6499,4977 20260210 ./data/tpex_multi.json
+node fetch-tw-data-stock/scripts/fetch_tpex_stock.mjs 6499,4977 20260210 ./data/tpex_multi.json
 ```
 
 ### TPEX API 端點
@@ -314,15 +314,15 @@ npm install axios
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
 
 # TWSE（上市）
-node fetch-tw-stock/scripts/fetch_twse_stock.mjs [stockCode|all] [date] [outputPath]
+node fetch-tw-data-stock/scripts/fetch_twse_stock.mjs [stockCode|all] [date] [outputPath]
 
 # TPEX（上櫃）
-node fetch-tw-stock/scripts/fetch_tpex_stock.mjs [stockCode|all] [date] [outputPath]
+node fetch-tw-data-stock/scripts/fetch_tpex_stock.mjs [stockCode|all] [date] [outputPath]
 
 # 範例：全市場
-node fetch-tw-stock/scripts/fetch_twse_stock.mjs all 20260316 ./w-data-news/tw-stock-post-market/20260316/raw/prices_twse.json
-node fetch-tw-stock/scripts/fetch_tpex_stock.mjs all 20260316 ./w-data-news/tw-stock-post-market/20260316/raw/prices_tpex.json
+node fetch-tw-data-stock/scripts/fetch_twse_stock.mjs all 20260316 ./w-data-news/tw-stock-post-market/20260316/raw/prices_twse.json
+node fetch-tw-data-stock/scripts/fetch_tpex_stock.mjs all 20260316 ./w-data-news/tw-stock-post-market/20260316/raw/prices_tpex.json
 ```

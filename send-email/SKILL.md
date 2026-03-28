@@ -42,7 +42,7 @@ npm install axios
 
 ## 執行方式
 
-> 執行環境須可存取 `node_modules`（含所需依賴套件）。
+> 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。
 
 ### 模式 A：JSON 檔案（推薦，適合 HTML 信件）
 
@@ -161,7 +161,7 @@ node send-email/scripts/send_email.mjs \
 ## 快速執行
 
 ```bash
-# 執行時須確保 `node_modules` 可存取
+# 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
 node send-email/scripts/send_email.mjs <payload.json> [outputPath]
 node send-email/scripts/send_email.mjs <gas_url> <token> <to> <from> <subject> <body> [outputPath]
 ```

@@ -54,9 +54,9 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 | 資料 | 抓取技能 | 說明 |
 |------|----------|------|
-| 開收盤價（上市） | `fetch-tw-stock` (TWSE) | 證交所股票收盤資料（上市） |
-| 開收盤價（上櫃） | `fetch-tw-stock` (TPEX) | 櫃買中心股票收盤資料（上櫃；若 TWSE 查無資料則改用） |
-| 法人買賣超（逐檔） | `fetch-tw-institutional` | 以 TWSE + TPEX 官方資料抓指定日期、指定代碼三大法人買賣超（外資/投信/自營/合計） |
+| 開收盤價（上市） | `fetch-tw-data-stock` (TWSE) | 證交所股票收盤資料（上市） |
+| 開收盤價（上櫃） | `fetch-tw-data-stock` (TPEX) | 櫃買中心股票收盤資料（上櫃；若 TWSE 查無資料則改用） |
+| 法人買賣超（逐檔） | `fetch-tw-data-institutional` | 以 TWSE + TPEX 官方資料抓指定日期、指定代碼三大法人買賣超（外資/投信/自營/合計） |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
 
@@ -82,7 +82,7 @@ node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [ba
 
 # 參數說明
 # YYYYMMDD      (選填)：指定日期，預設為今日
-# skillsDir     (選填)：技能庫根目錄（各子技能腳本與 node_modules 所在位置），預設為 cwd
+# skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd
 # baseOutputDir (選填)：資料輸出根目錄，腳本自動在此建立：
 #                         tw-stock-post-market/<YYYYMMDD>/（盤後輸出）
 #                         tw-stock-research/<YYYYMMDD>/   （讀取盤前報告）
@@ -117,10 +117,10 @@ run_post_market.mjs
   │
   ├─ 2. 建立輸出目錄 w-data-news/tw-stock-post-market/YYYYMMDD/raw/
   │
-  ├─ 3. fetch-tw-stock/twse (all)        → raw/prices_twse.json
-  ├─ 4. fetch-tw-stock/tpex (all)        → raw/prices_tpex.json
-  ├─ 5. fetch-tw-institutional/twse-t86 (all)    → raw/institutional_twse.json
-  ├─ 6. fetch-tw-institutional/tpex-3insti (all) → raw/institutional_tpex.json
+  ├─ 3. fetch-tw-data-stock/twse (all)        → raw/prices_twse.json
+  ├─ 4. fetch-tw-data-stock/tpex (all)        → raw/prices_tpex.json
+  ├─ 5. fetch-tw-data-institutional/twse-t86 (all)    → raw/institutional_twse.json
+  ├─ 6. fetch-tw-data-institutional/tpex-3insti (all) → raw/institutional_tpex.json
   │
   └─ 7. generate_report.mjs     → report_YYYYMMDD.md
 ```
@@ -150,10 +150,10 @@ w-data-news/tw-stock-post-market/
     ├── error_log.jsonl             # 錯誤紀錄
     └── raw/
         ├── trading_day.json        # 交易日檢查結果
-        ├── prices_twse.json        # fetch-tw-stock (TWSE) all 全市場輸出（MI_INDEX 格式）
-        ├── prices_tpex.json        # fetch-tw-stock (TPEX) all 全市場輸出（tables 格式）
-        ├── institutional_twse.json # fetch-tw-institutional TWSE T86 輸出
-        └── institutional_tpex.json # fetch-tw-institutional TPEX 3Insti 輸出
+        ├── prices_twse.json        # fetch-tw-data-stock (TWSE) all 全市場輸出（MI_INDEX 格式）
+        ├── prices_tpex.json        # fetch-tw-data-stock (TPEX) all 全市場輸出（tables 格式）
+        ├── institutional_twse.json # fetch-tw-data-institutional TWSE T86 輸出
+        └── institutional_tpex.json # fetch-tw-data-institutional TPEX 3Insti 輸出
 ```
 
 ## 📝 錯誤紀錄機制
@@ -168,7 +168,7 @@ w-data-news/tw-stock-post-market/
 {
   "timestamp": "2026-02-05T07:30:00.000Z",
   "date": "20260205",
-  "source": "fetch-tw-stock",
+  "source": "fetch-tw-data-stock",
   "phase": "fetch",
   "error": {
     "type": "timeout",
@@ -185,7 +185,7 @@ w-data-news/tw-stock-post-market/
 |------|------|------|
 | `timestamp` | ✅ | ISO 8601 格式（UTC，`Z` 結尾） |
 | `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 來源：fetch-tw-stock / fetch-twse-t86 / fetch-tpex-3insti / generate_report |
+| `source` | ✅ | 來源：fetch-tw-data-stock / fetch-twse-t86 / fetch-tpex-3insti / generate_report |
 | `phase` | ✅ | 階段：fetch / report |
 | `error.type` | ✅ | 錯誤類型：timeout / unknown |
 | `error.message` | ✅ | 簡短錯誤訊息 |
@@ -305,7 +305,7 @@ w-data-news/tw-stock-post-market/
 ### 1. 抓取失敗 (Module not found)
 
 **症狀**：
-- 調用子技能 (`fetch-tw-stock`, `fetch-tw-institutional` 等) 時報錯 `Cannot find module`。
+- 調用子技能 (`fetch-tw-data-stock`, `fetch-tw-data-institutional` 等) 時報錯 `Cannot find module`。
 
 **解決方法**：
 確保在工作區執行了所有子技能所需的依賴：
@@ -313,7 +313,7 @@ w-data-news/tw-stock-post-market/
 npm install axios
 ```
 
-> 盤後技能僅使用 `axios`（fetch-tw-stock / fetch-tw-institutional 均為純 Axios 腳本），**不需要** `cheerio` 或 `puppeteer-core`（那是盤前技能的依賴）。
+> 盤後技能僅使用 `axios`（fetch-tw-data-stock / fetch-tw-data-institutional 均為純 Axios 腳本），**不需要** `cheerio` 或 `puppeteer-core`（那是盤前技能的依賴）。
 
 ### 2. 找不到盤前報告
 
@@ -354,10 +354,10 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-new
 npm install axios
 
 # 3. 依序抓取（outputPath 必須為完整相對路徑）
-node fetch-tw-stock/scripts/fetch_twse_stock.mjs                                    all YYYYMMDD ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/prices_twse.json
-node fetch-tw-stock/scripts/fetch_tpex_stock.mjs                                    all YYYYMMDD ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/prices_tpex.json
-node fetch-tw-institutional/scripts/fetch_twse_t86.mjs    all YYYYMMDD   ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/institutional_twse.json
-node fetch-tw-institutional/scripts/fetch_tpex_3insti.mjs all YYYYMMDD   ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/institutional_tpex.json
+node fetch-tw-data-stock/scripts/fetch_twse_stock.mjs                                    all YYYYMMDD ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/prices_twse.json
+node fetch-tw-data-stock/scripts/fetch_tpex_stock.mjs                                    all YYYYMMDD ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/prices_tpex.json
+node fetch-tw-data-institutional/scripts/fetch_twse_t86.mjs    all YYYYMMDD   ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/institutional_twse.json
+node fetch-tw-data-institutional/scripts/fetch_tpex_3insti.mjs all YYYYMMDD   ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/institutional_tpex.json
 
 # 4. 產出報告
 # 語法：node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
