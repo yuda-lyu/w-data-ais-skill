@@ -121,6 +121,8 @@ command: opencode run --agent build -m "opencode/nemotron-3-super-free" "... 寫
 
 ## 安裝指引
 
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
+
 ```bash
 opencode --version   # 確認 opencode 已安裝
 opencode auth list   # 確認已登入的 provider

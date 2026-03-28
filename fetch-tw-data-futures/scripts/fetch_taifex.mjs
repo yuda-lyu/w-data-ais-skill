@@ -54,7 +54,7 @@ function writeOutput(payload) {
 }
 
 // ---------------------------------------------------------------------------
-// Retry logic (same pattern as fetch-tw-stock)
+// Retry logic (same pattern as fetch-tw-data-stock)
 // ---------------------------------------------------------------------------
 const MAX_RETRIES = 10;
 const BASE_DELAY_MS = 5000;

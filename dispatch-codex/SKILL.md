@@ -88,6 +88,8 @@ command: codex exec --full-auto --skip-git-repo-check \
 
 ## 安裝指引
 
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
+
 ```bash
 codex --version   # 確認 codex-cli 已安裝
 ```

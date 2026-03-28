@@ -35,6 +35,8 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 ### 安裝指引
 
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
+
 所需套件：`axios`
 
 執行前請先驗證套件是否可用：

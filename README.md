@@ -1,101 +1,30 @@
-# AI 共享 Skills 庫
+# w-data-ais-skill — AI Agent 共享技能庫
 
-AI Agent 的技能模組庫。
+可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
+每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 用途
+## 技能總覽（20 個）
 
-- 存放可重複使用的 AI agent 技能模組
-- 支援多 agent 共用同一技能庫
-- 每個技能包含 `SKILL.md` 與可選的 `scripts/` 腳本
-- 目前以台股研究、自動化抓取、模型額度檢查為主
+| 分類 | 技能數 |
+|------|:------:|
+| [綜合分析](#綜合分析類) | 2 |
+| [Multi-Agent 協作](#multi-agent-協作類) | 4 |
+| [台股數據抓取](#台股數據抓取類) | 4 |
+| [台股新聞抓取](#台股新聞抓取類) | 4 |
+| [AI / 科技新聞](#ai--科技新聞類) | 3 |
+| [交易日檢查](#交易日檢查) | 1 |
+| [通知與儲存](#通知與儲存類) | 2 |
 
-## 目錄結構
+---
 
-```text
-.
-├── check-all-quota/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── check_quota_batch.py
-├── check-antigravity-quota/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── check_quota.py
-├── check-codex-quota/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── check_codex_quota.py
-│       └── check_quota.py
-├── check-tw-trading-day/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── check_tw_trading_day.mjs
-├── fetch-tw-cnyes/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── fetch_cnyes.mjs
-├── fetch-tw-futures/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── fetch_taifex.mjs
-├── fetch-tw-institutional/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── fetch_tpex_3insti.mjs
-│       └── fetch_twse_t86.mjs
-├── fetch-tw-margin/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── fetch_twse_margin.mjs
-│       └── fetch_tpex_margin.mjs
-├── fetch-tw-moneydj/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── fetch_moneydj.mjs
-├── fetch-tw-mops/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── fetch_mops.mjs
-├── fetch-tw-statementdog/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── fetch_statementdog.mjs
-├── fetch-tw-stock/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── fetch_twse_stock.mjs
-│       └── fetch_tpex_stock.mjs
-├── tw-stock-post-market/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── run_post_market.mjs   ← 主控腳本（推薦入口）
-│       └── generate_report.mjs
-├── tw-stock-research/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── run_research.mjs      ← 主控腳本（推薦入口）
-│       └── generate_report.mjs
-├── dispatch-codex/
-│   ├── SKILL.md
-│   └── references/
-├── dispatch-gemini/
-│   ├── SKILL.md
-│   └── references/
-└── dispatch-opencode/
-    ├── SKILL.md
-    └── references/
-```
+## 綜合分析類
 
-## 現有技能清單
+| 技能 | 說明 | 主要腳本 | 依賴 | 執行時間 |
+|------|------|----------|------|----------|
+| `tw-stock-research` | 台股盤前調研：整合 MOPS、鉅亨網、財報狗、MoneyDJ、三大法人共 5 來源，產出盤前報告 | `run_research.mjs` | `axios` `cheerio` `puppeteer-core` | 3~8 分鐘 |
+| `tw-stock-post-market` | 台股盤後總結：抓取收盤價與法人資料，比對盤前研判準確度，累積調研經驗 | `run_post_market.mjs` | `axios` | 1~3 分鐘 |
 
-### 綜合分析類
-
-| 技能 | 說明 | 主要腳本 | 執行時間 |
-|------|------|----------|----------|
-| `tw-stock-research` | 台股盤前調研：整合 MOPS、鉅亨網、財報狗、MoneyDJ、三大法人共 5 個來源，產出盤前報告 | `run_research.mjs` | 3~8 分鐘 |
-| `tw-stock-post-market` | 台股盤後總結：抓取收盤價與法人資料，比對盤前研判準確度，累積調研經驗 | `run_post_market.mjs` | 1~3 分鐘 |
-
-#### 主控腳本用法
+### 主控腳本用法
 
 ```bash
 # 盤前調研（一行完成所有步驟）
@@ -115,62 +44,85 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 - 完成訊號：`RESEARCH_COMPLETE=true` / `POST_MARKET_COMPLETE=true`（stdout）
 - `skillsDir` 只負責定位技能腳本與依賴；`baseOutputDir` 只負責存放資料輸出，兩者應由調用方明確傳入
 - 四支入口腳本都接收 `baseOutputDir`，並在內部自動推導 `tw-stock-research/YYYYMMDD/`、`tw-stock-post-market/YYYYMMDD/` 與 `raw/`
-- `baseOutputDir` 應傳入資料根目錄，例如 `./w-data-news`，不要傳入已含 `tw-stock-research/YYYYMMDD` 或 `tw-stock-post-market/YYYYMMDD` 的最終目錄
-- 輸出位置：`w-data-news/tw-stock-research/YYYYMMDD/` / `w-data-news/tw-stock-post-market/YYYYMMDD/`
+- `baseOutputDir` 應傳入資料根目錄，例如 `./w-data-news`，不要傳入已含最終子目錄的路徑
 
 ---
 
-### Multi-Agent 協作類
+## Multi-Agent 協作類
 
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
-| `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，實現調度 AI + Codex 混合多 agent 工作流程 | `npm install -g @openai/codex` |
-| `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，實現調度 AI + Gemini 混合多 agent 工作流程 | `npm install -g @google/gemini-cli` |
-| `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model 選擇（GPT、Claude、Gemini、Nemotron 等），預設免費模型 | `npm install -g opencode-ai` |
+| `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | `npm install -g @anthropic-ai/claude-code` |
+| `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | `npm install -g @openai/codex` |
+| `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | `npm install -g @google/gemini-cli` |
+| `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | `npm install -g opencode-ai` |
 
-- 無腳本，僅提供 `SKILL.md` 操作說明與 `references/` 參考資料
+- 無腳本，僅提供 `SKILL.md` 操作說明與 `references/` CLI 旗標參考
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
-- Codex：需加 `--config sandbox_workspace_write.network_access=true` 啟用沙箱網路
-- Gemini：預設可連網，以 `cd` 指定工作目錄 + `--yolo` 自動核准
-- OpenCode：用 `opencode run --agent build` 執行任務，`--agent build` 已預設權限全開，不需額外旗標
 
 ---
 
-### 數據抓取類（Fetchers）
+## 台股數據抓取類
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-tw-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Puppeteer + 內部 API | `fetch_mops.mjs` | `puppeteer-core` |
-| `fetch-tw-cnyes` | 抓取鉅亨網台股即時新聞（近 100 筆） | `fetch_cnyes.mjs` | `axios` |
-| `fetch-tw-statementdog` | 抓取財報狗產業分析與個股新聞 | `fetch_statementdog.mjs` | `axios`, `cheerio` |
-| `fetch-tw-moneydj` | 抓取 MoneyDJ 法說/營收新聞（50 頁，~1.5~3 分鐘） | `fetch_moneydj.mjs` | `axios`, `cheerio` |
-| `fetch-tw-stock` | 抓取台股收盤資料（上市 TWSE + 上櫃 TPEX），合併為單一技能 | `fetch_twse_stock.mjs`, `fetch_tpex_stock.mjs` | `axios` |
-| `fetch-tw-institutional` | 抓取三大法人買賣超（官方 TWSE T86 + TPEX 3Insti），支援指定日期與代碼 | `fetch_twse_t86.mjs`, `fetch_tpex_3insti.mjs` | `axios` |
-| `fetch-tw-futures` | 抓取期交所（TAIFEX）台指期行情、法人未平倉、P/C Ratio | `fetch_taifex.mjs` | `axios` |
-| `fetch-tw-margin` | 抓取融資融券餘額（上市 TWSE + 上櫃 TPEX） | `fetch_twse_margin.mjs`, `fetch_tpex_margin.mjs` | `axios` |
+| `fetch-tw-data-stock` | 抓取收盤 OHLC 資料（上市 TWSE + 上櫃 TPEX） | `fetch_twse_stock.mjs`, `fetch_tpex_stock.mjs` | `axios` |
+| `fetch-tw-data-futures` | 抓取期交所台指期行情、法人未平倉、P/C Ratio | `fetch_taifex.mjs` | `axios` |
+| `fetch-tw-data-margin` | 抓取融資融券餘額（上市 + 上櫃） | `fetch_twse_margin.mjs`, `fetch_tpex_margin.mjs` | `axios` |
+| `fetch-tw-data-institutional` | 抓取三大法人買賣超（官方 TWSE T86 + TPEX 3Insti） | `fetch_twse_t86.mjs`, `fetch_tpex_3insti.mjs` | `axios` |
 
-#### Fetcher 通用特性
-
-- 輸出：結果**一律寫入檔案**（`outputPath` 或自動產生），無論成功或錯誤均寫入後才 exit，請讀取檔案，勿依賴 stdout
-- 重試：內建自動重試（最多 10 次），5xx 或網路錯誤自動等待重試（5s → 10s → ... → 上限 30s）
-- 執行位置：**須從專案根目錄**（`node_modules` 所在位置）執行
-
-#### 參數格式
+### 參數格式
 
 | 技能 | 參數格式 |
 |------|----------|
-| `fetch-tw-mops` | `[outputPath]` |
-| `fetch-tw-cnyes` | `[outputPath]` |
-| `fetch-tw-statementdog` | `[outputPath]` |
-| `fetch-tw-moneydj` | `[outputPath]` |
-| `fetch-tw-stock` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
-| `fetch-tw-institutional` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
-| `fetch-tw-futures` | `[YYYYMMDD] [outputPath]` |
-| `fetch-tw-margin` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
+| `fetch-tw-data-stock` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
+| `fetch-tw-data-futures` | `[YYYYMMDD] [outputPath]` |
+| `fetch-tw-data-margin` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
+| `fetch-tw-data-institutional` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
 
 ---
 
-### 交易日檢查
+## 台股新聞抓取類
+
+| 技能 | 說明 | 主要腳本 | 依賴 |
+|------|------|----------|------|
+| `fetch-tw-news-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Puppeteer + 內部 API | `fetch_mops.mjs` | `puppeteer-core` |
+| `fetch-tw-news-cnyes` | 抓取鉅亨網台股即時新聞（近 100 筆） | `fetch_cnyes.mjs` | `axios` |
+| `fetch-tw-news-statementdog` | 抓取財報狗產業分析與個股新聞 | `fetch_statementdog.mjs` | `axios`, `cheerio` |
+| `fetch-tw-news-moneydj` | 抓取 MoneyDJ 法說/營收新聞（50 頁，約 1.5~3 分鐘） | `fetch_moneydj.mjs` | `axios`, `cheerio` |
+
+### 參數格式
+
+| 技能 | 參數格式 |
+|------|----------|
+| `fetch-tw-news-mops` | `[outputPath]` |
+| `fetch-tw-news-cnyes` | `[outputPath]` |
+| `fetch-tw-news-statementdog` | `[outputPath]` |
+| `fetch-tw-news-moneydj` | `[outputPath]` |
+
+---
+
+## AI / 科技新聞類
+
+| 技能 | 說明 | 主要腳本 | 依賴 |
+|------|------|----------|------|
+| `fetch-rss` | 取得任意 RSS Feed 並轉為統一 JSON 格式，支援 YouTube、新聞網站等 | `fetch_rss.mjs` | `axios`, `rss-parser` |
+| `fetch-ai-news-aggregator` | 取得 AI News Aggregator 最近 24 小時 AI 新聞 | `fetch_ai_news_aggregator.mjs` | `axios` |
+| `fetch-news-ai` | 整合 8 個來源（RSS + AI News Aggregator），過濾今日與昨日新聞，依時間降冪排序 | `fetch-news-ai.mjs` | `axios`, `rss-parser` |
+
+### 參數格式
+
+| 技能 | 參數格式 |
+|------|----------|
+| `fetch-rss` | `<rssUrl> [outputPath]` |
+| `fetch-ai-news-aggregator` | `[outputPath]` |
+| `fetch-news-ai` | `[outputPath]` |
+
+> `fetch-news-ai` 依賴 `fetch-rss` 與 `fetch-ai-news-aggregator` 作為同層兄弟技能目錄（以 `__dirname` 動態解析路徑）。
+
+---
+
+## 交易日檢查
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
@@ -183,33 +135,152 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 ---
 
-### 額度 / 配額檢查類
+## 通知與儲存類
 
-| 技能 | 說明 | 主要腳本 |
-|------|------|----------|
-| `check-all-quota` | 批次查詢所有帳號（Google Antigravity + OpenAI Codex）額度；自動偵測 auth-profiles.json，平行查詢（最多 8 並行） | `check_quota_batch.py` |
-| `check-antigravity-quota` | 查詢單一 Google Antigravity 帳號所有 AI 模型額度（Claude、Gemini、GPT-OSS 等） | `check_quota.py` |
-| `check-codex-quota` | 查詢 OpenAI Codex 帳號的 5 小時 session 配額和週配額 | `check_quota.py` |
+| 技能 | 說明 | 主要腳本 | 依賴 |
+|------|------|----------|------|
+| `send-email` | 透過 GAS Web App API 寄送 Email（純文字或 HTML），支援 JSON 檔案與直接參數兩種模式 | `send_email.mjs` | `axios` |
+| `save-news-to-sheet` | 透過 GAS Web App API 將新聞資料寫入 Google Sheet，支援自動去重 | `save_news_to_sheet.mjs` | `axios` |
+
+### 參數格式
+
+| 技能 | 模式 A（JSON 檔案） | 模式 B（直接參數） |
+|------|------|------|
+| `send-email` | `<payload.json> [outputPath]` | `<gas_url> <token> <to> <from> <subject> <body> [outputPath]` |
+| `save-news-to-sheet` | `<payload.json> [outputPath]` | `<gas_url> <token> '<itemsNewJSON>' [outputPath]` |
+
+> 兩者皆需使用者提供 `gas_url`（GAS Web App 部署網址）與 `token`（GAS 端驗證 token）。
 
 ---
+
+## Fetcher 通用特性
+
+所有數據與新聞抓取類技能共享以下特性：
+
+- **結果寫檔**：一律寫入檔案（`outputPath` 或自動產生），無論成功或錯誤均寫入後才 exit，請讀取檔案取得結果
+- **自動重試**：5xx 或網路錯誤自動等待重試，線性遞增退避（台股數據類最多 10 次 / 5s~30s；新聞與 GAS 類最多 5~6 次 / 3s~15s）
+- **執行位置**：由執行 agent 依自身環境決定，腳本不強制特定工作目錄
+
+---
+
+## 目錄結構
+
+```text
+.
+├── check-tw-trading-day/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── check_tw_trading_day.mjs
+├── dispatch-claude/
+│   ├── SKILL.md
+│   └── references/
+│       └── claude-flags.md
+├── dispatch-codex/
+│   ├── SKILL.md
+│   └── references/
+│       └── codex-flags.md
+├── dispatch-gemini/
+│   ├── SKILL.md
+│   └── references/
+│       └── gemini-flags.md
+├── dispatch-opencode/
+│   ├── SKILL.md
+│   └── references/
+│       └── opencode-flags.md
+├── fetch-ai-news-aggregator/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_ai_news_aggregator.mjs
+│       └── fetchAiNewsAggregator.mjs
+├── fetch-news-ai/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch-news-ai.mjs
+│       └── fetchNewsAi.mjs
+├── fetch-rss/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_rss.mjs
+│       └── fetchRSS.mjs
+├── fetch-tw-data-futures/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── fetch_taifex.mjs
+├── fetch-tw-data-institutional/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_twse_t86.mjs
+│       └── fetch_tpex_3insti.mjs
+├── fetch-tw-data-margin/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_twse_margin.mjs
+│       └── fetch_tpex_margin.mjs
+├── fetch-tw-data-stock/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_twse_stock.mjs
+│       └── fetch_tpex_stock.mjs
+├── fetch-tw-news-cnyes/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── fetch_cnyes.mjs
+├── fetch-tw-news-moneydj/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── fetch_moneydj.mjs
+├── fetch-tw-news-mops/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── fetch_mops.mjs
+├── fetch-tw-news-statementdog/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── fetch_statementdog.mjs
+├── save-news-to-sheet/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── save_news_to_sheet.mjs
+├── send-email/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── send_email.mjs
+├── tw-stock-post-market/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── run_post_market.mjs   <- 主控腳本（推薦入口）
+│       └── generate_report.mjs
+└── tw-stock-research/
+    ├── SKILL.md
+    └── scripts/
+        ├── run_research.mjs      <- 主控腳本（推薦入口）
+        └── generate_report.mjs
+```
 
 ## 依賴安裝
 
 ```bash
-# 台股研究相關（最常用）
+# 台股研究全套（盤前調研 + 盤後總結 + 新聞抓取）
 npm install axios cheerio puppeteer-core
 
-# 僅盤後總結（不含 MOPS）
+# AI / 科技新聞
+npm install axios rss-parser
+
+# 僅台股數據抓取或盤後總結
+npm install axios
+
+# 通知與儲存（send-email / save-news-to-sheet）
 npm install axios
 ```
 
+> 各技能 SKILL.md 內皆有獨立的安裝指引與驗證指令，詳見各技能說明。
+
 ## 使用方式
 
-- Agent 可透過讀取各技能目錄下的 `SKILL.md` 了解如何使用技能。
-- 技能腳本以 Node.js 或 Python 撰寫，依各技能目錄內容為準。
-- 若技能有外部依賴，請依 `SKILL.md` 說明先完成安裝。
+1. AI Agent 讀取各技能目錄下的 `SKILL.md` 了解用法
+2. 依 `SKILL.md` 安裝指引完成依賴安裝
+3. 以 Node.js 執行 `scripts/` 內的腳本
 
 ## License
 
 MIT
-

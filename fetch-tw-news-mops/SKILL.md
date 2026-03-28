@@ -34,6 +34,8 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 ### 安裝指引
 
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
+
 所需套件：`puppeteer-core`
 額外需求：環境需安裝 Chrome 或 Chromium（腳本自動偵測 Windows、Linux、macOS 路徑）
 

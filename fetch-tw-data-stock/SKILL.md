@@ -1,6 +1,6 @@
 ---
 name: fetch-tw-data-stock
-description: 抓取台股收盤資料（上市 TWSE + 上櫃 TPEX）。支援指定日期與股票代碼，回傳結構化 JSON（OHLC、成交量、本益比等）。適用於盤後分析、價量查詢、上市/上櫃資料整合。
+description: 抓取台股收盤資料（上市 TWSE + 上櫃 TPEX）。支援指定日期與股票代碼，回傳結構化 JSON（OHLC、成交量、漲跌等）。適用於盤後分析、價量查詢、上市/上櫃資料整合。
 ---
 
 # 台股收盤資料抓取（上市 TWSE + 上櫃 TPEX）
@@ -34,6 +34,8 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 建議使用本技能附帶的 Node.js 腳本進行抓取，穩定性高且支援單檔與全市場模式。
 
 ### 安裝指引
+
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
 所需套件：`axios`
 

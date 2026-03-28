@@ -93,6 +93,8 @@ command: cd 工作路徑/gemini && gemini --approval-mode=yolo -p "... 寫入 re
 
 ## 安裝指引
 
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
+
 ```bash
 gemini --version   # 確認 gemini-cli 已安裝
 ```

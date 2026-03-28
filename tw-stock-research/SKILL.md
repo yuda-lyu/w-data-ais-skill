@@ -9,6 +9,8 @@ description: 台股盤前調研技能。從 5 個來源（MOPS、鉅亨網、財
 
 ## 安裝指引
 
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
+
 所需套件：`axios`、`cheerio`、`puppeteer-core`
 額外需求：環境需安裝 Chrome 或 Chromium（fetch-tw-news-mops 腳本自動偵測路徑）
 
