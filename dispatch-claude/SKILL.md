@@ -10,6 +10,8 @@ description: This skill should be used when the user asks to "run claude as an a
 此 skill 教導調度 AI 如何將 Claude Code CLI (`claude -p`) 作為獨立 agent 執行，
 實現調度 AI ＋ Claude agent 混合的多 agent 工作流程。
 
+**核心調用層：** 使用 `dispatch-cli` 技能執行，自動處理超時、進程樹清理、輸出驗證與錯誤回報。
+
 > 📖 完整 CLI 旗標參考請見 [references/claude-flags.md](references/claude-flags.md)
 
 ## 何時使用此 Skill
@@ -18,26 +20,63 @@ description: This skill should be used when the user asks to "run claude as an a
 - 需要利用 Claude 進行程式碼分析、重構、除錯等高階推理工作
 - 建立 multi-agent pipeline，各 agent 各司其職寫入不同輸出檔案
 
-## 正確指令格式
+## 透過 dispatch-cli 調用（推薦）
+
+### 命令列
 
 ```bash
-claude -p \
-  --dangerously-skip-permissions \
+# 基本呼叫
+node dispatch-cli/scripts/run_cli.mjs \
+  claude -p --dangerously-skip-permissions \
+  "你的任務描述"
+
+# 完整防護：超時 + JSON 驗證 + 回合限制 + 重試
+CLI_TIMEOUT_MS=120000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 \
+  node dispatch-cli/scripts/run_cli.mjs \
+  claude -p --dangerously-skip-permissions \
+  --output-format json --max-turns 10 \
+  "你的任務描述"
+
+# 從檔案傳入 prompt（取代 shell pipe，避免 stdin 問題）
+CLI_TIMEOUT_MS=180000 CLI_INPUT_FILE=prompt.txt \
+  node dispatch-cli/scripts/run_cli.mjs \
+  claude -p --dangerously-skip-permissions --output-format json
+
+# 指定模型
+CLI_TIMEOUT_MS=120000 \
+  node dispatch-cli/scripts/run_cli.mjs \
+  claude -p --dangerously-skip-permissions \
   --model claude-opus-4-6 \
   "你的任務描述"
 
 # 只核准特定工具（更安全的替代方案）
-claude -p \
-  --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
+node dispatch-cli/scripts/run_cli.mjs \
+  claude -p --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
   --model claude-opus-4-6 \
   "你的任務描述"
+```
 
-# JSON 格式輸出（便於程式解析）
-claude -p \
-  --dangerously-skip-permissions \
-  --model claude-opus-4-6 \
-  --output-format json \
-  "你的任務描述"
+### 模組匯入
+
+```javascript
+import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
+
+const result = runCli('claude', [
+    '-p', '--dangerously-skip-permissions',
+    '--output-format', 'json',
+    '--max-turns', '10',
+    '請分析這段程式碼的安全性問題',
+], {
+    timeoutMs: 120_000,
+    validate: 'json',
+});
+
+if (result.ok) {
+    const data = JSON.parse(result.stdout);
+    console.log(data.result);
+} else {
+    console.error(`Claude 呼叫失敗: ${result.error}`);
+}
 ```
 
 ## 模型選擇
@@ -57,8 +96,8 @@ claude -p \
 | `-p` / `--print` | ✅ | 非互動/headless 模式，輸出回應後退出 |
 | `--dangerously-skip-permissions` | ✅ | 跳過所有權限確認，自動核准全部操作（僅建議用於受控環境） |
 | `--model <model>` | 建議 | 指定模型，可用別名（`opus`/`sonnet`/`haiku`）或完整 ID |
-| `--output-format <format>` | ❌ 可選 | 輸出格式：`text`（預設）、`json`、`stream-json` |
-| `--max-turns <n>` | ❌ 可選 | 限制工具呼叫回合數，防止無限迴圈 |
+| `--output-format <format>` | 建議 | 輸出格式：`text`（預設）、`json`、`stream-json` |
+| `--max-turns <n>` | 建議 | 限制工具呼叫回合數，防止無限迴圈 |
 | `--max-budget-usd <n>` | ❌ 可選 | 設定最大花費上限（美元），超過自動停止 |
 | `--verbose` | ❌ 可選 | 顯示完整的逐回合輸出 |
 
@@ -89,6 +128,16 @@ claude -p \
 | 認證失敗 | 未登入或 token 過期 | 執行 `claude auth` 檢查認證狀態 |
 | 回應被截斷 | 超過預設回合數 | 加上 `--max-turns 30` 提高上限 |
 | 花費超預期 | 任務過於複雜 | 加上 `--max-budget-usd 5.00` 設定上限 |
+| WebFetch hang | pipe 模式下 WebFetch 約 30-50% crash | 調度層自行抓取網頁，不依賴 Claude 的 WebFetch |
+
+## dispatch-cli 建議參數
+
+| 環境變數 | 建議值 | 說明 |
+|----------|--------|------|
+| `CLI_TIMEOUT_MS` | `120000`～`300000` | Claude 推理較慢，建議至少 2 分鐘 |
+| `CLI_VALIDATE` | `json`（搭配 `--output-format json`） | 確保回傳可解析的 JSON |
+| `CLI_MAX_RETRIES` | `1` | API 暫時性錯誤可重試一次 |
+| `CLI_INPUT_FILE` | prompt 檔案路徑 | 大量輸入用檔案傳入，避免 stdin pipe 問題 |
 
 ## 多 Agent 工作流程範例
 
@@ -100,8 +149,10 @@ claude -p \
 # 調度 AI 自身的 subagent（依平台而異，例如 Agent tool / run_in_background）
 prompt: "... 寫入 result_dispatcher.txt"
 
-# Claude agent — 使用 Bash/shell 工具（背景執行）
-command: claude -p --dangerously-skip-permissions --model claude-opus-4-6 "... 寫入 result_claude.txt"
+# Claude agent — 透過 dispatch-cli（背景執行）
+command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
+         claude -p --dangerously-skip-permissions --model claude-opus-4-6 \
+         "... 寫入 result_claude.txt"
 ```
 
 ### Step 2: 等待兩者完成後讀取結果

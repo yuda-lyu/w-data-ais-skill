@@ -10,20 +10,56 @@ description: This skill should be used when the user asks to "run gemini as an a
 此 skill 教導調度 AI 如何將 Google Gemini CLI (`gemini`) 作為獨立 agent 執行，
 實現調度 AI ＋ Gemini agent 混合的多 agent 工作流程。
 
+**核心調用層：** 使用 `dispatch-cli` 技能執行，自動處理超時、進程樹清理、輸出驗證與錯誤回報。
+
 ## 何時使用此 Skill
 
 - 使用者要求同時派出調度 AI 和 Gemini agent 執行任務
 - 需要利用 Gemini 進行程式碼生成、npm/pip 安裝等需要網路的工作
 - 建立 multi-agent pipeline，各 agent 各司其職寫入不同輸出檔案
 
-## 正確指令格式
+## 透過 dispatch-cli 調用（推薦）
+
+### 命令列
 
 ```bash
-cd "工作目錄路徑"
-gemini --approval-mode=yolo -p "你的任務描述"
+# 基本呼叫（CLI_CWD 取代 cd，更安全）
+CLI_CWD="/path/to/project" \
+  node dispatch-cli/scripts/run_cli.mjs \
+  gemini --approval-mode=yolo -p "你的任務描述"
 
-# 指定模型（可選）
-gemini --approval-mode=yolo -m gemini-2.5-pro -p "你的任務描述"
+# 完整防護：超時 + 重試
+CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 CLI_CWD="/path/to/project" \
+  node dispatch-cli/scripts/run_cli.mjs \
+  gemini --approval-mode=yolo -p "你的任務描述"
+
+# 指定模型
+CLI_TIMEOUT_MS=180000 CLI_CWD="/path/to/project" \
+  node dispatch-cli/scripts/run_cli.mjs \
+  gemini --approval-mode=yolo -m gemini-2.5-pro -p "你的任務描述"
+```
+
+> **重要：** Gemini CLI 以當前工作目錄作為專案路徑，無 `--workdir` 參數。
+> 使用 `CLI_CWD` 環境變數透過 dispatch-cli 設定，取代 `cd && gemini` 的 shell 串接方式。
+
+### 模組匯入
+
+```javascript
+import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
+
+const result = runCli('gemini', [
+    '--approval-mode=yolo',
+    '-p', '分析此專案架構並產出報告',
+], {
+    timeoutMs: 180_000,
+    cwd: '/path/to/project',   // 取代 cd
+});
+
+if (result.ok) {
+    console.log(result.stdout);
+} else {
+    console.error(`Gemini 呼叫失敗: ${result.error}`);
+}
 ```
 
 ## 模型選擇
@@ -52,20 +88,29 @@ gemini --approval-mode=yolo -m gemini-2.5-pro -p "你的任務描述"
 
 | 參數 | 必要 | 說明 |
 |------|------|------|
-| `cd` 切換目錄 | ✅ | Gemini 以當前目錄為工作路徑，必須先 cd 到指定位置 |
+| `CLI_CWD`（dispatch-cli） | ✅ | Gemini 以當前目錄為工作路徑，透過 dispatch-cli 的 `cwd` 設定 |
 | `--approval-mode=yolo` | ✅ | 自動核准所有工具操作，不需人工確認（`--yolo` 為舊版別名，建議改用此參數） |
 | `-p "prompt"` | ✅ | 非互動/headless 模式，直接執行單一任務後退出 |
 | `--sandbox` | ❌ 避免 | 會限制網路存取，導致 npm install 失敗 |
 
-> **與 Codex 的差異**：Gemini 預設可連網，不需額外網路旗標；工作目錄靠 `cd` 指定，而非 CLI 參數。
+> **與 Codex 的差異**：Gemini 預設可連網，不需額外網路旗標；工作目錄靠 `CLI_CWD` / `cwd` 設定。
 
 ## 常見錯誤與處理
 
 | 錯誤情況 | 原因 | 解法 |
 |----------|------|------|
 | npm install 失敗 | 誤加了 `--sandbox` | 移除 `--sandbox` |
-| 任務在錯誤目錄執行 | 忘記 `cd` 到工作目錄 | 在 gemini 指令前加 `cd "路徑" &&` |
+| 任務在錯誤目錄執行 | 未設定 `CLI_CWD` / `cwd` | 設定 `CLI_CWD` 環境變數或 `cwd` 選項 |
 | 等待人工確認而卡住 | 缺少自動核准參數 | 加上 `--approval-mode=yolo`（`--yolo` 亦可但為舊版別名） |
+
+## dispatch-cli 建議參數
+
+| 環境變數 | 建議值 | 說明 |
+|----------|--------|------|
+| `CLI_TIMEOUT_MS` | `180000`～`300000` | Gemini 含工具執行時間，建議至少 3 分鐘 |
+| `CLI_CWD` | 專案絕對路徑 | **必要**，Gemini 依賴工作目錄定位專案 |
+| `CLI_VALIDATE` | `nonempty` | 確保有實際輸出 |
+| `CLI_MAX_RETRIES` | `1` | OAuth token 過期等暫時性錯誤可重試 |
 
 ## 多 Agent 工作流程範例
 
@@ -77,8 +122,10 @@ gemini --approval-mode=yolo -m gemini-2.5-pro -p "你的任務描述"
 # 調度 AI 自身的 subagent（依平台而異，例如 Agent tool / run_in_background）
 prompt: "... 寫入 result_dispatcher.txt"
 
-# Gemini agent — 使用 Bash/shell 工具（背景執行）
-command: cd 工作路徑/gemini && gemini --approval-mode=yolo -p "... 寫入 result.txt"
+# Gemini agent — 透過 dispatch-cli（背景執行）
+command: CLI_TIMEOUT_MS=180000 CLI_CWD=/path/to/project \
+         node dispatch-cli/scripts/run_cli.mjs \
+         gemini --approval-mode=yolo -p "... 寫入 result_gemini.txt"
 ```
 
 ### Step 2: 等待兩者完成後讀取結果

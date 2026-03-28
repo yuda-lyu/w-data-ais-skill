@@ -10,26 +10,59 @@ description: This skill should be used when the user asks to "run codex as an ag
 此 skill 教導調度 AI 如何將 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 執行，
 實現調度 AI ＋ Codex agent 混合的多 agent 工作流程。
 
+**核心調用層：** 使用 `dispatch-cli` 技能執行，自動處理超時、進程樹清理、輸出驗證與錯誤回報。
+
 ## 何時使用此 Skill
 
 - 使用者要求同時派出調度 AI 和 Codex agent 執行任務
 - 需要利用 Codex 進行程式碼生成、npm/pip 安裝等需要網路的工作
 - 建立 multi-agent pipeline，各 agent 各司其職寫入不同輸出檔案
 
-## 正確指令格式
+## 透過 dispatch-cli 調用（推薦）
+
+### 命令列
 
 ```bash
-codex exec \
-  --full-auto \
-  --skip-git-repo-check \
+# 基本呼叫
+node dispatch-cli/scripts/run_cli.mjs \
+  codex exec --full-auto --skip-git-repo-check \
   --config sandbox_workspace_write.network_access=true \
   "你的任務描述"
 
-# 指定模型（可選）
-codex exec --full-auto --skip-git-repo-check \
+# 完整防護：超時 + 重試
+CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 \
+  node dispatch-cli/scripts/run_cli.mjs \
+  codex exec --full-auto --skip-git-repo-check \
+  --config sandbox_workspace_write.network_access=true \
+  "你的任務描述"
+
+# 指定模型
+CLI_TIMEOUT_MS=180000 \
+  node dispatch-cli/scripts/run_cli.mjs \
+  codex exec --full-auto --skip-git-repo-check \
   --config sandbox_workspace_write.network_access=true \
   -m gpt-5.4 \
   "你的任務描述"
+```
+
+### 模組匯入
+
+```javascript
+import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
+
+const result = runCli('codex', [
+    'exec', '--full-auto', '--skip-git-repo-check',
+    '--config', 'sandbox_workspace_write.network_access=true',
+    '重構此模組並撰寫單元測試',
+], {
+    timeoutMs: 180_000,
+});
+
+if (result.ok) {
+    console.log(result.stdout);
+} else {
+    console.error(`Codex 呼叫失敗: ${result.error}`);
+}
 ```
 
 ## 模型選擇
@@ -60,6 +93,14 @@ codex exec --full-auto --skip-git-repo-check \
 | `Not inside a trusted directory` | 未在 git repo 內且缺少旗標 | 加上 `--skip-git-repo-check` |
 | npm install 網路失敗 | 沙箱預設封鎖網路 | 加上 `--config sandbox_workspace_write.network_access=true` |
 
+## dispatch-cli 建議參數
+
+| 環境變數 | 建議值 | 說明 |
+|----------|--------|------|
+| `CLI_TIMEOUT_MS` | `180000`～`300000` | Codex 含沙箱啟動時間，建議至少 3 分鐘 |
+| `CLI_VALIDATE` | `nonempty` | 確保有實際輸出 |
+| `CLI_MAX_RETRIES` | `1` | 沙箱啟動偶爾失敗可重試 |
+
 ## 多 Agent 工作流程範例
 
 當需要同時派出調度 AI 和 Codex agent 時，以 **背景** 方式平行執行：
@@ -70,8 +111,9 @@ codex exec --full-auto --skip-git-repo-check \
 # 調度 AI 自身的 subagent（依平台而異，例如 Agent tool / run_in_background）
 prompt: "... 寫入 result_dispatcher.txt"
 
-# Codex agent — 使用 Bash/shell 工具（背景執行）
-command: codex exec --full-auto --skip-git-repo-check \
+# Codex agent — 透過 dispatch-cli（背景執行）
+command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
+         codex exec --full-auto --skip-git-repo-check \
          --config sandbox_workspace_write.network_access=true \
          "... 寫入 result_codex.txt"
 ```
