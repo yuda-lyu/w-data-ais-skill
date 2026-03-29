@@ -66,26 +66,40 @@ function buildValidator(rule) {
     };
 }
 
-// ─── 進程樹清理（Windows）──────────────────────────────────────────────────
+// ─── 進程樹清理（跨平台）─────────────────────────────────────────────────
+
+const IS_WIN = process.platform === 'win32';
 
 /**
  * 遞迴蒐集指定 PID 的所有子孫進程 PID
  */
 function collectDescendants(parentPid, result) {
     try {
-        const output = execSync(
-            `wmic process where (ParentProcessId=${parentPid}) get ProcessId /format:csv`,
-            { encoding: 'utf8', timeout: 5000, windowsHide: true }
-        );
-        const pids = output.split('\n')
-            .map(line => line.trim().split(',').pop())
-            .filter(p => p && /^\d+$/.test(p) && Number(p) !== parentPid);
-        for (const childPid of pids) {
-            result.push(Number(childPid));
-            collectDescendants(Number(childPid), result);
+        if (IS_WIN) {
+            const output = execSync(
+                `wmic process where (ParentProcessId=${parentPid}) get ProcessId /format:csv`,
+                { encoding: 'utf8', timeout: 5000, windowsHide: true }
+            );
+            const pids = output.split('\n')
+                .map(line => line.trim().split(',').pop())
+                .filter(p => p && /^\d+$/.test(p) && Number(p) !== parentPid);
+            for (const childPid of pids) {
+                result.push(Number(childPid));
+                collectDescendants(Number(childPid), result);
+            }
+        } else {
+            const output = execSync(
+                `pgrep -P ${parentPid}`,
+                { encoding: 'utf8', timeout: 5000 }
+            );
+            const pids = output.split('\n').map(s => s.trim()).filter(s => /^\d+$/.test(s));
+            for (const childPid of pids) {
+                result.push(Number(childPid));
+                collectDescendants(Number(childPid), result);
+            }
         }
     } catch {
-        // wmic 查詢失敗（進程已退出等），忽略
+        // 查詢失敗（進程已退出等），忽略
     }
 }
 
@@ -100,11 +114,19 @@ function killProcessTree(pid) {
     // 由葉到根殺，避免父進程重新派生子進程
     for (const childPid of descendants.reverse()) {
         try {
-            execSync(`taskkill /F /PID ${childPid}`, { stdio: 'ignore', timeout: 5000, windowsHide: true });
+            if (IS_WIN) {
+                execSync(`taskkill /F /PID ${childPid}`, { stdio: 'ignore', timeout: 5000, windowsHide: true });
+            } else {
+                process.kill(childPid, 'SIGKILL');
+            }
         } catch { /* 已退出 */ }
     }
     try {
-        execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore', timeout: 5000, windowsHide: true });
+        if (IS_WIN) {
+            execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore', timeout: 5000, windowsHide: true });
+        } else {
+            process.kill(pid, 'SIGKILL');
+        }
     } catch { /* 已退出 */ }
 }
 
@@ -351,6 +373,7 @@ export function runCliAsync(command, args = [], options = {}) {
  */
 export function runCliWithRetry(command, args = [], options = {}, maxRetries = 0, retryDelayMs = 5000) {
     let lastResult;
+    let totalAttempts = 0;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         if (attempt > 0) {
@@ -360,9 +383,10 @@ export function runCliWithRetry(command, args = [], options = {}, maxRetries = 0
         }
 
         lastResult = runCli(command, args, options);
+        totalAttempts = attempt + 1;
 
         if (lastResult.ok) {
-            lastResult.attempts = attempt + 1;
+            lastResult.attempts = totalAttempts;
             return lastResult;
         }
 
@@ -371,7 +395,7 @@ export function runCliWithRetry(command, args = [], options = {}, maxRetries = 0
         if (lastResult.code === 2) break;
     }
 
-    lastResult.attempts = maxRetries + 1;
+    lastResult.attempts = totalAttempts;
     return lastResult;
 }
 
@@ -380,6 +404,7 @@ export function runCliWithRetry(command, args = [], options = {}, maxRetries = 0
  */
 export async function runCliAsyncWithRetry(command, args = [], options = {}, maxRetries = 0, retryDelayMs = 5000) {
     let lastResult;
+    let totalAttempts = 0;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         if (attempt > 0) {
@@ -388,9 +413,10 @@ export async function runCliAsyncWithRetry(command, args = [], options = {}, max
         }
 
         lastResult = await runCliAsync(command, args, options);
+        totalAttempts = attempt + 1;
 
         if (lastResult.ok) {
-            lastResult.attempts = attempt + 1;
+            lastResult.attempts = totalAttempts;
             return lastResult;
         }
 
@@ -398,7 +424,7 @@ export async function runCliAsyncWithRetry(command, args = [], options = {}, max
         if (lastResult.code === 2) break;
     }
 
-    lastResult.attempts = maxRetries + 1;
+    lastResult.attempts = totalAttempts;
     return lastResult;
 }
 

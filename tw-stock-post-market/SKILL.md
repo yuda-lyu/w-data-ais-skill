@@ -84,7 +84,7 @@ node tw-stock-post-market/scripts/run_post_market.mjs [YYYYMMDD] [skillsDir] [ba
 
 # 參數說明
 # YYYYMMDD      (選填)：指定日期，預設為今日
-# skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd
+# skillsDir     (選填)：技能腳本目錄（各子技能腳本所在位置），預設為 cwd
 # baseOutputDir (選填)：資料輸出根目錄，腳本自動在此建立：
 #                         tw-stock-post-market/<YYYYMMDD>/（盤後輸出）
 #                         tw-stock-research/<YYYYMMDD>/   （讀取盤前報告）
@@ -187,7 +187,7 @@ w-data-news/tw-stock-post-market/
 |------|------|------|
 | `timestamp` | ✅ | ISO 8601 格式（UTC，`Z` 結尾） |
 | `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 來源：fetch-tw-data-stock / fetch-twse-t86 / fetch-tpex-3insti / generate_report |
+| `source` | ✅ | 來源：fetch-twse / fetch-tpex / fetch-twse-t86 / fetch-tpex-3insti / generate_report |
 | `phase` | ✅ | 階段：fetch / report |
 | `error.type` | ✅ | 錯誤類型：timeout / unknown |
 | `error.message` | ✅ | 簡短錯誤訊息 |

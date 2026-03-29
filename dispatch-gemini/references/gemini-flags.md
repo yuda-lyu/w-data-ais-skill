@@ -35,18 +35,22 @@ gemini -p "prompt"   ← 非互動模式
 
 ## 工作目錄指定方式
 
-Gemini CLI **沒有** `--workdir` 參數，工作目錄由 shell 的當前目錄決定：
+Gemini CLI **沒有** `--workdir` 參數，工作目錄由 shell 的當前目錄決定。
+
+透過 `dispatch-cli` 調用時，建議使用 `CLI_CWD` 環境變數指定工作目錄，取代 `cd` 的 shell 串接方式（更安全）：
 
 ```bash
-# 方法 1：先 cd 再執行
-cd "D:/work/my-app"
-gemini --approval-mode=yolo -p "任務"
+# 推薦：透過 dispatch-cli 的 CLI_CWD 指定
+CLI_CWD="D:/work/my-app" \
+  node dispatch-cli/scripts/run_cli.mjs \
+  gemini --approval-mode=yolo -p "任務"
+```
 
-# 方法 2：單行串接
+若未使用 dispatch-cli，可直接透過 shell 切換目錄：
+
+```bash
+# 備選：shell 串接
 cd "D:/work/my-app" && gemini --approval-mode=yolo -p "任務"
-
-# 方法 3：在 prompt 中明確指定絕對路徑
-gemini --approval-mode=yolo -p "在 D:/work/my-app 目錄下執行 npm install"
 ```
 
 ## Session 管理（多階段 pipeline）

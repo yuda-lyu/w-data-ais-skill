@@ -12,6 +12,8 @@ description: This skill should be used when the user asks to "run opencode as an
 
 **核心調用層：** 使用 `dispatch-cli` 技能執行，自動處理超時、進程樹清理、輸出驗證與錯誤回報。
 
+> 📖 完整 CLI 旗標參考請見 [references/opencode-flags.md](references/opencode-flags.md)
+
 ## 何時使用此 Skill
 
 - 使用者要求同時派出調度 AI 和 OpenCode agent 執行任務
@@ -147,7 +149,7 @@ if (result.ok) {
 |----------|--------|------|
 | `CLI_TIMEOUT_MS` | `180000`～`300000` | 含模型推理時間，建議至少 3 分鐘 |
 | `CLI_VALIDATE` | `nonempty` | 確保有實際輸出 |
-| `CLI_MAX_RETRIES` | `1` | 免費模型偶爾限流可重試 |
+| `CLI_MAX_RETRIES` | `1` | 免費模型偶爾限流可重試（含初始請求最多執行 2 次） |
 
 ## 多 Agent 工作流程範例
 

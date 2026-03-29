@@ -72,7 +72,7 @@ const MAX_DELAY_MS  = 30000;
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 function isRetryable(error) {
     const status = error.response?.status;
-    if (status) return status >= 500;
+    if (status) return status >= 500 || status === 429;
     return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
 }
 

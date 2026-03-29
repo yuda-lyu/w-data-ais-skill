@@ -146,7 +146,9 @@ https://www.taifex.com.tw/cht/3/pcRatioDown?queryStartDate=YYYY/MM/DD&queryEndDa
     "institutional": {
       "foreign": {
         "longContracts": 10102,
+        "longAmount": 67530926,
         "shortContracts": 47167,
+        "shortAmount": 315441404,
         "netContracts": -37065,
         "netAmount": -247910478,
         "tradingLong": 74567,
@@ -205,7 +207,7 @@ TAIFEX CSV 下載使用 **MS950（Big5）** 編碼，腳本使用 `TextDecoder('
 
 ### 1. 伺服器錯誤（502/503 等 5xx）
 
-腳本內建**自動重試機制**（最多重試 10 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
+腳本內建**自動重試機制**（最多重試 10 次，含初始請求最多執行 11 次），遇到 HTTP 5xx 或網路錯誤時會自動等待後重試：
 
 | 重試次 | 等待時間 |
 |--------|---------|
@@ -214,6 +216,8 @@ TAIFEX CSV 下載使用 **MS950（Big5）** 編碼，腳本使用 `TextDecoder('
 | 3 | 15s |
 | ... | ... |
 | 6+ | 30s（上限）|
+
+若 10 次後仍失敗，才寫入錯誤並 exit 1。
 
 ### 2. 執行錯誤 (Module not found)
 

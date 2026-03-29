@@ -136,7 +136,7 @@ if (result.ok) {
 |----------|--------|------|
 | `CLI_TIMEOUT_MS` | `120000`～`300000` | Claude 推理較慢，建議至少 2 分鐘 |
 | `CLI_VALIDATE` | `json`（搭配 `--output-format json`） | 確保回傳可解析的 JSON |
-| `CLI_MAX_RETRIES` | `1` | API 暫時性錯誤可重試一次 |
+| `CLI_MAX_RETRIES` | `1` | API 暫時性錯誤可重試一次（含初始請求最多執行 2 次） |
 | `CLI_INPUT_FILE` | prompt 檔案路徑 | 大量輸入用檔案傳入，避免 stdin pipe 問題 |
 
 ## 多 Agent 工作流程範例

@@ -20,7 +20,7 @@ description: Generic CLI subprocess runner with timeout, process-tree cleanup, o
 
 ## 安裝指引
 
-**[執行AI須先依照技能內說明安裝指定依賴之套件]**
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
 ```bash
 # 無額外依賴，僅使用 Node.js 內建模組
@@ -61,7 +61,7 @@ node dispatch-cli/scripts/run_cli.mjs codex exec --full-auto "重構此模組"
 | `CLI_INPUT` | （無） | 傳入 stdin 的內容（取代 shell pipe） |
 | `CLI_INPUT_FILE` | （無） | 從檔案讀取 stdin 內容（優先於 `CLI_INPUT`） |
 | `CLI_VALIDATE` | （無） | 驗證規則：`nonempty`、`json`、`min:<n>`（可用 `,` 組合） |
-| `CLI_MAX_RETRIES` | `0` | 最大重試次數 |
+| `CLI_MAX_RETRIES` | `0` | 最大重試次數（含初始請求最多執行 n+1 次） |
 | `CLI_RETRY_DELAY_MS` | `5000` | 重試間隔毫秒數 |
 | `CLI_LOG_FILE` | （無） | 結果 log 追加至此 JSONL 檔案 |
 
@@ -78,7 +78,7 @@ CLI_INPUT_FILE=prompt.txt CLI_TIMEOUT_MS=180000 \
 ### 方式二：作為模組匯入
 
 ```javascript
-import { runCli, runCliAsync } from './dispatch-cli/scripts/run_cli.mjs';
+import { runCli, runCliAsync, runCliWithRetry, runCliAsyncWithRetry } from './dispatch-cli/scripts/run_cli.mjs';
 
 // 同步呼叫
 const result = runCli('claude', ['-p', '--output-format', 'json', '請分析程式碼'], {
@@ -112,10 +112,11 @@ const result2 = await runCliAsync('claude', ['-p', '長程任務'], {
     "stderr": "...",      // stderr 內容
     "code": 0,            // exit code（null 表示進程未正常退出）
     "error": "",          // 錯誤描述（空字串表示無錯誤）
-    "durationMs": 1234,   // 實際執行毫秒數
-    "pid": 12345          // 子進程 PID（僅 async 版）
+    "durationMs": 1234    // 實際執行毫秒數
 }
 ```
+
+> 若以模組方式呼叫 `runCliAsync()`，回傳物件額外包含 `pid`（子進程 PID）。命令列模式不輸出此欄位。
 
 命令列模式下，此 JSON 輸出至 stdout，並以 `result.ok ? 0 : 1` 作為 exit code。
 

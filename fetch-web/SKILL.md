@@ -32,7 +32,7 @@ node -e "require('@mozilla/readability'); require('jsdom'); console.log('deps OK
 npm install @mozilla/readability jsdom
 ```
 
-### 進階依賴（方法②③，選裝）
+### 進階依賴（方法②③，必裝）
 
 所需套件：`playwright`
 額外需求：系統需安裝 Chrome 或 Chromium
@@ -47,6 +47,7 @@ npm install playwright
 ```
 
 > Playwright 使用 `channel: 'chrome'` 直接調用系統 Chrome，不需額外下載 Chromium。
+> ⚠️ Playwright 為必裝依賴。本技能依網站防禦強度自動階梯升級（curl → Playwright 無頭 → Playwright 有頭），長期執行必定會遇到需要 Playwright 的場景，未安裝將導致整個模組無法載入。
 
 ## 技術原理
 
@@ -88,7 +89,7 @@ npm install playwright
 - URL 透過 `execFileSync` 參數陣列傳遞（非 shell 字串拼接），**防止命令注入**
 - curl 使用 `--max-time` + `execFileSync timeout` 雙重超時保護
 - Playwright 的 `browser.close()` 放在 `finally` 區塊，確保資源釋放
-- 5xx 錯誤自動重試（最多 5 次，線性遞增退避 3s→6s→...→15s）
+- 所有方法（curl / Playwright 無頭 / Playwright 有頭）皆內建自動重試（最多重試 5 次，含初始請求最多執行 6 次，線性遞增退避 3s→6s→...→15s）；curl 針對 5xx 及網路錯誤重試，Playwright 針對導航逾時、瀏覽器 crash 等例外重試
 
 ## 執行方式
 
@@ -133,10 +134,10 @@ node fetch-web/scripts/fetch_web.mjs "https://www.wsj.com/articles/xxx" ./result
   "title": "Article Title",
   "content": "OpenAI spent the last year trying to be everything...",
   "contentLength": 3431,
-  "method": "curl+readability",
+  "method": "curl",
   "fetchedAt": "2026-03-28 14:30:00",
   "attempts": [
-    { "method": "curl+readability", "status": "success", "contentLength": 3431 }
+    { "method": "curl", "status": "success", "contentLength": 3431 }
   ]
 }
 ```
@@ -150,7 +151,7 @@ node fetch-web/scripts/fetch_web.mjs "https://www.wsj.com/articles/xxx" ./result
   "message": "all methods failed",
   "fetchedAt": "2026-03-28 14:30:00",
   "attempts": [
-    { "method": "curl+readability", "status": "failed", "reason": "http-error", "message": "HTTP 403" },
+    { "method": "curl", "status": "failed", "reason": "http-error", "message": "HTTP 403" },
     { "method": "playwright-headless", "status": "failed", "reason": "captcha", "message": "CAPTCHA detected (headless blocked)" },
     { "method": "playwright-headed", "status": "failed", "reason": "missing-deps", "message": "missing playwright" }
   ]
@@ -170,7 +171,7 @@ node fetch-web/scripts/fetch_web.mjs "https://www.wsj.com/articles/xxx" ./result
 | 錯誤 | 原因 | 解法 |
 |------|------|------|
 | `missing @mozilla/readability or jsdom` | 未安裝基礎依賴 | 執行 `npm install @mozilla/readability jsdom` |
-| `missing playwright` | 未安裝進階依賴 | 執行 `npm install playwright`（選裝） |
+| `missing playwright` | 未安裝進階依賴 | 執行 `npm install playwright` |
 | `HTTP 403` | TLS 指紋被擋（curl 也被擋） | 嘗試 `--method=playwright` 或 `--method=playwright-headed` |
 | `CAPTCHA or challenge page` | 網站要求驗證碼 | 嘗試 `--method=playwright-headed`（需桌面環境） |
 | `content too short` | 頁面為 SPA 需 JS 渲染 | 嘗試 `--method=playwright` |

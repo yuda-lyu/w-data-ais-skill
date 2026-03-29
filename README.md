@@ -3,12 +3,13 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（20 個）
+## 技能總覽（22 個）
 
 | 分類 | 技能數 |
 |------|:------:|
 | [綜合分析](#綜合分析類) | 2 |
-| [Multi-Agent 協作](#multi-agent-協作類) | 4 |
+| [Multi-Agent 協作](#multi-agent-協作類) | 5 |
+| [網頁抓取](#網頁抓取類) | 1 |
 | [台股數據抓取](#台股數據抓取類) | 4 |
 | [台股新聞抓取](#台股新聞抓取類) | 4 |
 | [AI / 科技新聞](#ai--科技新聞類) | 3 |
@@ -52,13 +53,32 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
+| `dispatch-cli` | 通用 CLI 子進程執行器（核心層），提供超時控制、進程樹清理、輸出驗證、結構化錯誤回報與重試機制，供其他 dispatch 技能調用 | Node.js ≥ 18（無 npm 依賴） |
 | `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | `npm install -g @anthropic-ai/claude-code` |
 | `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | `npm install -g @openai/codex` |
 | `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | `npm install -g @google/gemini-cli` |
 | `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | `npm install -g opencode-ai` |
 
-- 無腳本，僅提供 `SKILL.md` 操作說明與 `references/` CLI 旗標參考
+- `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（同步/非同步/重試模式），其餘 4 項技能透過它執行
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
+
+---
+
+## 網頁抓取類
+
+| 技能 | 說明 | 主要腳本 | 依賴 |
+|------|------|----------|------|
+| `fetch-web` | 通用網頁抓取，三階段自動升級：curl → Playwright 無頭 → Playwright 有頭，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright` |
+
+### 參數格式
+
+```bash
+node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwright|playwright-headed]
+```
+
+- 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭
+- 可用 `--method` 強制指定方法，跳過階梯升級
+- Playwright 使用系統 Chrome（`channel: 'chrome'`），不需額外下載 Chromium
 
 ---
 
@@ -171,6 +191,10 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │   ├── SKILL.md
 │   └── scripts/
 │       └── check_tw_trading_day.mjs
+├── dispatch-cli/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── run_cli.mjs              <- 核心 CLI 執行器
 ├── dispatch-claude/
 │   ├── SKILL.md
 │   └── references/
@@ -202,6 +226,11 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │   └── scripts/
 │       ├── fetch_rss.mjs
 │       └── fetchRSS.mjs
+├── fetch-web/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_web.mjs            <- CLI 入口
+│       └── fetchWeb.mjs             <- 核心函式
 ├── fetch-tw-data-futures/
 │   ├── SKILL.md
 │   └── scripts/
@@ -262,6 +291,9 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ```bash
 # 台股研究全套（盤前調研 + 盤後總結 + 新聞抓取）
 npm install axios cheerio puppeteer-core
+
+# 網頁抓取（fetch-web）
+npm install @mozilla/readability jsdom playwright
 
 # AI / 科技新聞
 npm install axios rss-parser

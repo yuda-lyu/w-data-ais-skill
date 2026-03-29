@@ -54,7 +54,7 @@ node fetch-tw-news-cnyes/scripts/fetch_cnyes.mjs
 ### 腳本邏輯摘要
 - 使用 `axios` 呼叫鉅亨網官方 API (`https://api.cnyes.com/media/api/v1/newslist/category/tw_stock`)。
 - API 請求帶有 `isCategoryHeadline: 1` 參數，僅抓取台股分類的頭條新聞（非全部新聞），實際回傳筆數可能少於 100 筆。
-- 內建分頁邏輯，自動翻頁抓取最近 100 筆新聞（以 10 天為時間範圍）。
+- 內建分頁邏輯，自動翻頁抓取最近 100 筆新聞（以 10 天為時間範圍），分頁間延遲 500ms 避免請求過快。
 - 自動處理日期格式與連結。
 - 輸出結構化 JSON。
 

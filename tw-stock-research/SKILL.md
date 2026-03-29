@@ -81,7 +81,7 @@ node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutp
 
 # 參數說明
 # YYYYMMDD      (選填)：指定日期，預設為今日
-# skillsDir     (選填)：技能庫根目錄（各子技能腳本所在位置），預設為 cwd
+# skillsDir     (選填)：技能腳本目錄（各子技能腳本所在位置），預設為 cwd
 # baseOutputDir (選填)：資料輸出根目錄；腳本自動在此建立 tw-stock-research/<YYYYMMDD>/，
 #                       agent 調用時應顯式傳入；若省略僅作本地手動執行時的便利 fallback
 #
@@ -211,7 +211,7 @@ node tw-stock-research/scripts/generate_report.mjs YYYYMMDD ./w-data-news
 ### 📊 歷史驗證統計
 | 日期 | 總研判 | 符合 | 誤判 | 符合率 |
 |------|--------|------|------|--------|
-| 115/02/04 | 10 | 7 | 3 | 77.8% |
+| 2026/02/04 | 10 | 7 | 3 | 70% |
 
 ## 輸出結構
 
@@ -266,7 +266,7 @@ w-data-news/tw-stock-research/
 |------|------|------|
 | `timestamp` | ✅ | ISO 8601 格式（UTC，`Z` 結尾） |
 | `date` | ✅ | 執行日期（YYYYMMDD） |
-| `source` | ✅ | 來源：fetch-tw-news-mops / fetch-tw-news-cnyes / fetch-tw-news-statementdog / fetch-tw-news-moneydj / fetch-twse-t86 / fetch-tpex-3insti / generate_report |
+| `source` | ✅ | 來源：fetch-mops / fetch-cnyes / fetch-statementdog / fetch-moneydj / fetch-twse-t86 / fetch-tpex-3insti / fetch-twse-prices / fetch-tpex-prices / fetch-twse-prices-t2 / fetch-tpex-prices-t2 / fetch-taifex / fetch-twse-margin / fetch-tpex-margin / generate_report |
 | `phase` | ✅ | 階段：fetch / report |
 | `error.type` | ✅ | 錯誤類型：timeout / unknown |
 | `error.message` | ✅ | 簡短錯誤訊息 |

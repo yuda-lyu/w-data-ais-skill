@@ -76,7 +76,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function isRetryable(error) {
     const status = error.response?.status;
-    if (status) return status >= 500; // HTTP 5xx（502/503 等伺服器錯誤）
+    if (status) return status >= 500 || status === 429; // HTTP 5xx / 429（伺服器錯誤或速率限制）
     // 網路層錯誤
     const code = error.code;
     return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(code);
