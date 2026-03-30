@@ -52,13 +52,12 @@ const readJson = (filePath) => {
     try {
         if (fs.existsSync(filePath)) {
             const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            // Unwrap unified output format: { status: 'success', message: <data> }
             if (raw && raw.status === 'success') return raw.message;
             if (raw && raw.status === 'error') {
                 console.warn(`${filePath} contains error: ${raw.message}`);
                 return null;
             }
-            return raw; // fallback for legacy format
+            return raw;
         }
     } catch (e) {
         console.error(`Warning: Could not read ${filePath}: ${e.message}`);
@@ -66,12 +65,8 @@ const readJson = (filePath) => {
     return null;
 };
 
-// 提取盤前研判表
-// 直接解析盤前 Markdown 報告（無 input.json 中間層）。
-// 盤前報告格式（新版）：
-//   - 利多/利空各一段，段落標題含檔數，如：### ⬆️ 利多（25 檔）
-//   - 表格 5 欄：| 代碼 | 名稱 | 信心 | 法人動向 | 簡要理由 |
-//   - 舊版 3 欄（代碼|名稱|簡要理由）亦相容
+// --- Data Loading ---
+
 const getPreMarketPredictions = () => {
     const preReportPath = path.join(PRE_MARKET_DIR, `report_${TODAY}.md`);
     if (!fs.existsSync(preReportPath)) {
@@ -83,10 +78,7 @@ const getPreMarketPredictions = () => {
 
     const content = fs.readFileSync(preReportPath, 'utf8');
 
-    // 段落標題用模糊匹配（忽略尾端的「（N 檔）」）
-    // 欄位順序：代碼(0) | 名稱(1) | 信心(2) | 法人動向(3) | 簡要理由(4)
     const parseSection = (headerKeyword, impactLabel) => {
-        // 匹配任何包含 headerKeyword 的 ### 標題行
         const re = new RegExp(
             `###[^\n]*${headerKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\n]*\n` +
             `[\\s\\S]*?\\| 代碼[\\s\\S]*?(?=\\n###|\\n##|$)`
@@ -103,11 +95,9 @@ const getPreMarketPredictions = () => {
             .filter(line => line.startsWith('|') && !line.includes('---') && !line.includes('代碼'))
             .map(row => {
                 const cols = row.split('|').map(c => c.trim()).filter(c => c);
-                // 新版 5 欄：代碼(0) 名稱(1) 信心(2) 法人動向(3) 簡要理由(4)
                 if (cols.length >= 5) {
                     return { code: cols[0], name: cols[1], impact: impactLabel, reason: cols[4] };
                 }
-                // 舊版 3 欄相容：代碼(0) 名稱(1) 簡要理由(2)
                 if (cols.length >= 3) {
                     return { code: cols[0], name: cols[1], impact: impactLabel, reason: cols[2] };
                 }
@@ -117,9 +107,8 @@ const getPreMarketPredictions = () => {
     };
 
     const bullish = parseSection('⬆️ 利多', '⬆️ 利多');
-    const bearish  = parseSection('⬇️ 利空', '⬇️ 利空');
-    const total = bullish.length + bearish.length;
-    if (total === 0) {
+    const bearish = parseSection('⬇️ 利空', '⬇️ 利空');
+    if (bullish.length + bearish.length === 0) {
         const msg = `盤前報告解析結果為空（0 檔），請確認報告格式是否正確：${preReportPath}`;
         console.warn(`[盤後] ${msg}`);
         appendErrorLog('generate_report', 'pre-market', 'empty_parse_result', msg);
@@ -127,135 +116,91 @@ const getPreMarketPredictions = () => {
     return [...bullish, ...bearish];
 };
 
-// 取得今日收盤價（由 fetch-tw-data-stock 腳本產出，readJson 已自動解包 status/message 包裝）
-//
-// prices_twse.json 解包後：MI_INDEX 格式
-//   { stat, fields9: [...], data9: [[證券代號, 證券名稱, ..., 開盤價(idx5), ..., 收盤價(idx8), ...]] }
-//
-// prices_tpex.json 解包後：TPEX 格式
-//   { source, date, count, data: [[代號(0), 名稱(1), 收盤(2), 漲跌(3), 開盤(4), 最高(5), 最低(6), ...]] }
+/** 將價格列寫入 combined（共用 TWSE/TPEX 的逐列解析邏輯） */
+const addPriceRows = (combined, rows, openIdx, closeIdx) => {
+    if (!rows) return;
+    rows.forEach(row => {
+        const code  = (row[0] || '').trim();
+        const name  = (row[1] || '').trim();
+        const open  = parseFloat((row[openIdx]  || '').replace(/,/g, ''));
+        const close = parseFloat((row[closeIdx] || '').replace(/,/g, ''));
+        if (code && !isNaN(open) && !isNaN(close) && open > 0) {
+            combined[code] = {
+                name, open, close,
+                changePercent: parseFloat(((close - open) / open * 100).toFixed(2)),
+            };
+        }
+    });
+};
+
 const getPrices = () => {
     const combined = {};
 
     const twseData = readJson(path.join(RAW_DIR, 'prices_twse.json'));
-    // 相容兩種格式：舊版 data9（直接屬性）/ 新版 tables[]（MI_INDEX 改版後）
-    let twsePriceRows, twseOpenIdx, twseCloseIdx;
     if (twseData?.data9) {
-        twsePriceRows = twseData.data9;
         const f = Array.isArray(twseData.fields9) ? twseData.fields9 : [];
-        twseOpenIdx  = f.indexOf('開盤價'); if (twseOpenIdx  === -1) twseOpenIdx  = 5;
-        twseCloseIdx = f.indexOf('收盤價'); if (twseCloseIdx === -1) twseCloseIdx = 8;
+        let openIdx = f.indexOf('開盤價');   if (openIdx  === -1) openIdx  = 5;
+        let closeIdx = f.indexOf('收盤價');  if (closeIdx === -1) closeIdx = 8;
+        addPriceRows(combined, twseData.data9, openIdx, closeIdx);
     } else if (twseData?.tables) {
         const tbl = twseData.tables.find(t => Array.isArray(t?.fields) && t.fields.includes('開盤價'));
         if (tbl) {
-            twsePriceRows = tbl.data;
-            twseOpenIdx  = tbl.fields.indexOf('開盤價');
-            twseCloseIdx = tbl.fields.indexOf('收盤價');
+            addPriceRows(combined, tbl.data, tbl.fields.indexOf('開盤價'), tbl.fields.indexOf('收盤價'));
         }
     }
-    if (twsePriceRows) {
-        twsePriceRows.forEach(row => {
-            const code = (row[0] || '').trim();
-            const name = (row[1] || '').trim();
-            const open = parseFloat((row[twseOpenIdx]  || '').replace(/,/g, ''));
-            const close = parseFloat((row[twseCloseIdx] || '').replace(/,/g, ''));
-            if (code && !isNaN(open) && !isNaN(close) && open > 0) {
-                combined[code] = {
-                    name,
-                    open,
-                    close,
-                    changePercent: parseFloat(((close - open) / open * 100).toFixed(2))
-                };
-            }
-        });
-    }
 
-    // TPEX data 欄位順序：[0]=代號, [1]=名稱, [2]=收盤, [3]=漲跌, [4]=開盤, ...
+    // TPEX：[0]=代號, [1]=名稱, [2]=收盤, [4]=開盤
     const tpexData = readJson(path.join(RAW_DIR, 'prices_tpex.json'));
     if (tpexData?.data) {
-        tpexData.data.forEach(row => {
-            const code = (row[0] || '').trim();
-            const name = (row[1] || '').trim();
-            const close = parseFloat((row[2] || '').replace(/,/g, ''));
-            const open = parseFloat((row[4] || '').replace(/,/g, ''));
-            if (code && !isNaN(open) && !isNaN(close) && open > 0) {
-                combined[code] = {
-                    name,
-                    open,
-                    close,
-                    changePercent: parseFloat(((close - open) / open * 100).toFixed(2))
-                };
-            }
-        });
+        addPriceRows(combined, tpexData.data, 4, 2);
     }
 
     return combined;
 };
 
-// 取得法人買賣超（由 fetch-tw-data-institutional 腳本產出，readJson 已自動解包 status/message 包裝）
-//
-// institutional_twse.json 解包後：
-//   { source, date, data: [{ 證券代號, 證券名稱, 三大法人買賣超股數, ... }] }
-//
-// institutional_tpex.json 解包後：
-//   { source, date, data: [{ 代號, 名稱, 三大法人買賣超股數合計, ... }] }
+/** 將法人買賣超資料寫入 combined（共用 TWSE/TPEX 的逐列解析邏輯） */
+const addInstitutionalRows = (combined, data, codeField, nameField, netField) => {
+    if (!data) return;
+    data.forEach(item => {
+        const code = (item[codeField] || '').trim();
+        if (code) {
+            combined[code] = { name: item[nameField] || '', totalNet: item[netField] || '0' };
+        }
+    });
+};
+
 const getInstitutional = () => {
     const combined = {};
-
     const twseData = readJson(path.join(RAW_DIR, 'institutional_twse.json'));
-    if (twseData?.data) {
-        twseData.data.forEach(item => {
-            const code = (item['證券代號'] || '').trim();
-            if (code) {
-                combined[code] = {
-                    name: item['證券名稱'] || '',
-                    totalNet: item['三大法人買賣超股數'] || '0'
-                };
-            }
-        });
-    }
-
+    addInstitutionalRows(combined, twseData?.data, '證券代號', '證券名稱', '三大法人買賣超股數');
     const tpexData = readJson(path.join(RAW_DIR, 'institutional_tpex.json'));
-    if (tpexData?.data) {
-        tpexData.data.forEach(item => {
-            const code = (item['代號'] || '').trim();
-            if (code) {
-                combined[code] = {
-                    name: item['名稱'] || '',
-                    totalNet: item['三大法人買賣超股數合計'] || '0'
-                };
-            }
-        });
-    }
-
+    addInstitutionalRows(combined, tpexData?.data, '代號', '名稱', '三大法人買賣超股數合計');
     return combined;
 };
 
 // --- Analysis Helper Functions ---
 
-/** 取得法人買賣超數值（股數，數值型；null 表示無資料） */
 const getInstNetNum = (inst) => {
     if (!inst) return null;
     const n = parseInt(String(inst.totalNet).replace(/,/g, ''), 10);
     return isNaN(n) ? null : n;
 };
 
-/** 格式化法人買賣超為顯示字串 */
+const fmtPct = (pct) => (pct >= 0 ? '+' : '') + pct + '%';
+
 const fmtInstNet = (num) => {
     if (num === null) return '-';
     return (num >= 0 ? '+' : '') + num.toLocaleString();
 };
 
-/** 描述個股當日實際表現（開收盤 + 法人動向，一行文字） */
 const describeActualPerf = (price, instNetNum) => {
-    const pctStr = (price.changePercent >= 0 ? '+' : '') + price.changePercent + '%';
+    const pctStr = fmtPct(price.changePercent);
     const instStr = instNetNum !== null
         ? `；法人淨${instNetNum >= 0 ? '買' : '賣'}超 ${Math.abs(instNetNum).toLocaleString()} 股`
         : '';
     return `開盤 ${price.open} → 收盤 ${price.close}（${pctStr}）${instStr}`;
 };
 
-/** 自動描述「符合」依據（根據漲跌幅與法人動向推導） */
 const describeMatchReason = (pred, price, instNetNum) => {
     const pct = price.changePercent;
     const isBullish = pred.impact.includes('利多');
@@ -283,12 +228,6 @@ const describeMatchReason = (pred, price, instNetNum) => {
     return parts.join('；');
 };
 
-/**
- * 自動分類誤判原因，回傳 { label, category }
- * category: '大幅反向' | '明顯反向' | '小幅反向' | '收平' | '法人反向'
- * INST_AMT_THRESHOLD: 以金額（股數×收盤價）判斷法人操作是否顯著，
- *   避免固定股數門檻對高低價股產生偏差（5000萬 NTD）。
- */
 const INST_AMT_THRESHOLD = 50_000_000;
 const classifyMisjudgment = (pred, price, instNetNum) => {
     const pct = price.changePercent;
@@ -314,174 +253,122 @@ const classifyMisjudgment = (pred, price, instNetNum) => {
     }
 };
 
-// --- Main Generation Logic ---
+// --- Prediction Evaluation ---
 
-const predictions = getPreMarketPredictions();
-const prices = getPrices();
-const institutional = getInstitutional();
+const evaluatePredictions = (predictions, prices, institutional) => {
+    const stats = { total: 0, correct: 0, wrong: 0, neutral: 0,
+                    bullishTotal: 0, bullishCorrect: 0, bearishTotal: 0, bearishCorrect: 0 };
+    const correctList = [];
+    const wrongList   = [];
+    const bullishRows = [];
+    const bearishRows = [];
 
-const reportDate = `${TODAY.substring(0, 4)}/${TODAY.substring(4, 6)}/${TODAY.substring(6, 8)}`;
+    predictions.forEach(pred => {
+        const price      = prices[pred.code];
+        const instNetNum = getInstNetNum(institutional[pred.code]);
+        let result = '❓ 無數據';
+        let open = '-', close = '-', pct = '-';
 
-let report = `# 台股盤後總結報告（${reportDate}）\n\n`;
-report += `> 執行時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}\n`;
-report += `> 盤前調研：[report_${TODAY}.md](../../tw-stock-research/${TODAY}/report_${TODAY}.md)\n`;
-report += `> 資料來源：證交所、櫃買中心\n\n`;
+        if (price) {
+            open  = price.open;
+            close = price.close;
+            pct   = fmtPct(price.changePercent);
 
-if (predictions.length === 0) {
-    report += `> ⚠️ **警告：盤前研判資料為空**（找不到盤前報告或解析結果為 0 檔），以下研判驗證區塊將無內容。\n\n`;
-}
+            const isBullPred = pred.impact.includes('利多');
+            const isBearPred = pred.impact.includes('利空');
 
-let stats = { total: 0, correct: 0, wrong: 0, neutral: 0,
-              bullishTotal: 0, bullishCorrect: 0, bearishTotal: 0, bearishCorrect: 0 };
-let correctList  = [];
-let wrongList    = [];
-let bullishRows  = [];  // { pred, open, close, pct, instNetNum, result }
-let bearishRows  = [];
+            if (isBullPred || isBearPred) {
+                const isCorrect = isBullPred ? (price.close > price.open) : (price.close < price.open);
+                result = isCorrect ? '✅ 符合' : '❌ 誤判';
+                stats.total++;
+                if (isBullPred) stats.bullishTotal++; else stats.bearishTotal++;
 
-predictions.forEach(pred => {
-    const price      = prices[pred.code];
-    const inst       = institutional[pred.code];
-    const instNetNum = getInstNetNum(inst);
-    let result = '❓ 無數據';
-    let open = '-', close = '-', pct = '-';
-
-    if (price) {
-        open  = price.open;
-        close = price.close;
-        pct   = (price.changePercent >= 0 ? '+' : '') + price.changePercent + '%';
-
-        const isBullish_actual = price.close > price.open;
-        const isBearish_actual = price.close < price.open;
-
-        if (pred.impact.includes('利多')) {
-            result = isBullish_actual ? '✅ 符合' : '❌ 誤判';
-            if (isBullish_actual) { stats.correct++; stats.bullishCorrect++; correctList.push({ ...pred, price, instNetNum }); }
-            else                  { stats.wrong++;                            wrongList.push({ ...pred, price, instNetNum }); }
-            stats.total++; stats.bullishTotal++;
-        } else if (pred.impact.includes('利空')) {
-            result = isBearish_actual ? '✅ 符合' : '❌ 誤判';
-            if (isBearish_actual) { stats.correct++; stats.bearishCorrect++; correctList.push({ ...pred, price, instNetNum }); }
-            else                  { stats.wrong++;                            wrongList.push({ ...pred, price, instNetNum }); }
-            stats.total++; stats.bearishTotal++;
-        } else {
-            stats.neutral++;
-            result = '➖ 中性';
+                if (isCorrect) {
+                    stats.correct++;
+                    if (isBullPred) stats.bullishCorrect++; else stats.bearishCorrect++;
+                    correctList.push({ ...pred, price, instNetNum });
+                } else {
+                    stats.wrong++;
+                    wrongList.push({ ...pred, price, instNetNum });
+                }
+            } else {
+                stats.neutral++;
+                result = '➖ 中性';
+            }
         }
-    }
 
-    const row = { pred, open, close, pct, instNetNum, result };
-    if (pred.impact.includes('利多'))      bullishRows.push(row);
-    else if (pred.impact.includes('利空')) bearishRows.push(row);
-});
+        const row = { pred, open, close, pct, instNetNum, result };
+        if (pred.impact.includes('利多'))      bullishRows.push(row);
+        else if (pred.impact.includes('利空')) bearishRows.push(row);
+    });
+
+    return { stats, correctList, wrongList, bullishRows, bearishRows };
+};
+
+// --- Report Section Builders ---
 
 const TABLE_HEADER = `| 代碼 | 名稱 | 開盤 | 收盤 | 漲跌% | 法人買賣超 | 結果 |\n`
                    + `|------|------|------|------|-------|------------|------|\n`;
+
 const toTableRow = ({ pred, open, close, pct, instNetNum, result }) =>
     `| ${pred.code} | ${pred.name} | ${open} | ${close} | ${pct} | ${fmtInstNet(instNetNum)} | ${result} |\n`;
-// 符合排前，誤判排後，無數據排最後
+
 const sortRows = (rows) => {
     const order = (r) => r.result.startsWith('✅') ? 0 : r.result.startsWith('❌') ? 1 : 2;
     return [...rows].sort((a, b) => order(a) - order(b));
 };
 
-report += `## 📊 研判驗證總表\n\n`;
-report += `### ⬆️ 利多\n\n`;
-report += TABLE_HEADER;
-sortRows(bullishRows).forEach(r => { report += toTableRow(r); });
-report += `\n`;
-report += `### ⬇️ 利空\n\n`;
-report += TABLE_HEADER;
-sortRows(bearishRows).forEach(r => { report += toTableRow(r); });
-report += `\n`;
+const buildReportHeader = (reportDate) => {
+    let s = `# 台股盤後總結報告（${reportDate}）\n\n`;
+    s += `> 執行時間：${new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei' })}\n`;
+    s += `> 盤前調研：[report_${TODAY}.md](../../tw-stock-research/${TODAY}/report_${TODAY}.md)\n`;
+    s += `> 資料來源：證交所、櫃買中心\n\n`;
+    return s;
+};
 
-// ── 統計摘要 ──────────────────────────────────────────────────────────────────
-const accuracy = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
-const wrongPct = stats.total > 0 ? Math.round((stats.wrong  / stats.total) * 100) : 0;
-const bullishAcc = stats.bullishTotal > 0 ? Math.round(stats.bullishCorrect / stats.bullishTotal * 100) : 0;
-const bearishAcc = stats.bearishTotal > 0 ? Math.round(stats.bearishCorrect / stats.bearishTotal * 100) : 0;
+const buildVerificationTable = (bullishRows, bearishRows) => {
+    let s = `## 📊 研判驗證總表\n\n`;
+    s += `### ⬆️ 利多\n\n`;
+    s += TABLE_HEADER;
+    sortRows(bullishRows).forEach(r => { s += toTableRow(r); });
+    s += `\n`;
+    s += `### ⬇️ 利空\n\n`;
+    s += TABLE_HEADER;
+    sortRows(bearishRows).forEach(r => { s += toTableRow(r); });
+    s += `\n`;
+    return s;
+};
 
-report += `## 📈 統計摘要\n\n`;
-report += `- 總計研判：${stats.total} 檔\n`;
-report += `- ✅ 符合：${stats.correct} 檔（${accuracy}%）\n`;
-report += `- ❌ 誤判：${stats.wrong} 檔（${wrongPct}%）\n`;
-report += `- ➖ 中性：${stats.neutral} 檔（不計入）\n`;
-report += `- 利多準確率：${stats.bullishCorrect}/${stats.bullishTotal}（${bullishAcc}%）\n`;
-report += `- 利空準確率：${stats.bearishCorrect}/${stats.bearishTotal}（${bearishAcc}%）\n\n`;
+const buildStatsSummary = (stats) => {
+    const accuracy   = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
+    const wrongPct   = stats.total > 0 ? Math.round((stats.wrong  / stats.total) * 100) : 0;
+    const bullishAcc = stats.bullishTotal > 0 ? Math.round(stats.bullishCorrect / stats.bullishTotal * 100) : 0;
+    const bearishAcc = stats.bearishTotal > 0 ? Math.round(stats.bearishCorrect / stats.bearishTotal * 100) : 0;
 
-// ── 符合分析（全數個股，自動產出） ──────────────────────────────────────────
-report += `## ✅ 符合分析\n\n`;
-if (correctList.length > 0) {
-    correctList.forEach((item, i) => {
-        report += `### ${i + 1}. ${item.name}（${item.code}）\n`;
-        report += `- **盤前研判**：${item.impact}｜${item.reason}\n`;
-        report += `- **實際表現**：${describeActualPerf(item.price, item.instNetNum)}\n`;
-        report += `- **符合依據**：${describeMatchReason(item, item.price, item.instNetNum)}\n`;
-        report += `\n`;
+    let s = `## 📈 統計摘要\n\n`;
+    s += `- 總計研判：${stats.total} 檔\n`;
+    s += `- ✅ 符合：${stats.correct} 檔（${accuracy}%）\n`;
+    s += `- ❌ 誤判：${stats.wrong} 檔（${wrongPct}%）\n`;
+    s += `- ➖ 中性：${stats.neutral} 檔（不計入）\n`;
+    s += `- 利多準確率：${stats.bullishCorrect}/${stats.bullishTotal}（${bullishAcc}%）\n`;
+    s += `- 利空準確率：${stats.bearishCorrect}/${stats.bearishTotal}（${bearishAcc}%）\n\n`;
+    return { section: s, accuracy, bullishAcc, bearishAcc };
+};
+
+const buildItemAnalysis = (title, emptyMsg, items, extraLine) => {
+    let s = `## ${title}\n\n`;
+    if (items.length === 0) return s + `${emptyMsg}\n\n`;
+    items.forEach((item, i) => {
+        s += `### ${i + 1}. ${item.name}（${item.code}）\n`;
+        s += `- **盤前研判**：${item.impact}｜${item.reason}\n`;
+        s += `- **實際表現**：${describeActualPerf(item.price, item.instNetNum)}\n`;
+        s += `- ${extraLine(item)}\n`;
+        s += `\n`;
     });
-} else {
-    report += `（今日無符合項目）\n\n`;
-}
-
-// ── 誤判分析（全數個股，自動產出） ──────────────────────────────────────────
-report += `## ❌ 誤判分析\n\n`;
-if (wrongList.length > 0) {
-    wrongList.forEach((item, i) => {
-        const mc = classifyMisjudgment(item, item.price, item.instNetNum);
-        report += `### ${i + 1}. ${item.name}（${item.code}）\n`;
-        report += `- **盤前研判**：${item.impact}｜${item.reason}\n`;
-        report += `- **實際表現**：${describeActualPerf(item.price, item.instNetNum)}\n`;
-        report += `- **誤判分類**：${mc.label}\n`;
-        report += `\n`;
-    });
-} else {
-    report += `（今日無誤判項目）\n\n`;
-}
-
-// ── 盤前預判機制分析 ──────────────────────────────────────────────────────────
-report += `## 📋 盤前預判機制分析\n\n`;
-
-// 法人動向一致性統計
-const instStats = {
-    bullishInstBuy:  { total: 0, correct: 0 },  // 利多 + 法人買超
-    bullishInstSell: { total: 0, correct: 0 },  // 利多 + 法人賣超
-    bearishInstSell: { total: 0, correct: 0 },  // 利空 + 法人賣超
-    bearishInstBuy:  { total: 0, correct: 0 },  // 利空 + 法人買超
-};
-const addInstStat = (item, isCorrect) => {
-    const isBullPred = item.impact.includes('利多');
-    const n = item.instNetNum;
-    if (n === null) return;
-    if (isBullPred && n > 0) { instStats.bullishInstBuy.total++;  if (isCorrect) instStats.bullishInstBuy.correct++;  }
-    if (isBullPred && n < 0) { instStats.bullishInstSell.total++; if (isCorrect) instStats.bullishInstSell.correct++; }
-    if (!isBullPred && n < 0) { instStats.bearishInstSell.total++; if (isCorrect) instStats.bearishInstSell.correct++; }
-    if (!isBullPred && n > 0) { instStats.bearishInstBuy.total++;  if (isCorrect) instStats.bearishInstBuy.correct++;  }
-};
-correctList.forEach(item => addInstStat(item, true));
-wrongList.forEach(item   => addInstStat(item, false));
-
-const instAcc = (g) => g.total > 0 ? Math.round(g.correct / g.total * 100) : null;
-const instRow = (label, g) => {
-    const acc = instAcc(g);
-    return acc !== null ? `| ${label} | ${g.correct}/${g.total} | ${acc}% |\n` : '';
+    return s;
 };
 
-report += `### 法人動向一致性\n\n`;
-report += `| 情境 | 符合/總計 | 準確率 |\n`;
-report += `|------|-----------|--------|\n`;
-report += instRow('利多 + 法人買超（動向一致）', instStats.bullishInstBuy);
-report += instRow('利多 + 法人賣超（動向相反）', instStats.bullishInstSell);
-report += instRow('利空 + 法人賣超（動向一致）', instStats.bearishInstSell);
-report += instRow('利空 + 法人買超（動向相反）', instStats.bearishInstBuy);
-report += `\n`;
-
-// 誤判模式分類
-const misjudgCategories = {};
-wrongList.forEach(item => {
-    const mc = classifyMisjudgment(item, item.price, item.instNetNum);
-    misjudgCategories[mc.category] = (misjudgCategories[mc.category] || 0) + 1;
-});
-
-const categoryDescMap = {
+const CATEGORY_DESC_MAP = {
     '大幅反向': '大幅反向（±5% 以上），可能受大盤或突發消息影響',
     '明顯反向': '明顯反向（±2~5%），研判方向偏差',
     '小幅反向': '小幅反向（±2% 以內），多空力道相近',
@@ -489,59 +376,132 @@ const categoryDescMap = {
     '法人反向': '法人動向與研判相反，機構立場改變',
 };
 
-if (Object.keys(misjudgCategories).length > 0) {
-    report += `### 誤判模式分類\n\n`;
-    report += `| 模式 | 次數 | 說明 |\n`;
-    report += `|------|------|------|\n`;
-    const sorted = Object.entries(misjudgCategories).sort((a, b) => b[1] - a[1]);
-    sorted.forEach(([cat, cnt]) => {
-        report += `| ${cat} | ${cnt} | ${categoryDescMap[cat] || cat} |\n`;
+const buildMechanismAnalysis = (correctList, wrongList, accuracy, bullishAcc, bearishAcc) => {
+    let s = `## 📋 盤前預判機制分析\n\n`;
+
+    // 法人動向一致性統計
+    const instStats = {
+        bullishInstBuy:  { total: 0, correct: 0 },
+        bullishInstSell: { total: 0, correct: 0 },
+        bearishInstSell: { total: 0, correct: 0 },
+        bearishInstBuy:  { total: 0, correct: 0 },
+    };
+    const addInstStat = (item, isCorrect) => {
+        const isBullPred = item.impact.includes('利多');
+        const n = item.instNetNum;
+        if (n === null) return;
+        if (isBullPred && n > 0)  { instStats.bullishInstBuy.total++;  if (isCorrect) instStats.bullishInstBuy.correct++;  }
+        if (isBullPred && n < 0)  { instStats.bullishInstSell.total++; if (isCorrect) instStats.bullishInstSell.correct++; }
+        if (!isBullPred && n < 0) { instStats.bearishInstSell.total++; if (isCorrect) instStats.bearishInstSell.correct++; }
+        if (!isBullPred && n > 0) { instStats.bearishInstBuy.total++;  if (isCorrect) instStats.bearishInstBuy.correct++;  }
+    };
+    correctList.forEach(item => addInstStat(item, true));
+    wrongList.forEach(item   => addInstStat(item, false));
+
+    const instAcc = (g) => g.total > 0 ? Math.round(g.correct / g.total * 100) : null;
+    const instRow = (label, g) => {
+        const acc = instAcc(g);
+        return acc !== null ? `| ${label} | ${g.correct}/${g.total} | ${acc}% |\n` : '';
+    };
+
+    s += `### 法人動向一致性\n\n`;
+    s += `| 情境 | 符合/總計 | 準確率 |\n`;
+    s += `|------|-----------|--------|\n`;
+    s += instRow('利多 + 法人買超（動向一致）', instStats.bullishInstBuy);
+    s += instRow('利多 + 法人賣超（動向相反）', instStats.bullishInstSell);
+    s += instRow('利空 + 法人賣超（動向一致）', instStats.bearishInstSell);
+    s += instRow('利空 + 法人買超（動向相反）', instStats.bearishInstBuy);
+    s += `\n`;
+
+    // 誤判模式分類
+    const misjudgCategories = {};
+    wrongList.forEach(item => {
+        const mc = classifyMisjudgment(item, item.price, item.instNetNum);
+        misjudgCategories[mc.category] = (misjudgCategories[mc.category] || 0) + 1;
     });
-    report += `\n`;
-}
 
-// 自動優化建議
-const suggestions = [];
+    if (Object.keys(misjudgCategories).length > 0) {
+        s += `### 誤判模式分類\n\n`;
+        s += `| 模式 | 次數 | 說明 |\n`;
+        s += `|------|------|------|\n`;
+        Object.entries(misjudgCategories).sort((a, b) => b[1] - a[1]).forEach(([cat, cnt]) => {
+            s += `| ${cat} | ${cnt} | ${CATEGORY_DESC_MAP[cat] || cat} |\n`;
+        });
+        s += `\n`;
+    }
 
-if (Math.abs(bullishAcc - bearishAcc) >= 15) {
-    if (bullishAcc > bearishAcc)
-        suggestions.push(`**利多 vs 利空 準確率差距明顯**（${bullishAcc}% vs ${bearishAcc}%）：利空研判容易誤判，建議強化利空標準，例如要求法人連續賣超 2 日以上，或有具體財報/消息面佐證`);
-    else
-        suggestions.push(`**利多 vs 利空 準確率差距明顯**（${bullishAcc}% vs ${bearishAcc}%）：利多研判容易誤判，建議加入量價配合條件（成交量需同步放大），避免消息面利多但量縮個股`);
-}
+    // 自動優化建議
+    const suggestions = [];
+    const bibAcc = instAcc(instStats.bullishInstBuy);
+    const bisAcc = instAcc(instStats.bullishInstSell);
 
-const bibAcc = instAcc(instStats.bullishInstBuy);
-const bisAcc = instAcc(instStats.bullishInstSell);
-if (bibAcc !== null && bisAcc !== null && bibAcc - bisAcc >= 20)
-    suggestions.push(`**法人動向是強力確認因子**：利多＋法人買超準確率（${bibAcc}%）明顯高於利多＋法人賣超（${bisAcc}%），建議盤前評估時優先選擇法人動向一致的個股，過濾法人賣超的利多研判`);
-else if (bibAcc !== null && bibAcc >= 65)
-    suggestions.push(`**法人買超確認效果佳**：利多＋法人買超準確率達 ${bibAcc}%，「法人動向一致」是可信賴的強化因子，建議在個股評分中給予較高權重`);
+    if (Math.abs(bullishAcc - bearishAcc) >= 15) {
+        if (bullishAcc > bearishAcc)
+            suggestions.push(`**利多 vs 利空 準確率差距明顯**（${bullishAcc}% vs ${bearishAcc}%）：利空研判容易誤判，建議強化利空標準，例如要求法人連續賣超 2 日以上，或有具體財報/消息面佐證`);
+        else
+            suggestions.push(`**利多 vs 利空 準確率差距明顯**（${bullishAcc}% vs ${bearishAcc}%）：利多研判容易誤判，建議加入量價配合條件（成交量需同步放大），避免消息面利多但量縮個股`);
+    }
 
-const flatCount  = misjudgCategories['收平']     || 0;
-const instOpsCnt = misjudgCategories['法人反向'] || 0;
-const largeCnt   = misjudgCategories['大幅反向'] || 0;
-if (flatCount > 0)
-    suggestions.push(`**收平誤判共 ${flatCount} 檔**：研判有方向性卻量縮收平，建議對「量縮整理」個股降低研判信心，或等待突破量確認後再行研判`);
-if (instOpsCnt > 0)
-    suggestions.push(`**法人方向相反共 ${instOpsCnt} 檔**：盤前研判時應確認最新（當日或前一交易日）法人動向，動向已改變者應降低信心或移除研判`);
-if (largeCnt > 0)
-    suggestions.push(`**大幅反向共 ${largeCnt} 檔**：可能受大盤系統性走勢或突發消息影響，建議研判時加入大盤情緒評估（如加權指數多空方向），系統性賣壓日暫緩利多研判`);
+    if (bibAcc !== null && bisAcc !== null && bibAcc - bisAcc >= 20)
+        suggestions.push(`**法人動向是強力確認因子**：利多＋法人買超準確率（${bibAcc}%）明顯高於利多＋法人賣超（${bisAcc}%），建議盤前評估時優先選擇法人動向一致的個股，過濾法人賣超的利多研判`);
+    else if (bibAcc !== null && bibAcc >= 65)
+        suggestions.push(`**法人買超確認效果佳**：利多＋法人買超準確率達 ${bibAcc}%，「法人動向一致」是可信賴的強化因子，建議在個股評分中給予較高權重`);
 
-if (suggestions.length === 0)
-    suggestions.push(`今日整體研判準確率 ${accuracy}%，各類別無明顯異常，持續觀察後續趨勢`);
+    const flatCount  = misjudgCategories['收平']     || 0;
+    const instOpsCnt = misjudgCategories['法人反向'] || 0;
+    const largeCnt   = misjudgCategories['大幅反向'] || 0;
+    if (flatCount > 0)
+        suggestions.push(`**收平誤判共 ${flatCount} 檔**：研判有方向性卻量縮收平，建議對「量縮整理」個股降低研判信心，或等待突破量確認後再行研判`);
+    if (instOpsCnt > 0)
+        suggestions.push(`**法人方向相反共 ${instOpsCnt} 檔**：盤前研判時應確認最新（當日或前一交易日）法人動向，動向已改變者應降低信心或移除研判`);
+    if (largeCnt > 0)
+        suggestions.push(`**大幅反向共 ${largeCnt} 檔**：可能受大盤系統性走勢或突發消息影響，建議研判時加入大盤情緒評估（如加權指數多空方向），系統性賣壓日暫緩利多研判`);
 
-report += `### 💡 優化建議\n\n`;
-suggestions.forEach((s, i) => {
-    report += `${i + 1}. ${s}\n`;
-});
-report += `\n`;
+    if (suggestions.length === 0)
+        suggestions.push(`今日整體研判準確率 ${accuracy}%，各類別無明顯異常，持續觀察後續趨勢`);
 
-if (!fs.existsSync(POST_MARKET_DIR)) {
+    s += `### 💡 優化建議\n\n`;
+    suggestions.forEach((si, i) => {
+        s += `${i + 1}. ${si}\n`;
+    });
+    s += `\n`;
+
+    return s;
+};
+
+// --- Main ---
+
+function main() {
+    const predictions   = getPreMarketPredictions();
+    const prices        = getPrices();
+    const institutional = getInstitutional();
+
+    const { stats, correctList, wrongList, bullishRows, bearishRows } =
+        evaluatePredictions(predictions, prices, institutional);
+
+    const reportDate = `${TODAY.substring(0, 4)}/${TODAY.substring(4, 6)}/${TODAY.substring(6, 8)}`;
+
+    let report = buildReportHeader(reportDate);
+
+    if (predictions.length === 0) {
+        report += `> ⚠️ **警告：盤前研判資料為空**（找不到盤前報告或解析結果為 0 檔），以下研判驗證區塊將無內容。\n\n`;
+    }
+
+    report += buildVerificationTable(bullishRows, bearishRows);
+
+    const { section: statsSummary, accuracy, bullishAcc, bearishAcc } = buildStatsSummary(stats);
+    report += statsSummary;
+    report += buildItemAnalysis('✅ 符合分析', '（今日無符合項目）', correctList,
+        item => `**符合依據**：${describeMatchReason(item, item.price, item.instNetNum)}`);
+    report += buildItemAnalysis('❌ 誤判分析', '（今日無誤判項目）', wrongList,
+        item => `**誤判分類**：${classifyMisjudgment(item, item.price, item.instNetNum).label}`);
+    report += buildMechanismAnalysis(correctList, wrongList, accuracy, bullishAcc, bearishAcc);
+
     fs.mkdirSync(POST_MARKET_DIR, { recursive: true });
-}
-if (!fs.existsSync(RAW_DIR)) {
     fs.mkdirSync(RAW_DIR, { recursive: true });
+
+    fs.writeFileSync(REPORT_FILE, report);
+    console.log(`Post-market report generated: ${REPORT_FILE}`);
 }
 
-fs.writeFileSync(REPORT_FILE, report);
-console.log(`Post-market report generated: ${REPORT_FILE}`);
+main();

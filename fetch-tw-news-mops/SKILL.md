@@ -36,17 +36,17 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`puppeteer-core`
-額外需求：環境需安裝 Chrome 或 Chromium（腳本自動偵測 Windows、Linux、macOS 路徑）
+所需套件：`playwright`
+額外需求：環境需安裝 Chrome 或 Chromium（Playwright 透過 `channel: 'chrome'` 自動偵測）
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "require('puppeteer-core'); console.log('deps OK')"
+node -e "import('playwright').then(() => console.log('deps OK'))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install puppeteer-core
+npm install playwright
 ```
 
 ### 執行方式
@@ -65,7 +65,7 @@ node fetch-tw-news-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/2
 - 自動偵測系統瀏覽器路徑。
 - 啟動 Headless Chrome。
 - 前往 MOPS 頁面取得 Session/Referer（導航失敗自動重試，最多重試 10 次，含初始請求最多執行 11 次）。
-- 使用 `page.evaluate` 於瀏覽器環境內發送 API 請求（每次 API 呼叫均有重試機制）。
+- 使用 `page.evaluate` 於瀏覽器環境內發送 API 請求（每次 API 呼叫均有重試機制，涵蓋 5xx / 403 / 429 / 網路錯誤）。
 - 依序抓取上市、上櫃、興櫃、公開發行四類公告。
 - 輸出結構化 JSON。
 - **注意**：若任一市場類別抓取失敗（即使其餘成功），整體 `status` 仍為 `"error"`。呼叫端收到 `status: "error"` 時應一律視為有問題並回報，不區分全部失敗或部分失敗。
@@ -133,12 +133,12 @@ node fetch-tw-news-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/2
 ### 1. 執行錯誤 (Module not found)
 
 **症狀**：
-- `Cannot find module 'puppeteer-core'`
+- `Cannot find module 'playwright'`
 
 **解決方法**：
 確保在工作區執行了依賴安裝：
 ```bash
-npm install puppeteer-core
+npm install playwright
 ```
 
 ### 2. 伺服器錯誤（502/503 等 5xx）

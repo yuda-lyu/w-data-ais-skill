@@ -1,17 +1,18 @@
 ---
 name: fetch-web
-description: 抓取任意網頁的文章內容並提取純文字。支援三種方法自動階梯升級：curl+Readability（繞過 TLS 指紋）→ Playwright 無頭（SPA 渲染）→ Playwright 有頭（反自動化偵測）。適用於 AI Agent 自動擷取新聞全文、文章摘要等場景。
+description: 抓取任意網頁的文章內容並提取純文字。支援四種方法自動階梯升級：curl+Readability（繞過 TLS 指紋）→ Playwright 無頭（SPA 渲染）→ Playwright 有頭（反自動化偵測）→ Playwright 有頭+新分頁（繞過首次導航偵測）。適用於 AI Agent 自動擷取新聞全文、文章摘要等場景。
 ---
 
 # fetch-web — 抓取網頁文章內容（自動階梯升級）
 
 ## 概述
 
-以三種方法自動階梯升級抓取網頁文章內容，提取純文字：
+以四種方法自動階梯升級抓取網頁文章內容，提取純文字：
 
 1. **curl + Readability**（預設）— curl 的 OpenSSL TLS 指紋繞過層級 1-3 反爬蟲，Readability（Firefox Reader Mode 核心）提取乾淨文章主體
 2. **Playwright 無頭** — 完整 JS 執行環境，處理 SPA 動態渲染頁面（如 X/Twitter）
 3. **Playwright 有頭** — 有視窗模式繞過 DataDome 等進階反自動化偵測（如 WSJ）
+4. **Playwright 有頭 + 新分頁** — 先開空白頁建立正常 session，再開新分頁瀏覽目標 URL，繞過基於首次導航行為的驗證偵測（如微信公眾號）
 
 ## 安裝指引
 
@@ -32,7 +33,7 @@ node -e "require('@mozilla/readability'); require('jsdom'); console.log('deps OK
 npm install @mozilla/readability jsdom
 ```
 
-### 進階依賴（方法②③，必裝）
+### 進階依賴（方法②③④，必裝）
 
 所需套件：`playwright`
 額外需求：系統需安裝 Chrome 或 Chromium
@@ -47,7 +48,7 @@ npm install playwright
 ```
 
 > Playwright 使用 `channel: 'chrome'` 直接調用系統 Chrome，不需額外下載 Chromium。
-> ⚠️ Playwright 為必裝依賴。本技能依網站防禦強度自動階梯升級（curl → Playwright 無頭 → Playwright 有頭），長期執行必定會遇到需要 Playwright 的場景，未安裝將導致整個模組無法載入。
+> ⚠️ Playwright 為必裝依賴。本技能依網站防禦強度自動階梯升級（curl → Playwright 無頭 → Playwright 有頭 → Playwright 有頭+新分頁），長期執行必定會遇到需要 Playwright 的場景，未安裝將導致整個模組無法載入。
 
 ## 技術原理
 
@@ -69,11 +70,19 @@ npm install playwright
 │    ├─ 成功 → 使用結果
 │    └─ 失敗（CAPTCHA/空內容）→ 升級
 │
-└─ 方法③ Playwright 有頭
+├─ 方法③ Playwright 有頭
+│    系統 Chrome（headless: false）
+│    → 隱藏 webdriver 標記
+│    → 繞過 DataDome 等偵測
+│    → DOM 選擇器提取文章
+│    ├─ 成功 → 使用結果
+│    └─ 失敗（驗證頁偵測）→ 升級
+│
+└─ 方法④ Playwright 有頭 + 新分頁
      系統 Chrome（headless: false）
-     → 隱藏 webdriver 標記
-     → 繞過 DataDome 等偵測
-     → DOM 選擇器提取文章
+     → 先開空白頁建立正常 session
+     → 再開新分頁瀏覽目標 URL
+     → 繞過基於首次導航行為的驗證偵測
 ```
 
 ### 各方法適用範圍
@@ -83,13 +92,14 @@ npm install playwright
 | ① curl + Readability | 1-3（UA/Headers/TLS） | 快（1-2s） | 大多數新聞網站（預設） |
 | ② Playwright 無頭 | 1-4（含 JS 渲染） | 中（3-8s） | SPA 動態頁面（X/Twitter） |
 | ③ Playwright 有頭 | 1-4+（含反自動化） | 慢（5-15s） | DataDome 等進階偵測（WSJ） |
+| ④ Playwright 有頭+新分頁 | 1-4+（含首次導航偵測） | 慢（15-25s） | 驗證頁偵測（微信公眾號） |
 
 ### 安全設計
 
 - URL 透過 `execFileSync` 參數陣列傳遞（非 shell 字串拼接），**防止命令注入**
 - curl 使用 `--max-time` + `execFileSync timeout` 雙重超時保護
 - Playwright 的 `browser.close()` 放在 `finally` 區塊，確保資源釋放
-- 所有方法（curl / Playwright 無頭 / Playwright 有頭）皆內建自動重試（最多重試 5 次，含初始請求最多執行 6 次，線性遞增退避 3s→6s→...→15s）；curl 針對 5xx 及網路錯誤重試，Playwright 針對導航逾時、瀏覽器 crash 等例外重試
+- 所有方法（curl / Playwright 無頭 / Playwright 有頭 / Playwright 有頭+新分頁）皆內建自動重試（最多重試 5 次，含初始請求最多執行 6 次，線性遞增退避 3s→6s→...→15s）；curl 針對 5xx/429 及網路錯誤重試，Playwright 針對導航逾時、瀏覽器 crash 等例外重試
 
 ## 執行方式
 
@@ -98,7 +108,7 @@ npm install playwright
 ### 基本用法
 
 ```bash
-node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed]
+node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed|playwright-headed-newtab]
 ```
 
 - `url`（必填）— 要抓取的網頁 URL
@@ -108,7 +118,7 @@ node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=auto|curl|play
 ### 範例
 
 ```bash
-# 自動模式（預設，依序嘗試三種方法）
+# 自動模式（預設，依序嘗試四種方法）
 node fetch-web/scripts/fetch_web.mjs "https://www.axios.com/2026/03/28/some-article" ./result.json
 
 # 強制使用 curl + Readability
@@ -119,6 +129,9 @@ node fetch-web/scripts/fetch_web.mjs "https://x.com/user/status/123" ./result.js
 
 # 強制使用 Playwright 有頭（適合 DataDome）
 node fetch-web/scripts/fetch_web.mjs "https://www.wsj.com/articles/xxx" ./result.json --method=playwright-headed
+
+# 強制使用 Playwright 有頭+新分頁（適合驗證頁偵測）
+node fetch-web/scripts/fetch_web.mjs "https://mp.weixin.qq.com/s/xxx" ./result.json --method=playwright-headed-newtab
 ```
 
 ## 輸出格式
@@ -190,5 +203,5 @@ node fetch-web/scripts/fetch_web.mjs "https://www.wsj.com/articles/xxx" ./result
 
 ```bash
 # 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）
-node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed]
+node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed|playwright-headed-newtab]
 ```

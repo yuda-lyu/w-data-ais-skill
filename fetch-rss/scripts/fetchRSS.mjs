@@ -20,7 +20,7 @@ function sleep(ms) {
 function isRetryable(error) {
   const status = error.response?.status;
   // YouTube RSS 會回傳暫時性 404，因此將 404 也納入重試範圍
-  if (status) return status >= 500 || status === 404;
+  if (status) return status >= 500 || status === 429 || status === 404;
   return ["ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "ECONNREFUSED", "ECONNABORTED"].includes(error.code);
 }
 

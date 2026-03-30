@@ -315,7 +315,7 @@ w-data-news/tw-stock-post-market/
 npm install axios
 ```
 
-> 盤後技能僅使用 `axios`（fetch-tw-data-stock / fetch-tw-data-institutional 均為純 Axios 腳本），**不需要** `cheerio` 或 `puppeteer-core`（那是盤前技能的依賴）。
+> 盤後技能僅使用 `axios`（fetch-tw-data-stock / fetch-tw-data-institutional 均為純 Axios 腳本），**不需要** `cheerio` 或 `playwright`（那是盤前技能的依賴）。
 
 ### 2. 找不到盤前報告
 

@@ -22,7 +22,7 @@
 
 | 技能 | 說明 | 主要腳本 | 依賴 | 執行時間 |
 |------|------|----------|------|----------|
-| `tw-stock-research` | 台股盤前調研：整合 MOPS、鉅亨網、財報狗、MoneyDJ、三大法人共 5 來源，產出盤前報告 | `run_research.mjs` | `axios` `cheerio` `puppeteer-core` | 3~8 分鐘 |
+| `tw-stock-research` | 台股盤前調研：整合 MOPS、鉅亨網、財報狗、MoneyDJ、三大法人、收盤 OHLC、期貨、融資融券共 8 來源，產出盤前報告 | `run_research.mjs` | `axios` `cheerio` `playwright` | 3~8 分鐘 |
 | `tw-stock-post-market` | 台股盤後總結：抓取收盤價與法人資料，比對盤前研判準確度，累積調研經驗 | `run_post_market.mjs` | `axios` | 1~3 分鐘 |
 
 ### 主控腳本用法
@@ -68,7 +68,7 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-web` | 通用網頁抓取，三階段自動升級：curl → Playwright 無頭 → Playwright 有頭，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright` |
+| `fetch-web` | 通用網頁抓取，四階段自動升級：curl → Playwright 無頭 → Playwright 有頭 → Playwright 有頭+新分頁，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright` |
 
 ### 參數格式
 
@@ -76,7 +76,7 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwright|playwright-headed]
 ```
 
-- 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭
+- 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭 → Playwright 有頭+新分頁
 - 可用 `--method` 強制指定方法，跳過階梯升級
 - Playwright 使用系統 Chrome（`channel: 'chrome'`），不需額外下載 Chromium
 
@@ -106,7 +106,7 @@ node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwrigh
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-tw-news-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Puppeteer + 內部 API | `fetch_mops.mjs` | `puppeteer-core` |
+| `fetch-tw-news-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Playwright + 內部 API | `fetch_mops.mjs` | `playwright` |
 | `fetch-tw-news-cnyes` | 抓取鉅亨網台股即時新聞（近 100 筆） | `fetch_cnyes.mjs` | `axios` |
 | `fetch-tw-news-statementdog` | 抓取財報狗產業分析與個股新聞 | `fetch_statementdog.mjs` | `axios`, `cheerio` |
 | `fetch-tw-news-moneydj` | 抓取 MoneyDJ 法說/營收新聞（50 頁，約 1.5~3 分鐘） | `fetch_moneydj.mjs` | `axios`, `cheerio` |
@@ -290,7 +290,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 ```bash
 # 台股研究全套（盤前調研 + 盤後總結 + 新聞抓取）
-npm install axios cheerio puppeteer-core
+npm install axios cheerio playwright
 
 # 網頁抓取（fetch-web）
 npm install @mozilla/readability jsdom playwright

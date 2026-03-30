@@ -110,7 +110,7 @@ async function sendEmail(payload) {
       };
     } catch (err) {
       const status = err.response?.status;
-      const isRetryable = !status || status >= 500;
+      const isRetryable = !status || status >= 500 || status === 429;
       const attemptsLeft = MAX_RETRIES + 1 - attempt;
 
       if (!isRetryable || attemptsLeft <= 0) {

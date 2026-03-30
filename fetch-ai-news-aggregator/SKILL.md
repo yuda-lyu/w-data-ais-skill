@@ -13,7 +13,7 @@ description: 取得 AI News Aggregator 最近 24 小時的 AI 新聞並轉換為
 
 ```text
 固定資料來源 URL（latest-24h.json）
-→ axios GET 取得 JSON（內建重試機制：5xx / 網路錯誤自動重試最多 5 次，含初始請求最多執行 6 次，線性遞增退避 3s→6s→…→15s）
+→ axios GET 取得 JSON（內建重試機制：5xx / 429 / 網路錯誤自動重試最多 5 次，含初始請求最多執行 6 次，線性遞增退避 3s→6s→…→15s）
 → 解析 items 陣列
 → 轉換為統一格式 { url, time, title, description, from }
 → 輸出 JSON 陣列

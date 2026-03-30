@@ -1,27 +1,27 @@
 ---
 name: tw-stock-research
-description: 台股盤前調研技能。從 8 個來源（MOPS、鉅亨網、財報狗、MoneyDJ、證交所/櫃買中心法人、收盤股價OHLC、期貨/外資期貨、融資融券）序列抓取近兩日（昨日+今日）重大訊息與市場數據，篩選會影響股價的公告/新聞，並彙整盤前報告。使用時機：(1) 需要查詢今日台股重大訊息、(2) 需要法人買賣超資料、(3) 需要個股公告/財報/訴訟/庫藏股等即時資訊、(4) 台股盤前調研任務。
+description: 台股盤前調研技能。從 8 個來源（MOPS、鉅亨網、財報狗、MoneyDJ、證交所/櫃買中心法人、收盤股價OHLC、期貨/外資期貨、融資融券）序列抓取近兩日重大訊息與前一交易日(T-1)市場數據，篩選會影響股價的公告/新聞，並彙整盤前報告。使用時機：(1) 需要查詢今日台股重大訊息、(2) 需要法人買賣超資料、(3) 需要個股公告/財報/訴訟/庫藏股等即時資訊、(4) 台股盤前調研任務。
 ---
 
 # 台股盤前調研
 
-從 8 個來源**序列**抓取**近兩日（昨日+今日）**重大訊息與市場數據，篩選會影響股價的公告/新聞，產出**盤前調研報告**。
+從 8 個來源**序列**抓取**近兩日**重大訊息與**前一交易日(T-1)**市場數據，篩選會影響股價的公告/新聞，產出**盤前調研報告**。所有日期標註皆使用實際交易日日期（如 `03/27`），不使用「昨日」等相對日期用語，確保週一或假日後首個交易日的報告日期準確。
 
 ## 安裝指引
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`、`cheerio`、`puppeteer-core`
-額外需求：環境需安裝 Chrome 或 Chromium（fetch-tw-news-mops 腳本自動偵測路徑）
+所需套件：`axios`、`cheerio`、`playwright`
+額外需求：環境需安裝 Chrome 或 Chromium（Playwright 透過 `channel: 'chrome'` 自動偵測）
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "require('axios'); require('cheerio'); require('puppeteer-core'); console.log('deps OK')"
+node -e "import('axios').then(() => import('cheerio')).then(() => import('playwright')).then(() => console.log('deps OK'))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios cheerio puppeteer-core
+npm install axios cheerio playwright
 ```
 
 ## 🚦 交易日檢查（必要）
@@ -58,11 +58,11 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 | 來源 | 抓取技能 | 資料類型 | 時間範圍 |
 |------|----------|----------|----------|
-| MOPS | `fetch-tw-news-mops` | 官方公告 | 昨日+今日 |
-| 鉅亨網 | `fetch-tw-news-cnyes` | 即時新聞 | 昨日+今日 |
-| 財報狗 | `fetch-tw-news-statementdog` | 產業分析 | 昨日+今日 |
-| MoneyDJ | `fetch-tw-news-moneydj` | 法說/營收 | 昨日+今日 |
-| 法人買賣超（官方） | `fetch-tw-data-institutional` | 三大法人買賣超（外資/投信/自營/合計）；可指定日期 | 昨日或前一交易日 |
+| MOPS | `fetch-tw-news-mops` | 官方公告 | 近兩日 |
+| 鉅亨網 | `fetch-tw-news-cnyes` | 即時新聞 | 近兩日 |
+| 財報狗 | `fetch-tw-news-statementdog` | 產業分析 | 近兩日 |
+| MoneyDJ | `fetch-tw-news-moneydj` | 法說/營收 | 近兩日 |
+| 法人買賣超（官方） | `fetch-tw-data-institutional` | 三大法人買賣超（外資/投信/自營/合計）；可指定日期 | T-1（前一交易日） |
 | 收盤股價（官方） | `fetch-tw-data-stock` | 上市+上櫃 OHLC、成交量、漲跌 | T-1 及 T-2 |
 | 期貨（官方） | `fetch-tw-data-futures` | 台指期行情、外資期貨未平倉、P/C Ratio | T-1 |
 | 融資融券（官方） | `fetch-tw-data-margin` | 上市+上櫃融資融券餘額 | T-1 |
@@ -118,11 +118,11 @@ run_research.mjs
   ├─ 7. fetch-tw-data-institutional (twse-t86, all, 前一交易日)   → raw/institutional_twse.json   ← 採用 30 個工作日回溯查找
   ├─ 8. fetch-tw-data-institutional (tpex-3insti, all, 前一交易日) → raw/institutional_tpex.json   ← 採用 30 個工作日回溯查找
   │
-  ├─ 9. fetch-tw-data-stock (twse, all, T-1)          → raw/prices_twse.json          ← 昨日 OHLC（二次審計用）
-  ├─ 10. fetch-tw-data-stock (tpex, all, T-1)         → raw/prices_tpex.json          ← 昨日 OHLC（二次審計用）
+  ├─ 9. fetch-tw-data-stock (twse, all, T-1)          → raw/prices_twse.json          ← T-1 OHLC（二次審計用）
+  ├─ 10. fetch-tw-data-stock (tpex, all, T-1)         → raw/prices_tpex.json          ← T-1 OHLC（二次審計用）
   │
-  ├─ 11. fetch-tw-data-stock (twse, all, T-2)         → raw/prices_twse_t2.json       ← 前天 OHLC（新聞日期交叉審計用）
-  ├─ 12. fetch-tw-data-stock (tpex, all, T-2)         → raw/prices_tpex_t2.json       ← 前天 OHLC（新聞日期交叉審計用）
+  ├─ 11. fetch-tw-data-stock (twse, all, T-2)         → raw/prices_twse_t2.json       ← T-2 OHLC（新聞日期交叉審計用）
+  ├─ 12. fetch-tw-data-stock (tpex, all, T-2)         → raw/prices_tpex_t2.json       ← T-2 OHLC（新聞日期交叉審計用）
   │
   ├─ 13. fetch-tw-data-futures (TAIFEX, T-1)          → raw/taifex.json               ← 台指期 + 外資期貨 + P/C ratio
   │
@@ -134,7 +134,7 @@ run_research.mjs
 
 **容錯機制**：任一抓取步驟失敗時，錯誤自動記錄至 `error_log.jsonl`，**不中斷整體流程**，繼續執行下一步。報告產出失敗則 exit 2。
 
-**二次審計**：步驟 9-10 抓取昨日全市場 OHLC 股價（上市 TWSE + 上櫃 TPEX），供 `generate_report.mjs` 對報告中提及「漲停」「跌停」的個股進行交叉驗證。審計結果直接嵌入影響總表並產出獨立審計紀錄區塊。若 OHLC 抓取失敗，報告仍可產出但標註「未驗證」。
+**二次審計**：步驟 9-10 抓取 T-1 全市場 OHLC 股價（上市 TWSE + 上櫃 TPEX），供 `generate_report.mjs` 對報告中提及「漲停」「跌停」的個股進行交叉驗證。報告中所有日期標註皆使用實際交易日日期（如 `03/27`），不使用「昨日」等模糊用語。審計結果直接嵌入影響總表並產出獨立審計紀錄區塊。若 OHLC 抓取失敗，報告仍可產出但標註「未驗證」。
 
 **法人資料往前偵測**：法人腳本（TWSE/TPEX）以前一工作日為起點，若 TWSE API 回傳無資料（公假日），自動往前推一個工作日，最多回溯 **30 個工作日**（可涵蓋農曆春節等長假）。
 
@@ -205,7 +205,7 @@ node tw-stock-research/scripts/generate_report.mjs YYYYMMDD ./w-data-news
 ### 🔍 研判注意事項
 1. **大盤因子**：大盤上漲日，個股利空容易被稀釋
 2. **利空延後反映**：部分利空可能 T+1~T+3 才反映
-3. **消息提前反映**：重大利多/利空可能已在前日股價反映
+3. **消息提前反映**：重大利多/利空可能已在前一交易日股價反映
 4. **法人動向優先**：法人買賣超是最可靠的短期指標
 
 ### 📊 歷史驗證統計
@@ -314,7 +314,7 @@ w-data-news/tw-stock-research/
 - 負向關鍵字（`不漲反跌`、`反跌`、`利多出盡`、`股價不漲`）列於全域 bearish 扣分列表，對所有新聞生效（非僅限利多新聞）。
 - 法人確認欄位：透過 `buildInstMap()` 建立法人買賣超對照表，對每檔個股查詢前一交易日三大法人淨買賣超（股數）。
 - **信心等級**：法人方向與研判一致 → ★★★；無法人資料 → ★★☆；法人方向相反 → ★☆☆。
-- **昨日漲停/跌停警示（二次審計驗證）**：利多個股且新聞同一子句中提及該股「漲停」時，以昨日實際 OHLC 交叉驗證（漲停條件：收盤≈最高 且 漲幅≥9.5%）。驗證通過顯示 `⚠️昨日漲停(+X.X%)｜`，未通過則顯示 `📊昨收XXX(+X.X%)｜`（實際漲跌），無 OHLC 資料則標註 `⚠️昨日疑似漲停(未驗證)｜`。跌停亦同理驗證。
+- **T-1 漲停/跌停警示（二次審計驗證）**：利多個股且新聞同一子句中提及該股「漲停」時，以 T-1 實際 OHLC 交叉驗證（漲停條件：收盤≈最高 且 漲幅≥9.5%）。驗證通過顯示 `⚠️MM/DD漲停(+X.X%)｜`（MM/DD 為實際交易日），未通過則顯示 `📊MM/DD收XXX(+X.X%)｜`（實際漲跌），無 OHLC 資料則標註 `⚠️MM/DD疑似漲停(未驗證)｜`。跌停亦同理驗證。所有日期皆使用實際交易日日期，不使用「昨日」等相對用語。
 - 表格依信心等級降序排列（★★★ 在前）。
 - 利多/利空分兩張子表輸出，各自獨立排序。
 - 提取 4 碼股票代碼（括號法 + 名稱查找法，nameCodeMap 含法人資料 + MOPS + COMPANY_ALIASES）。
@@ -323,10 +323,10 @@ w-data-news/tw-stock-research/
 
 - 大盤概況（加權指數、成交量、漲跌家數、台指期夜盤、外資期貨、P/C ratio）
 - 今日交易摘要（做多/做空首選、風險事件、主攻族群）
-- 今日焦點變化（新增漲停/跌停、族群降溫、籌碼背離）
+- 盤前焦點變化（T-1 漲停/跌停、族群降溫、籌碼背離）
 - 二次審計（T-1 + T-2 股價交叉驗證）
 - 利多出盡 / 做空候選（漲停+法人賣超/融資追價/T-2回落）
-- 上榜個股昨日價量明細（昨收、漲跌%、本益比、成交量、法人佔比、融資融券）
+- 上榜個股 T-1 價量明細（收盤價、漲跌%、本益比、成交量、法人佔比、融資融券）
 - 主攻族群（族群分組 + 產業脈絡）
 - 三大法人買賣超重點（含主買方標註）
 - 風險提示（集中度、地緣、跌停外溢、外資期貨、高估值）
@@ -340,12 +340,12 @@ w-data-news/tw-stock-research/
 ### 1. 執行錯誤 (Module not found)
 
 **症狀**：
-- `Cannot find module 'axios'`, `cheerio`, `puppeteer-core`
+- `Cannot find module 'axios'`, `cheerio`, `playwright`
 
 **解決方法**：
 確保在工作區執行了所有依賴安裝：
 ```bash
-npm install axios cheerio puppeteer-core
+npm install axios cheerio playwright
 ```
 
 ### 2. 瀏覽器未找到
@@ -363,7 +363,7 @@ npm install axios cheerio puppeteer-core
 
 ```bash
 # 外部 agent 可從任意工作目錄執行；請顯式傳入 skillsDir 與 baseOutputDir
-npm install axios cheerio puppeteer-core
+npm install axios cheerio playwright
 node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 範例
@@ -380,7 +380,7 @@ mkdir -p ./w-data-news/tw-stock-research/YYYYMMDD/raw
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-news/tw-stock-research/YYYYMMDD/raw/trading_day.json
 
 # 2. 安裝依賴
-npm install axios cheerio puppeteer-core
+npm install axios cheerio playwright
 
 # 3. 依序抓取（outputPath 必須為完整相對路徑）
 node fetch-tw-news-mops/scripts/fetch_mops.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json

@@ -1,11 +1,11 @@
-import puppeteer from 'puppeteer-core';
+import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 
 /**
  * MOPS 資料抓取程式
  * 目的：抓取今日重大公告 (上市, 上櫃, 興櫃, 公開發行)
- * 依賴：puppeteer-core (需本機安裝 Chrome/Chromium)
+ * 依賴：playwright (透過 channel: 'chrome' 使用本機 Chrome)
  *
  * 用法:
  * node fetch_mops.mjs [outputPath]
@@ -68,42 +68,6 @@ const targets = [
     }
 ];
 
-// 尋找瀏覽器路徑 (支援 Windows & Linux)
-function findBrowserPath() {
-    const platform = process.platform;
-    let paths = [];
-
-    if (platform === 'win32') {
-        paths = [
-            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-            'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-        ];
-    } else if (platform === 'linux') {
-        paths = [
-            '/usr/bin/google-chrome',
-            '/usr/bin/google-chrome-stable',
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
-            '/snap/bin/chromium',
-        ];
-    } else if (platform === 'darwin') {
-        paths = [
-            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-            '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
-        ];
-    }
-
-    for (const p of paths) {
-        if (fs.existsSync(p)) {
-            console.log(`偵測到瀏覽器: ${p}`);
-            return p;
-        }
-    }
-    return null;
-}
-
 // 帶重試的 page.evaluate fetch（重試條件：HTTP 5xx 或網路錯誤）
 async function fetchTargetWithRetry(page, target) {
     for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
@@ -114,7 +78,7 @@ async function fetchTargetWithRetry(page, target) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(t.payload)
                 });
-                if (response.status >= 500) {
+                if (response.status >= 500 || response.status === 403 || response.status === 429) {
                     return { error: `HTTP ${response.status}`, retryable: true };
                 }
                 const text = await response.text();
@@ -145,21 +109,13 @@ async function fetchTargetWithRetry(page, target) {
 }
 
 async function main() {
-    const executablePath = findBrowserPath();
-    if (!executablePath) {
-        const errMsg = '錯誤：找不到 Chrome 或 Edge 瀏覽器。請確認已安裝。';
-        console.error(errMsg);
-        writeOutput({ status: 'error', message: errMsg });
-        process.exit(1);
-    }
-
     console.log('啟動瀏覽器...');
     let browser;
     for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
         try {
-            browser = await puppeteer.launch({
-                executablePath: executablePath,
-                headless: "new",
+            browser = await chromium.launch({
+                headless: true,
+                channel: 'chrome',
                 args: ['--no-sandbox', '--disable-setuid-sandbox'],
                 timeout: 360000
             });
@@ -185,7 +141,7 @@ async function main() {
         console.log('前往 MOPS 重大訊息頁面 (t146sb10)...');
         for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
             try {
-                await page.goto('https://mops.twse.com.tw/mops/#/web/t146sb10', { waitUntil: 'networkidle0', timeout: 60000 });
+                await page.goto('https://mops.twse.com.tw/mops/#/web/t146sb10', { waitUntil: 'networkidle', timeout: 60000 });
                 break;
             } catch (e) {
                 const attemptsLeft = MAX_RETRIES + 1 - attempt;
@@ -196,7 +152,7 @@ async function main() {
             }
         }
 
-        await new Promise(r => setTimeout(r, 2000));
+        await page.waitForTimeout(2000);
 
         const results = [];
 
@@ -213,7 +169,7 @@ async function main() {
                 timestamp: new Date().toISOString()
             });
 
-            await new Promise(r => setTimeout(r, 1000));
+            await page.waitForTimeout(1000);
         }
 
         const summary = results.map((r) => {

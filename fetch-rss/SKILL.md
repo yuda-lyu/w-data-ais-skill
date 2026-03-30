@@ -14,7 +14,7 @@ description: 取得任意 RSS Feed 並轉換為統一格式的 JSON 資料陣列
 
 ```text
 傳入 RSS URL
-→ axios GET 取得 XML（內建重試機制：5xx / 404 / 網路錯誤自動重試最多 5 次，含初始請求最多執行 6 次，線性遞增退避 3s→6s→…→15s）
+→ axios GET 取得 XML（內建重試機制：5xx / 429 / 404 / 網路錯誤自動重試最多 5 次，含初始請求最多執行 6 次，線性遞增退避 3s→6s→…→15s）
 → rss-parser 解析為 feed 物件
 → 轉換為統一格式 { url, time, title, description, from }
 → 輸出 JSON 陣列
