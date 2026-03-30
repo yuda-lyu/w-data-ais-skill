@@ -113,7 +113,9 @@ export function inspectHtml(html) {
   const titleLower = title.toLowerCase();
 
   // --- CAPTCHA / anti-bot challenge ---
-  if (lower.includes("captcha-delivery.com") || lower.includes("datadome"))
+  // DataDome：真正被 CAPTCHA 擋住時頁面會載入 captcha-delivery.com 且無 <article>；
+  // 許多正常網站（如 WSJ）會在文章頁載入 datadome SDK JS，不代表被擋
+  if (lower.includes("captcha-delivery.com") && !lower.includes("<article"))
     return { pass: false, type: DETECT_CAPTCHA, message: "DataDome CAPTCHA" };
   if (lower.includes("perimeterx"))
     return { pass: false, type: DETECT_CAPTCHA, message: "PerimeterX challenge" };
