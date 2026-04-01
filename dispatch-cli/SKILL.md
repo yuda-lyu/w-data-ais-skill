@@ -7,7 +7,7 @@ description: Generic CLI subprocess runner with timeout, process-tree cleanup, o
 
 ## 概述
 
-此技能提供一個**通用的 CLI 子進程調用腳本** `run_cli.mjs`，封裝了超時控制、進程樹清理、輸出驗證、結構化錯誤回報等所有穩定性防護。任何需要調用外部 CLI 的場景都應透過此技能執行。
+此技能提供一個**通用的 CLI 子進程調用腳本** `run_cli.mjs`，封裝了超時控制、進程樹清理、輸出驗證、結構化錯誤回報、自動重試等所有穩定性防護。對外僅匯出單一函式 `runCli()`（async），任何需要調用外部 CLI 的場景都應透過此技能執行。
 
 > **設計原則：** 把外部 CLI 視為不可信的外部服務——它可能成功、可能失敗、可能 hang 住、可能回傳垃圾、可能產生殭屍進程。本腳本對所有情況都有明確的偵測與處理路徑。
 
@@ -78,10 +78,10 @@ CLI_INPUT_FILE=prompt.txt CLI_TIMEOUT_MS=180000 \
 ### 方式二：作為模組匯入
 
 ```javascript
-import { runCli, runCliAsync, runCliWithRetry, runCliAsyncWithRetry } from './dispatch-cli/scripts/run_cli.mjs';
+import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
-// 同步呼叫
-const result = runCli('claude', ['-p', '--output-format', 'json', '請分析程式碼'], {
+// 基本呼叫
+const result = await runCli('claude', ['-p', '--output-format', 'json', '請分析程式碼'], {
     timeoutMs: 120_000,
     input: '要分析的程式碼內容...',
     validate: 'json,nonempty',
@@ -94,9 +94,11 @@ if (result.ok) {
     // result.stderr, result.code 可用於診斷
 }
 
-// 非同步呼叫（支援串流、並行、長程任務）
-const result2 = await runCliAsync('claude', ['-p', '長程任務'], {
+// 帶重試 + 串流輸出
+const result2 = await runCli('claude', ['-p', '長程任務'], {
     timeoutMs: 300_000,
+    maxRetries: 2,
+    retryDelayMs: 5000,
     onStdout: (chunk) => process.stdout.write(chunk),  // 即時串流輸出
 });
 ```
@@ -116,7 +118,7 @@ const result2 = await runCliAsync('claude', ['-p', '長程任務'], {
 }
 ```
 
-> 若以模組方式呼叫 `runCliAsync()`，回傳物件額外包含 `pid`（子進程 PID）。命令列模式不輸出此欄位。
+> 模組方式呼叫時，回傳物件額外包含 `pid`（子進程 PID）與 `attempts`（實際嘗試次數）。命令列模式不輸出 `pid`。
 
 命令列模式下，此 JSON 輸出至 stdout，並以 `result.ok ? 0 : 1` 作為 exit code。
 

@@ -1,12 +1,12 @@
 // fetchNewsAi.mjs — 核心函式：從多個 RSS / 資料來源取得新聞，填入 from，過濾今日與昨日
 //
 // 輸出欄位：{ url, time, title, description, from, type }（type 固定為 "news-ai"）
-// 依賴技能：fetch-rss、fetch-ai-news-aggregator（動態 import，啟動時偵測路徑是否存在）
+// 依賴技能：fetch-rss、fetch-ai-news-aggregator、fetch-hacker-news（動態 import，啟動時偵測路徑是否存在）
 
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 
-const __dirname = new URL('.', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+const __dirname = decodeURIComponent(new URL('.', import.meta.url).pathname).replace(/^\/([A-Z]:)/, '$1');
 const skillsDir = path.resolve(__dirname, '..', '..');
 
 // ---------- 動態載入相依技能 ----------
@@ -66,6 +66,9 @@ export async function fetchNewsAi() {
   const fetchAiNewsAggregator = await loadDependency(
     path.join(skillsDir, 'fetch-ai-news-aggregator', 'scripts', 'fetchAiNewsAggregator.mjs'), "fetchAiNewsAggregator"
   );
+  const fetchHackerNews = await loadDependency(
+    path.join(skillsDir, 'fetch-hacker-news', 'scripts', 'fetchHackerNews.mjs'), "fetchHackerNews"
+  );
 
   // 並行取得所有來源
   const tasks = [
@@ -74,6 +77,13 @@ export async function fetchNewsAi() {
       .then((items) => items.map((it) => ({ ...it, from: "AI News Aggregator" })))
       .catch((err) => {
         console.error(`[fetch-news-ai] AI News Aggregator 失敗: ${err.message}`);
+        return [];
+      }),
+    // Hacker News（非 RSS，使用專用函式）
+    fetchHackerNews()
+      .then((items) => items.map((it) => ({ ...it, from: "Hacker News" })))
+      .catch((err) => {
+        console.error(`[fetch-news-ai] Hacker News 失敗: ${err.message}`);
         return [];
       }),
     // 各 RSS 來源

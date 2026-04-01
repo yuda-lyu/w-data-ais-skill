@@ -18,7 +18,7 @@ import { resolve } from "node:path";
 const MAX_RETRIES = 5;
 const INITIAL_WAIT = 3000;   // ms
 const MAX_WAIT = 15000;      // ms
-const TIMEOUT = 30000;       // ms
+const TIMEOUT = 15 * 60 * 1000;       // ms
 
 // ---------- 工具函式 ----------
 function ts() {

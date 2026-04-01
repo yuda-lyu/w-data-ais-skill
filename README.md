@@ -3,7 +3,7 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（22 個）
+## 技能總覽（23 個）
 
 | 分類 | 技能數 |
 |------|:------:|
@@ -12,7 +12,7 @@
 | [網頁抓取](#網頁抓取類) | 1 |
 | [台股數據抓取](#台股數據抓取類) | 4 |
 | [台股新聞抓取](#台股新聞抓取類) | 4 |
-| [AI / 科技新聞](#ai--科技新聞類) | 3 |
+| [AI / 科技新聞](#ai--科技新聞類) | 4 |
 | [交易日檢查](#交易日檢查) | 1 |
 | [通知與儲存](#通知與儲存類) | 2 |
 
@@ -53,13 +53,13 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
-| `dispatch-cli` | 通用 CLI 子進程執行器（核心層），提供超時控制、進程樹清理、輸出驗證、結構化錯誤回報與重試機制，供其他 dispatch 技能調用 | Node.js ≥ 18（無 npm 依賴） |
+| `dispatch-cli` | 通用 CLI 子進程執行器（核心層），提供超時控制、進程樹清理、輸出驗證、結構化錯誤回報與自動重試，供其他 dispatch 技能調用 | Node.js ≥ 18（無 npm 依賴） |
 | `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | `npm install -g @anthropic-ai/claude-code` |
 | `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | `npm install -g @openai/codex` |
 | `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | `npm install -g @google/gemini-cli` |
 | `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | `npm install -g opencode-ai` |
 
-- `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（同步/非同步/重試模式），其餘 4 項技能透過它執行
+- `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘 4 項技能透過它執行
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
 
 ---
@@ -128,7 +128,8 @@ node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwrigh
 |------|------|----------|------|
 | `fetch-rss` | 取得任意 RSS Feed 並轉為統一 JSON 格式，支援 YouTube、新聞網站等 | `fetch_rss.mjs` | `axios`, `rss-parser` |
 | `fetch-ai-news-aggregator` | 取得 AI News Aggregator 最近 24 小時 AI 新聞 | `fetch_ai_news_aggregator.mjs` | `axios` |
-| `fetch-news-ai` | 整合 8 個來源（RSS + AI News Aggregator），過濾今日與昨日新聞，依時間降冪排序 | `fetch-news-ai.mjs` | `axios`, `rss-parser` |
+| `fetch-hacker-news` | 取得 Hacker News 最新文章（newest），透過 Firebase API 批次取得文章詳情 | `fetch_hacker_news.mjs` | `axios` |
+| `fetch-news-ai` | 整合 9 個來源（RSS + AI News Aggregator + Hacker News），過濾今日與昨日新聞，依時間降冪排序 | `fetch-news-ai.mjs` | `axios`, `rss-parser` |
 
 ### 參數格式
 
@@ -136,9 +137,10 @@ node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwrigh
 |------|----------|
 | `fetch-rss` | `<rssUrl> [outputPath]` |
 | `fetch-ai-news-aggregator` | `[outputPath]` |
+| `fetch-hacker-news` | `[outputPath] [limit]`（limit 預設 30，最大 500） |
 | `fetch-news-ai` | `[outputPath]` |
 
-> `fetch-news-ai` 依賴 `fetch-rss` 與 `fetch-ai-news-aggregator` 作為同層兄弟技能目錄（以 `__dirname` 動態解析路徑）。
+> `fetch-news-ai` 依賴 `fetch-rss`、`fetch-ai-news-aggregator`、`fetch-hacker-news` 作為同層兄弟技能目錄（以 `__dirname` 動態解析路徑）。
 
 ---
 
@@ -216,6 +218,11 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │   └── scripts/
 │       ├── fetch_ai_news_aggregator.mjs
 │       └── fetchAiNewsAggregator.mjs
+├── fetch-hacker-news/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_hacker_news.mjs
+│       └── fetchHackerNews.mjs
 ├── fetch-news-ai/
 │   ├── SKILL.md
 │   └── scripts/

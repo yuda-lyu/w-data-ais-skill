@@ -64,7 +64,7 @@ node dispatch-cli/scripts/run_cli.mjs \
 ```javascript
 import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
-const result = runCli('opencode', [
+const result = await runCli('opencode', [
     'run', '--agent', 'build',
     '-m', 'opencode/nemotron-3-super-free',
     '撰寫單元測試並確保全部通過',

@@ -49,7 +49,7 @@ CLI_TIMEOUT_MS=180000 CLI_CWD="/path/to/project" \
 ```javascript
 import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
-const result = runCli('gemini', [
+const result = await runCli('gemini', [
     '--approval-mode=yolo',
     '-p', '分析此專案架構並產出報告',
 ], {

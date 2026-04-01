@@ -52,7 +52,7 @@ CLI_TIMEOUT_MS=180000 \
 ```javascript
 import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
-const result = runCli('codex', [
+const result = await runCli('codex', [
     'exec', '--full-auto', '--skip-git-repo-check',
     '--config', 'sandbox_workspace_write.network_access=true',
     '重構此模組並撰寫單元測試',

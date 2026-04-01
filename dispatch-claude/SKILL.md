@@ -61,7 +61,7 @@ node dispatch-cli/scripts/run_cli.mjs \
 ```javascript
 import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
-const result = runCli('claude', [
+const result = await runCli('claude', [
     '-p', '--dangerously-skip-permissions',
     '--output-format', 'json',
     '--max-turns', '10',

@@ -3,8 +3,7 @@
 /**
  * dispatch-cli — 通用 CLI 子進程調用腳本
  *
- * 封裝 timeout、進程樹清理、輸出驗證、結構化錯誤回報。
- * 支援同步（spawnSync）與非同步（spawn）兩種模式。
+ * 封裝 timeout、進程樹清理、輸出驗證、結構化錯誤回報、自動重試。
  * 所有參數原樣傳遞給目標 CLI，支援中文。
  *
  * 命令列用法：
@@ -22,10 +21,10 @@
  *   CLI_LOG_FILE       JSONL log 檔案路徑
  *
  * 模組匯入：
- *   import { runCli, runCliAsync } from './run_cli.mjs';
+ *   import { runCli } from './run_cli.mjs';
  */
 
-import { spawnSync, spawn, execSync } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -130,121 +129,12 @@ function killProcessTree(pid) {
     } catch { /* 已退出 */ }
 }
 
-// ─── 同步版 ─────────────────────────────────────────────────────────────────
+// ─── 核心非同步引擎（內部使用）───────────────────────────────────────────────
 
 /**
- * 通用 CLI 同步呼叫
- *
- * @param {string}   command    - 執行檔名稱（claude, node, curl...）
- * @param {string[]} args       - 參數陣列（原樣傳遞，支援中文）
- * @param {object}   [options]
- * @param {number}   [options.timeoutMs=120000]    - 超時毫秒數
- * @param {string}   [options.cwd]                 - 工作目錄
- * @param {string}   [options.input]               - 傳入 stdin 的內容
- * @param {string|function} [options.validate]     - 驗證規則或自訂函式
- * @param {number}   [options.maxBuffer=10485760]  - stdout/stderr 最大位元組
- * @returns {{ ok: boolean, stdout: string, stderr: string, code: number|null, error: string, durationMs: number }}
+ * 單次非同步呼叫（內部使用，不含重試邏輯）
  */
-export function runCli(command, args = [], options = {}) {
-    const {
-        timeoutMs = 120_000,
-        cwd = process.cwd(),
-        input = undefined,
-        validate = undefined,
-        maxBuffer = 10 * 1024 * 1024,
-    } = options;
-
-    const validator = buildValidator(validate);
-    const startTime = Date.now();
-
-    const result = spawnSync(command, args, {
-        cwd,
-        input,
-        timeout: timeoutMs,
-        encoding: 'utf8',
-        maxBuffer,
-        windowsHide: true,
-        // 確保子進程繼承 UTF-8 環境
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    });
-
-    const durationMs = Date.now() - startTime;
-
-    // ── 結局 5 / 3：進程異常或超時 ──
-    if (result.error) {
-        if (result.error.code === 'ETIMEDOUT') {
-            return {
-                ok: false,
-                stdout: truncate(result.stdout, 500),
-                stderr: truncate(result.stderr, 500),
-                code: null,
-                error: `TIMEOUT after ${timeoutMs / 1000}s`,
-                durationMs,
-            };
-        }
-        return {
-            ok: false,
-            stdout: truncate(result.stdout, 500),
-            stderr: truncate(result.stderr, 500),
-            code: null,
-            error: `${result.error.code || 'UNKNOWN'}: ${result.error.message}`,
-            durationMs,
-        };
-    }
-
-    // ── 結局 2：非零 exit code ──
-    if (result.status !== 0) {
-        return {
-            ok: false,
-            stdout: truncate(result.stdout, 500),
-            stderr: truncate(result.stderr, 1000),
-            code: result.status,
-            error: `Exit code ${result.status}`,
-            durationMs,
-        };
-    }
-
-    // ── 結局 4：輸出格式驗證失敗 ──
-    if (validator && !validator(result.stdout)) {
-        return {
-            ok: false,
-            stdout: truncate(result.stdout, 500),
-            stderr: truncate(result.stderr, 500),
-            code: 0,
-            error: 'OUTPUT_VALIDATION_FAILED',
-            durationMs,
-        };
-    }
-
-    // ── 結局 1：正常成功 ──
-    return {
-        ok: true,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        code: 0,
-        error: '',
-        durationMs,
-    };
-}
-
-// ─── 非同步版 ───────────────────────────────────────────────────────────────
-
-/**
- * 通用 CLI 非同步呼叫（支援串流輸出、進程樹清理）
- *
- * @param {string}   command
- * @param {string[]} args
- * @param {object}   [options]
- * @param {number}   [options.timeoutMs=120000]
- * @param {string}   [options.cwd]
- * @param {string}   [options.input]
- * @param {string|function} [options.validate]
- * @param {number}   [options.maxBuffer=10485760]
- * @param {function} [options.onStdout]  - 串流回呼 (chunk: string) => void
- * @param {function} [options.onStderr]  - 串流回呼 (chunk: string) => void
- * @returns {Promise<{ ok, stdout, stderr, code, error, durationMs, pid }>}
- */
-export function runCliAsync(command, args = [], options = {}) {
+function _runCliOnce(command, args = [], options = {}) {
     const {
         timeoutMs = 120_000,
         cwd = process.cwd(),
@@ -359,50 +249,28 @@ export function runCliAsync(command, args = [], options = {}) {
     });
 }
 
-// ─── 含重試的包裝 ───────────────────────────────────────────────────────────
+// ─── 唯一對外介面 ─────────────────────────────────────────────────────────
 
 /**
- * 帶重試的 CLI 呼叫
+ * 通用 CLI 非同步呼叫（含內建重試、串流輸出、進程樹清理）
  *
- * @param {string}   command
- * @param {string[]} args
- * @param {object}   [options]        - 同 runCli options
- * @param {number}   [maxRetries=0]   - 最大重試次數
- * @param {number}   [retryDelayMs=5000] - 重試間隔
- * @returns {{ ok, stdout, stderr, code, error, durationMs, attempts }}
+ * @param {string}   command    - 執行檔名稱（claude, node, curl...）
+ * @param {string[]} args       - 參數陣列（原樣傳遞，支援中文）
+ * @param {object}   [options]
+ * @param {number}   [options.timeoutMs=120000]    - 超時毫秒數
+ * @param {string}   [options.cwd]                 - 工作目錄
+ * @param {string}   [options.input]               - 傳入 stdin 的內容
+ * @param {string|function} [options.validate]     - 驗證規則或自訂函式
+ * @param {number}   [options.maxBuffer=10485760]  - stdout/stderr 最大位元組
+ * @param {function} [options.onStdout]            - 串流回呼 (chunk: string) => void
+ * @param {function} [options.onStderr]            - 串流回呼 (chunk: string) => void
+ * @param {number}   [options.maxRetries=0]        - 最大重試次數
+ * @param {number}   [options.retryDelayMs=5000]   - 重試間隔毫秒數
+ * @returns {Promise<{ ok, stdout, stderr, code, error, durationMs, pid, attempts }>}
  */
-export function runCliWithRetry(command, args = [], options = {}, maxRetries = 0, retryDelayMs = 5000) {
-    let lastResult;
-    let totalAttempts = 0;
+export async function runCli(command, args = [], options = {}) {
+    const { maxRetries = 0, retryDelayMs = 5000, ...onceOptions } = options;
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        if (attempt > 0) {
-            const delay = Math.min(retryDelayMs * attempt, 15000);
-            // 同步等待（在同步 context 中無法用 await）
-            spawnSync('node', ['-e', `setTimeout(()=>{},${delay})`], { timeout: delay + 1000 });
-        }
-
-        lastResult = runCli(command, args, options);
-        totalAttempts = attempt + 1;
-
-        if (lastResult.ok) {
-            lastResult.attempts = totalAttempts;
-            return lastResult;
-        }
-
-        // 不可重試的錯誤
-        if (lastResult.error.includes('ENOENT')) break;
-        if (lastResult.code === 2) break;
-    }
-
-    lastResult.attempts = totalAttempts;
-    return lastResult;
-}
-
-/**
- * 帶重試的非同步 CLI 呼叫
- */
-export async function runCliAsyncWithRetry(command, args = [], options = {}, maxRetries = 0, retryDelayMs = 5000) {
     let lastResult;
     let totalAttempts = 0;
 
@@ -412,7 +280,7 @@ export async function runCliAsyncWithRetry(command, args = [], options = {}, max
             await new Promise(r => setTimeout(r, delay));
         }
 
-        lastResult = await runCliAsync(command, args, options);
+        lastResult = await _runCliOnce(command, args, onceOptions);
         totalAttempts = attempt + 1;
 
         if (lastResult.ok) {
@@ -420,6 +288,7 @@ export async function runCliAsyncWithRetry(command, args = [], options = {}, max
             return lastResult;
         }
 
+        // 不可重試的錯誤
         if (lastResult.error.includes('ENOENT')) break;
         if (lastResult.code === 2) break;
     }
@@ -493,19 +362,14 @@ async function main() {
         input = process.env.CLI_INPUT;
     }
 
-    const options = { timeoutMs, cwd, input, validate, maxBuffer };
+    const options = { timeoutMs, cwd, input, validate, maxBuffer, maxRetries, retryDelayMs };
 
     // 顯示執行資訊至 stderr（不影響 stdout 的 JSON 輸出）
     console.error(`[dispatch-cli] ${command} ${args.join(' ')}`);
     console.error(`[dispatch-cli] timeout=${timeoutMs}ms cwd=${cwd} validate=${validate || 'none'} retries=${maxRetries}`);
 
     // 執行
-    let result;
-    if (maxRetries > 0) {
-        result = await runCliAsyncWithRetry(command, args, options, maxRetries, retryDelayMs);
-    } else {
-        result = runCli(command, args, options);
-    }
+    const result = await runCli(command, args, options);
 
     // Log
     appendLog(logFile, command, args, result);
