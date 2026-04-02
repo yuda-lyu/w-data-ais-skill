@@ -1,0 +1,70 @@
+// {outputDir}/state.json 完整範例（預設 outputDir = .do-loop）
+// 此檔案展示一個進行到一半的開發狀態
+{
+  // 功能名稱（來自使用者需求）
+  "feature": "新增 Telegram 推播 skill",
+
+  // 整體狀態
+  // "in_progress" — 開發進行中
+  // "completed"   — 所有任務通過審計，已結案
+  // "halted"      — 中止（技術阻塞 / 修正上限 / 迴圈上限 / 使用者中斷）
+  "status": "in_progress",
+
+  // 當前階段
+  // "PLAN"    — 規劃中
+  // "EXECUTE" — 執行中
+  // "AUDIT"   — 審計中
+  // "FIX"     — 修正中（從審計返回）
+  "phase": "FIX",
+
+  // Plan→Exec→Audit 完整迴圈次數（> 5 則強制中止）
+  "loopCount": 2,
+
+  // 當前正在處理的任務編號
+  "currentTaskId": 2,
+
+  // 任務清單（與 plan.md 中的 Task 一一對應）
+  "tasks": [
+    {
+      "id": 1,
+      "name": "建立 Telegram Bot API 封裝模組",
+      // "pending"     — 待執行
+      // "in_progress" — 執行中
+      // "done"        — 已完成（待審計或已通過）
+      // "failed"      — 修正 >= 3 次仍未通過，需人工介入
+      // "skipped"     — 跳過
+      "status": "done",
+      "fixAttempts": 0,
+      // "pass" — 審計通過
+      // "fail" — 審計未通過
+      // null   — 尚未審計
+      "auditResult": "pass",
+      "lastAuditIssue": null
+    },
+    {
+      "id": 2,
+      "name": "實作訊息發送與錯誤處理",
+      "status": "done",
+      "fixAttempts": 1,
+      "auditResult": "fail",
+      "lastAuditIssue": "scripts/send_telegram.mjs:45 — 缺少 HTTP 429 重試邏輯"
+    },
+    {
+      "id": 3,
+      "name": "撰寫 SKILL.md 文件",
+      "status": "pending",
+      "fixAttempts": 0,
+      "auditResult": null,
+      "lastAuditIssue": null
+    }
+  ],
+
+  // 事件歷史（用於理解迴圈過程，續接時提供上下文）
+  "history": [
+    { "time": "2026-04-01T10:00:00Z", "event": "PLAN completed, 3 tasks created" },
+    { "time": "2026-04-01T10:05:00Z", "event": "Task 1 done" },
+    { "time": "2026-04-01T10:12:00Z", "event": "Task 2 done" },
+    { "time": "2026-04-01T10:15:00Z", "event": "AUDIT round 1: Task 2 fail — 缺少 429 重試" },
+    { "time": "2026-04-01T10:16:00Z", "event": "FIX Task 2, attempt 1" }
+  ]
+}

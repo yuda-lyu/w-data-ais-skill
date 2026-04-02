@@ -3,10 +3,11 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（23 個）
+## 技能總覽（24 個）
 
 | 分類 | 技能數 |
 |------|:------:|
+| [開發工作流](#開發工作流類) | 1 |
 | [綜合分析](#綜合分析類) | 2 |
 | [Multi-Agent 協作](#multi-agent-協作類) | 5 |
 | [網頁抓取](#網頁抓取類) | 1 |
@@ -15,6 +16,32 @@
 | [AI / 科技新聞](#ai--科技新聞類) | 4 |
 | [交易日檢查](#交易日檢查) | 1 |
 | [通知與儲存](#通知與儲存類) | 2 |
+
+---
+
+## 開發工作流類
+
+| 技能 | 說明 | 前置需求 |
+|------|------|----------|
+| `do-loop` | 自主循環開發：以 Planner→Executor→Auditor 三角色驅動完整開發迴圈，持久化 `state.json` 支援跨 session 斷點續接 | 無（純工作流協議） |
+
+- 三角色迴圈：規劃（拆解任務 + 驗收條件）→ 執行（逐一實作）→ 審計（品質檢查）→ 修正（若未通過）→ 結案
+- 6 個中止條件：成功結案、需求不明、技術阻塞、單任務修正 ≥ 3 次、整體迴圈 > 5 輪、使用者中斷
+- 斷點續接：每步寫入 `state.json`，中斷後下次 session 自動從斷點恢復
+- 資料夾可指定，預設 `.do-loop/`
+
+### 使用方式
+
+```bash
+# 全新開發（狀態存入預設 .do-loop/）
+請依照 do-loop 為「新增 XXX 功能」進行開發
+
+# 指定資料夾
+請依照 do-loop 為「新增 XXX 功能」進行開發，資料夾 ./my-loop
+
+# 斷點續接
+請依照 do-loop 繼續開發
+```
 
 ---
 
@@ -197,6 +224,11 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │   ├── SKILL.md
 │   └── scripts/
 │       └── run_cli.mjs              <- 核心 CLI 執行器
+├── do-loop/
+│   ├── SKILL.md
+│   └── references/
+│       ├── roles.md                 <- 三角色行為規範
+│       └── state-example.jsonc      <- state.json 範例
 ├── dispatch-claude/
 │   ├── SKILL.md
 │   └── references/

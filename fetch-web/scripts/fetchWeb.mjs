@@ -121,10 +121,18 @@ export function inspectHtml(html) {
     return { pass: false, type: DETECT_CAPTCHA, message: "PerimeterX challenge" };
   if (lower.includes("cf-challenge-running"))
     return { pass: false, type: DETECT_CAPTCHA, message: "Cloudflare challenge" };
-  if (titleLower === "just a moment")
+  if (titleLower === "just a moment" || titleLower === "just a quick check")
     return { pass: false, type: DETECT_CAPTCHA, message: "Cloudflare/anti-bot challenge" };
   if (lower.includes("captcha") && lower.includes("challenge") && !lower.includes("<article"))
     return { pass: false, type: DETECT_CAPTCHA, message: "generic CAPTCHA" };
+  if (titleLower.includes("are you a robot"))
+    return { pass: false, type: DETECT_CAPTCHA, message: "robot challenge: \"" + title + "\"" };
+  if (lower.includes("cf-turnstile") && !lower.includes("<article"))
+    return { pass: false, type: DETECT_CAPTCHA, message: "Cloudflare Turnstile" };
+  if (lower.includes("verify you are human"))
+    return { pass: false, type: DETECT_CAPTCHA, message: "human verification page" };
+  if (lower.includes("blocked by our server") || lower.includes("request has been blocked"))
+    return { pass: false, type: DETECT_CAPTCHA, message: "server security block" };
 
   // --- 驗證頁面 ---
   // 微信驗證頁會載入 secitptpage/ 路徑的 CSS/JS，真正的文章頁不會
@@ -194,6 +202,74 @@ async function withBrowserRetry(method, attemptFn) {
     }
   }
   return { success: false, reason: "playwright-error", message: "max retries exceeded" };
+}
+
+// ---------- 人機驗證 checkbox 點擊 ----------
+// 偵測 Cloudflare Turnstile 等驗證 iframe / checkbox，自動點擊
+// 僅在有頭模式（方法③④）中呼叫
+const VERIFY_SELECTORS = [
+  'iframe[src*="challenges.cloudflare.com"]',
+  'iframe[src*="/cdn-cgi/challenge-platform"]',
+  '.cf-turnstile iframe',
+  'iframe[src*="hcaptcha.com"]',
+];
+
+async function tryClickVerification(page) {
+  // 方式 A：DOM 中可見的 iframe（傳統 Turnstile 嵌入）
+  for (const sel of VERIFY_SELECTORS) {
+    const el = page.locator(sel).first();
+    if (await el.count().catch(() => 0) > 0) {
+      const box = await el.boundingBox().catch(() => null);
+      if (box) {
+        await humanClick(page, box.x + box.width / 2, box.y + box.height / 2);
+        console.log("[fetch-web] clicked verification iframe (" + sel + ")");
+        await page.waitForTimeout(5000);
+        await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+        return true;
+      }
+    }
+  }
+
+  // 方式 B：Cloudflare managed challenge 整頁驗證（iframe 不在 DOM 中，需透過 page.frames() 偵測）
+  const cfFrame = page.frames().find(f => f.url().includes("challenges.cloudflare.com"));
+  if (cfFrame) {
+    // 優先用 #turnstile-container 定位 checkbox 位置
+    const container = page.locator("#turnstile-container, #turnstileWrapper, .cf-turnstile").first();
+    const box = await container.boundingBox().catch(() => null);
+    if (box) {
+      // checkbox 在容器左側，約 x+30, y+中心
+      await humanClick(page, box.x + 30, box.y + box.height / 2);
+    } else {
+      // fallback：challenge 頁面佈局固定，checkbox 通常在頁面中央偏左
+      const vp = page.viewportSize() || { width: 1280, height: 720 };
+      await humanClick(page, vp.width * 0.39, vp.height * 0.57);
+    }
+    console.log("[fetch-web] clicked Cloudflare managed challenge checkbox");
+    await page.waitForTimeout(8000);
+    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+    return true;
+  }
+
+  return false;
+}
+
+/** 模擬人類滑鼠軌跡：從隨機起點經數個中途點移到目標再點擊 */
+async function humanClick(page, x, y) {
+  const startX = 100 + Math.random() * 200;
+  const startY = 500 + Math.random() * 100;
+  await page.mouse.move(startX, startY);
+  // 2~3 個中途點
+  const steps = 2 + Math.floor(Math.random() * 2);
+  for (let i = 1; i <= steps; i++) {
+    const ratio = i / (steps + 1);
+    const mx = startX + (x - startX) * ratio + (Math.random() - 0.5) * 30;
+    const my = startY + (y - startY) * ratio + (Math.random() - 0.5) * 20;
+    await page.mouse.move(mx, my);
+    await page.waitForTimeout(80 + Math.random() * 120);
+  }
+  await page.mouse.move(x, y);
+  await page.waitForTimeout(50 + Math.random() * 100);
+  await page.mouse.click(x, y);
 }
 
 // ---------- 方法①: curl ----------
@@ -273,6 +349,11 @@ async function tryPlaywright(url, headless, { redirect = false } = {}) {
       await page.waitForTimeout(headless ? 3000 : 5000);
     }
 
+    // 有頭模式：嘗試點擊人機驗證 checkbox（Cloudflare Turnstile 等）
+    if (!headless) {
+      await tryClickVerification(page);
+    }
+
     return page.content();
   });
 }
@@ -299,6 +380,9 @@ async function tryPlaywrightNewTab(url) {
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForTimeout(NEWTAB_WAIT);
+
+    // 嘗試點擊人機驗證 checkbox（Cloudflare Turnstile 等）
+    await tryClickVerification(page);
 
     return page.content();
   });
