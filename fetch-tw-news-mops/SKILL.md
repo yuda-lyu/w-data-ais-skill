@@ -28,9 +28,9 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 > 詳見 `check-tw-trading-day` 技能。
 
-## 最佳實踐：使用 Puppeteer Script（推薦）
+## 最佳實踐：使用 Playwright Script（推薦）
 
-由於 MOPS 網站結構複雜（Vue SPA + Anti-bot），建議直接使用本技能附帶的 Puppeteer 腳本進行抓取，穩定性最高。
+由於 MOPS 網站結構複雜（Vue SPA + Anti-bot），建議直接使用本技能附帶的 Playwright 腳本進行抓取，穩定性最高。
 
 ### 安裝指引
 

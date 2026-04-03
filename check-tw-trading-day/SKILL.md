@@ -1,6 +1,6 @@
 ---
 name: check-tw-trading-day
-description: 檢查指定日期（或今日）是否為台股交易日。透過 TWSE 官方 API 查詢，無需任何 npm 依賴。適用於所有台股技能的前置交易日判斷。
+description: 檢查指定日期（或今日）是否為台股交易日。透過 TWSE 假日排程 API 前置檢查國定假日，再以 MI_INDEX API 確認交易狀態，無需任何 npm 依賴。適用於所有台股技能的前置交易日判斷。
 ---
 
 # 台股交易日檢查
@@ -11,8 +11,9 @@ description: 檢查指定日期（或今日）是否為台股交易日。透過 
 
 | 項目 | 說明 |
 |------|------|
-| API | https://www.twse.com.tw/exchangeReport/MI_INDEX |
-| 查詢方式 | `type=IND`（大盤指數）回傳 `stat` 欄位判斷 |
+| MI_INDEX API | https://www.twse.com.tw/exchangeReport/MI_INDEX |
+| 假日排程 API | https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule |
+| 查詢方式 | 先比對假日排程，再以 MI_INDEX `stat` 欄位判斷 |
 | 依賴 | 無（使用 Node.js 內建 `https` 模組） |
 
 ## 安裝指引
@@ -56,6 +57,13 @@ TRADING_DAY=true
 ```
 結果：推定交易日 ✅ (盤前/盤中：API 尚無當日收盤資料，推定為交易日（平日且非 TWSE 已知假日）)
 TRADING_DAY=true
+```
+
+或（國定假日）
+
+```
+結果：非交易日 ❌ (台灣假日：兒童節及民族掃墓節)
+TRADING_DAY=false
 ```
 
 或
@@ -134,14 +142,17 @@ TRADING_DAY=error
 
 ```
 1. 週末前置檢查 → 週六/日直接判定非交易日（2019 年起無例外）
-2. TWSE MI_INDEX API 查詢：
+2. 台灣假日前置檢查 → 透過 TWSE 假日排程 API 比對國定假日
+   ├─ 命中假日 → 非交易日（回傳假日名稱，如「兒童節及民族掃墓節」）
+   └─ API 失敗 → 略過，交由後續 MI_INDEX 判斷
+3. TWSE MI_INDEX API 查詢：
    ├─ stat≠OK（「很抱歉…」）      → 非交易日（TWSE 明確否認）
    ├─ stat=OK + data 非空         → 交易日（有收盤資料）
    └─ stat=OK + data 為空         → 依時間區分：
         ├─ 查詢日期=今日 且 < 14:30 → 推定交易日（盤前/盤中，收盤資料尚未就緒）
         ├─ 查詢日期=今日 且 ≥ 14:30 → 非交易日（收盤資料應已就緒卻沒有）
         └─ 查詢日期≠今日            → 非交易日（未來日期或資料不存在）
-3. 網路錯誤（重試 10 次仍失敗）    → TRADING_DAY=error (exit 2)
+4. 網路錯誤（重試 10 次仍失敗）    → TRADING_DAY=error (exit 2)
 ```
 
 ### 為什麼 stat=OK + data=[] 不等於非交易日？
@@ -157,8 +168,9 @@ MI_INDEX 是「每日**收盤**行情」API（約 14:30~16:00 更新），不是
 
 推定為交易日時，JSON 輸出包含 `"presumed": true` 欄位。推定的前提：
 1. 已通過 isWeekend() → 不是週六日
-2. TWSE 回傳 stat=OK → **未被 TWSE 日曆標記為假日**
-3. 當前時間 < 14:30 → 收盤資料確實尚未就緒
+2. 已通過假日排程 API 比對 → **不在國定假日清單內**
+3. TWSE 回傳 stat=OK → **未被 TWSE 日曆標記為假日**
+4. 當前時間 < 14:30 → 收盤資料確實尚未就緒
 
 唯一誤判風險：颱風假等**臨時停市**（TWSE 可能來不及更新 API）。此情形極罕見（一年 0~2 次），且後續子腳本會各自失敗並記錄錯誤，不會產生錯誤資料。
 

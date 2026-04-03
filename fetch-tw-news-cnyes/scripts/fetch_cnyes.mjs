@@ -1,134 +1,45 @@
-import axios from 'axios';
-import fs from 'fs';
-import path from 'path';
+#!/usr/bin/env node
+// fetch_cnyes.mjs — CLI 入口：調用 fetchCnyes 取得鉅亨網新聞並輸出結果
+//
+// 用法：
+//   node fetch_cnyes.mjs [outputPath]
+//
+// 參數:
+//   1. outputPath (選填): 儲存結果的檔案路徑。預設為 cnyes_YYYYMMDD.json。
+//
+// 輸出（file）：
+//   - 成功：{ status: 'success', message: [...] }
+//   - 錯誤：{ status: 'error', message: '...' }
 
-/**
- * 鉅亨網 (Anue) 新聞抓取程式
- * 目的：抓取台股新聞 (tw_stock) 最近 100 筆
- * 依賴：axios
- *
- * 用法:
- * node fetch_cnyes.mjs [outputPath]
- *
- * 參數:
- * 1. outputPath (選填): 儲存結果的檔案路徑。預設為 cnyes_YYYYMMDD.json。
- *
- * 輸出（file）：
- * - 成功：{ status: 'success', message: [...] }
- * - 錯誤：{ status: 'error', message: '...' }
- */
+import { fetchCnyes } from "./fetchCnyes.mjs";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 const args = process.argv.slice(2);
-const outputPathArg = args[0];
 
-const TODAY = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
-const outputFile = outputPathArg || `cnyes_${TODAY}.json`;
-
-const MAX_RETRIES = 10;
-const BASE_DELAY_MS = 5000;
-const MAX_DELAY_MS  = 30000;
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-function isRetryable(error) {
-    const status = error.response?.status;
-    if (status) return status >= 500 || status === 403 || status === 429;
-    return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
-}
-
-async function fetchWithRetry(url, params) {
-    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-        try {
-            return await axios.get(url, { params, timeout: 30000 });
-        } catch (error) {
-            const attemptsLeft = MAX_RETRIES + 1 - attempt;
-            if (!isRetryable(error) || attemptsLeft <= 0) throw error;
-            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
-            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] ${error.message} — 等待 ${delay / 1000}s 後重試...`);
-            await sleep(delay);
-        }
-    }
-}
+const TODAY = new Date()
+  .toLocaleString("en-CA", { timeZone: "Asia/Taipei" })
+  .slice(0, 10)
+  .replace(/-/g, "");
+const outputFile = args[0] || `cnyes_${TODAY}.json`;
 
 function writeOutput(payload) {
-    try {
-        const dir = path.dirname(outputFile);
-        if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), 'utf-8');
-        console.log(`結果已儲存至: ${outputFile}`);
-    } catch (e) {
-        console.error(`寫檔失敗：${e.message}`);
-    }
+  try {
+    const dir = dirname(outputFile);
+    if (dir && dir !== ".") mkdirSync(dir, { recursive: true });
+    writeFileSync(outputFile, JSON.stringify(payload, null, 2), "utf-8");
+    console.log(`結果已儲存至: ${outputFile}`);
+  } catch (e) {
+    console.error(`寫檔失敗：${e.message}`);
+  }
 }
 
-function formatTime(unixSeconds) {
-    const date = new Date(unixSeconds * 1000);
-    // 明確使用台灣時區，避免在 UTC 伺服器環境下時間偏差 8 小時
-    const parts = new Intl.DateTimeFormat('zh-TW', {
-        timeZone: 'Asia/Taipei',
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false
-    }).formatToParts(date);
-    const p = Object.fromEntries(parts.filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
-    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;
+try {
+  const items = await fetchCnyes();
+  writeOutput({ status: "success", message: items });
+} catch (err) {
+  console.error(`錯誤: ${err.message}`);
+  if (err.response) console.error("Response data:", err.response.data);
+  writeOutput({ status: "error", message: err.message });
+  process.exit(1);
 }
-
-async function fetchNews() {
-    try {
-        const now = Math.floor(Date.now() / 1000);
-        const tenDaysAgo = now - 86400 * 10;
-        const url = 'https://api.cnyes.com/media/api/v1/newslist/category/tw_stock';
-        const targetTotal = 100;
-        let allItems = [];
-        let page = 1;
-
-        console.log('Starting to fetch Anue (tw_stock) news...');
-
-        while (allItems.length < targetTotal) {
-            const params = {
-                page: page,
-                limit: 30,
-                isCategoryHeadline: 1,
-                startAt: tenDaysAgo,
-                endAt: now
-            };
-
-            const response = await fetchWithRetry(url, params);
-            const items = response.data?.items?.data || [];
-
-            if (items.length === 0) {
-                console.log('No more items found.');
-                break;
-            }
-
-            allItems = allItems.concat(items);
-            console.log(`Page ${page}: Fetched ${items.length} items. Total so far: ${allItems.length}`);
-            page++;
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
-        const finalItems = allItems.slice(0, targetTotal);
-        console.log(`Total items collected: ${finalItems.length}`);
-
-        const parsedItems = finalItems.map(item => ({
-            time: formatTime(item.publishAt),
-            title: item.title,
-            link: `https://news.cnyes.com/news/id/${item.newsId}`
-        }));
-
-        const payload = { status: 'success', message: parsedItems };
-        writeOutput(payload);
-
-    } catch (error) {
-        console.error('Error in fetchNews:', error.message);
-        if (error.response) console.error('Response data:', error.response.data);
-        writeOutput({ status: 'error', message: error.message });
-        process.exit(1);
-    }
-}
-
-fetchNews().catch(err => {
-    console.error(err);
-    writeOutput({ status: 'error', message: err.message || String(err) });
-    process.exit(1);
-});

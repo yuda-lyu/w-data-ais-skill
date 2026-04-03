@@ -156,7 +156,7 @@ node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwrigh
 | `fetch-rss` | 取得任意 RSS Feed 並轉為統一 JSON 格式，支援 YouTube、新聞網站等 | `fetch_rss.mjs` | `axios`, `rss-parser` |
 | `fetch-ai-news-aggregator` | 取得 AI News Aggregator 最近 24 小時 AI 新聞 | `fetch_ai_news_aggregator.mjs` | `axios` |
 | `fetch-hacker-news` | 取得 Hacker News 最新文章（newest），透過 Firebase API 批次取得文章詳情 | `fetch_hacker_news.mjs` | `axios` |
-| `fetch-news-ai` | 整合 9 個來源（RSS + AI News Aggregator + Hacker News），過濾今日與昨日新聞，依時間降冪排序 | `fetch-news-ai.mjs` | `axios`, `rss-parser` |
+| `fetch-news-ai` | 整合 9 個來源（RSS + AI News Aggregator + Hacker News），過濾今日與昨日新聞，依時間降冪排序 | `fetch_news_ai.mjs` | `axios`, `rss-parser` |
 
 ### 參數格式
 
@@ -258,7 +258,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ├── fetch-news-ai/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch-news-ai.mjs
+│       ├── fetch_news_ai.mjs
 │       └── fetchNewsAi.mjs
 ├── fetch-rss/
 │   ├── SKILL.md

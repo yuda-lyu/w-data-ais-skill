@@ -67,7 +67,7 @@ npm install axios rss-parser
 ### 基本用法
 
 ```bash
-node fetch-news-ai/scripts/fetch-news-ai.mjs [outputPath]
+node fetch-news-ai/scripts/fetch_news_ai.mjs [outputPath]
 ```
 
 - `outputPath`（選填）— 輸出 JSON 檔案路徑；未指定時直接輸出至 stdout
@@ -76,10 +76,10 @@ node fetch-news-ai/scripts/fetch-news-ai.mjs [outputPath]
 
 ```bash
 # 取得新聞並輸出至螢幕
-node fetch-news-ai/scripts/fetch-news-ai.mjs
+node fetch-news-ai/scripts/fetch_news_ai.mjs
 
 # 取得新聞並儲存為檔案
-node fetch-news-ai/scripts/fetch-news-ai.mjs ./news_ai.json
+node fetch-news-ai/scripts/fetch_news_ai.mjs ./news_ai.json
 ```
 
 ## 輸出格式
@@ -129,5 +129,5 @@ JSON 陣列，每筆資料包含以下欄位：
 
 ```bash
 # 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令），且 fetch-rss、fetch-ai-news-aggregator、fetch-hacker-news 須為同層兄弟技能目錄
-node fetch-news-ai/scripts/fetch-news-ai.mjs [outputPath]
+node fetch-news-ai/scripts/fetch_news_ai.mjs [outputPath]
 ```

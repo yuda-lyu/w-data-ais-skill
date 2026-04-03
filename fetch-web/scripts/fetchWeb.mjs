@@ -123,7 +123,7 @@ export function inspectHtml(html) {
     return { pass: false, type: DETECT_CAPTCHA, message: "Cloudflare challenge" };
   if (titleLower === "just a moment" || titleLower === "just a quick check")
     return { pass: false, type: DETECT_CAPTCHA, message: "Cloudflare/anti-bot challenge" };
-  if (lower.includes("captcha") && lower.includes("challenge") && !lower.includes("<article"))
+  if (lower.includes("captcha") && lower.includes("challenge") && !lower.includes("<article") && html.length < 50000)
     return { pass: false, type: DETECT_CAPTCHA, message: "generic CAPTCHA" };
   if (titleLower.includes("are you a robot"))
     return { pass: false, type: DETECT_CAPTCHA, message: "robot challenge: \"" + title + "\"" };
@@ -133,6 +133,8 @@ export function inspectHtml(html) {
     return { pass: false, type: DETECT_CAPTCHA, message: "human verification page" };
   if (lower.includes("blocked by our server") || lower.includes("request has been blocked"))
     return { pass: false, type: DETECT_CAPTCHA, message: "server security block" };
+  if (titleLower === "access denied" || (lower.includes("access denied") && lower.includes("edgesuite.net")))
+    return { pass: false, type: DETECT_CAPTCHA, message: "access denied (WAF/CDN block)" };
 
   // --- 驗證頁面 ---
   // 微信驗證頁會載入 secitptpage/ 路徑的 CSS/JS，真正的文章頁不會
@@ -488,8 +490,17 @@ async function autoEscalate(url, parse, { redirect, skipCurl }) {
 
     const inspection = inspectHtml(r.html);
     if (inspection.pass) {
-      attempts.push({ method: r.method, status: "success", contentLength: r.html.length });
-      return finalize(url, applyParse(r, url, parse), attempts);
+      const parsed = applyParse(r, url, parse);
+      if (parsed.success) {
+        attempts.push({ method: r.method, status: "success", contentLength: r.html.length });
+        return finalize(url, parsed, attempts);
+      }
+      // Readability 解析失敗（SPA / JS 渲染頁面）→ 視為 empty，繼續升級
+      attempts.push({ method: r.method, status: "blocked", type: DETECT_EMPTY, message: parsed.message || "parse failed" });
+      console.warn("[fetch-web] " + tag + " parse failed: " + (parsed.message || "empty content") + " — escalating");
+      lastBlockType = DETECT_EMPTY;
+      lastFetchOk = true;
+      continue;
     }
 
     attempts.push({ method: r.method, status: "blocked", type: inspection.type, message: inspection.message });

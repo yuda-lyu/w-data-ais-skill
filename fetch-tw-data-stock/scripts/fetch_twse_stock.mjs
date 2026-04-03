@@ -1,14 +1,14 @@
-import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { fetchTwseStock } from './fetchTwseStock.mjs';
 
 /**
- * TWSE (證交所) 股價抓取程式
+ * TWSE (證交所) 股價抓取 CLI
  * 目的：抓取上市個股日成交資訊或全市場收盤資料
- * 依賴：axios
+ * 依賴：axios (via fetchTwseStock)
  *
  * 用法:
- * node fetch_twse.mjs [stockCode] [date] [outputPath]
+ * node fetch_twse_stock.mjs [stockCode] [date] [outputPath]
  *
  * 參數:
  * 1. stockCode (選填): 指定股票代號 (例如: "2330") 或 "all" (預設)。
@@ -41,7 +41,7 @@ if (dateArg && /^\d{8}$/.test(dateArg)) {
 }
 
 const isSingleStock = stockCodeArg.toLowerCase() !== 'all';
-const stockNo = isSingleStock ? stockCodeArg : 'ALLBUT0999';
+const stockNo = isSingleStock ? stockCodeArg : 'ALL';
 
 const defaultFilename = isSingleStock
     ? `twse_${stockNo}_${dateStr}.json`
@@ -59,65 +59,13 @@ function writeOutput(payload) {
     }
 }
 
-const MAX_RETRIES = 10;
-const BASE_DELAY_MS = 5000; // delay = BASE_DELAY_MS × attempt, capped at MAX_DELAY_MS
-const MAX_DELAY_MS  = 30000;
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-function isRetryable(error) {
-    const status = error.response?.status;
-    if (status) return status >= 500 || status === 429;
-    return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
-}
-
-async function fetchTwse() {
-    let url;
-    if (isSingleStock) {
-        url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${dateStr}&stockNo=${stockNo}`;
-    } else {
-        url = `https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=${dateStr}&type=ALLBUT0999`;
+(async () => {
+    try {
+        const data = await fetchTwseStock(dateStr, stockCodeArg);
+        writeOutput({ status: 'success', message: data });
+    } catch (err) {
+        console.error('Error fetching TWSE data:', err.message);
+        writeOutput({ status: 'error', message: err.message || String(err) });
+        process.exit(1);
     }
-
-    console.log(`Fetching TWSE data: ${dateStr}, Stock: ${stockNo}`);
-    console.log(`URL: ${url}`);
-
-    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-        try {
-            const response = await axios.get(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                timeout: 10000
-            });
-
-            const data = response.data;
-
-            if (data.stat !== 'OK') {
-                // 非交易日或無資料，不重試
-                const errMsg = `TWSE API returned: ${data.stat}`;
-                console.error(errMsg);
-                writeOutput({ status: 'error', message: errMsg });
-                process.exit(1);
-            }
-
-            writeOutput({ status: 'success', message: data });
-            return;
-
-        } catch (error) {
-            const attemptsLeft = MAX_RETRIES + 1 - attempt;
-            if (!isRetryable(error) || attemptsLeft <= 0) {
-                console.error('Error fetching TWSE data:', error.message);
-                writeOutput({ status: 'error', message: error.message });
-                process.exit(1);
-            }
-            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
-            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] ${error.message} — 等待 ${delay / 1000}s 後重試...`);
-            await sleep(delay);
-        }
-    }
-}
-
-fetchTwse().catch(err => {
-    console.error(err);
-    writeOutput({ status: 'error', message: err.message || String(err) });
-    process.exit(1);
-});
+})();

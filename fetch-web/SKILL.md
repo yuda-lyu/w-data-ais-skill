@@ -196,7 +196,6 @@ node fetch-web/scripts/fetch_web.mjs "https://mp.weixin.qq.com/s/xxx" ./result.j
 | 情況 | 說明 |
 |------|------|
 | 付費牆全文 | WSJ/FT 等付費內容僅能取得免費預覽段落 |
-| 微信公眾號 | 驗證頁面攔截，無法自動化 |
 | 需登入認證 | 需帳號密碼的頁面無法自動取得 |
 
 ## 快速執行

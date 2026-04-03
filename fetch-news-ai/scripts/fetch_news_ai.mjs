@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// fetch-news-ai.mjs — CLI 入口：調用 fetchNewsAi 取得多來源新聞並輸出結果
+// fetch_news_ai.mjs — CLI 入口：調用 fetchNewsAi 取得多來源新聞並輸出結果
 //
 // 用法：
-//   node fetch-news-ai.mjs [outputPath]
+//   node fetch_news_ai.mjs [outputPath]
 
 import { fetchNewsAi } from "./fetchNewsAi.mjs";
 import { writeFileSync } from "node:fs";

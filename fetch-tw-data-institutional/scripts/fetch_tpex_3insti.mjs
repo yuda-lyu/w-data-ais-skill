@@ -1,10 +1,9 @@
-import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
+import { fetchTpex3insti } from './fetchTpex3insti.mjs';
 
 /**
- * 櫃買中心 (TPEX) 三大法人買賣超抓取程式
- * 目的：抓取 TPEX 三大法人報表
+ * 櫃買中心 (TPEX) 三大法人買賣超抓取程式 — CLI 包裝
  *
  * 用法:
  * node fetch_tpex_3insti.mjs [stockCode] [date] [outputPath]
@@ -24,37 +23,33 @@ const stockCodeArg  = args[0] || 'all';
 const dateArg       = args[1];
 const outputPathArg = args[2];
 
-let today;
+// --- resolve dateStr ---
+let dateStr;
 if (dateArg && /^\d{8}$/.test(dateArg)) {
     const y = parseInt(dateArg.substring(0, 4));
     const m = parseInt(dateArg.substring(4, 6)) - 1;
     const d = parseInt(dateArg.substring(6, 8));
-    today = new Date(y, m, d);
-    if (today.getFullYear() !== y || today.getMonth() !== m || today.getDate() !== d) {
+    const check = new Date(y, m, d);
+    if (check.getFullYear() !== y || check.getMonth() !== m || check.getDate() !== d) {
         console.error(`日期無效：${dateArg}`);
         process.exit(1);
     }
+    dateStr = dateArg;
 } else {
     const taipeiStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10);
-    const [ty, tm, td] = taipeiStr.split('-').map(Number);
-    today = new Date(ty, tm - 1, td);
+    dateStr = taipeiStr.replace(/-/g, '');
 }
 
+// --- resolve stockCodes ---
 let targetCodes = [];
 if (stockCodeArg.toLowerCase() !== 'all') {
     targetCodes = stockCodeArg.split(',');
 }
 
-const yyyy              = today.getFullYear();
-const mm                = String(today.getMonth() + 1).padStart(2, '0');
-const dd                = String(today.getDate()).padStart(2, '0');
-const gregorianDateStr  = `${yyyy}${mm}${dd}`;
-const rocYear           = yyyy - 1911;
-const rocDateStr        = `${rocYear}/${mm}/${dd}`;
-
+// --- resolve output path ---
 const defaultFilename = targetCodes.length > 0
-    ? `tpex_3insti_${targetCodes.join('_')}_${gregorianDateStr}.json`
-    : `tpex_3insti_${gregorianDateStr}.json`;
+    ? `tpex_3insti_${targetCodes.join('_')}_${dateStr}.json`
+    : `tpex_3insti_${dateStr}.json`;
 const outputFile = outputPathArg || defaultFilename;
 
 function writeOutput(payload) {
@@ -68,91 +63,14 @@ function writeOutput(payload) {
     }
 }
 
-const MAX_RETRIES = 10;
-const BASE_DELAY_MS = 5000; // delay = BASE_DELAY_MS × attempt, capped at MAX_DELAY_MS
-const MAX_DELAY_MS  = 30000;
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-function isRetryable(error) {
-    const status = error.response?.status;
-    if (status) return status >= 500 || status === 429;
-    return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
-}
-
-async function fetchTpex3Insti() {
-    const url = `https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&t=D&d=${rocDateStr}&o=json`;
-    console.log(`Fetching from: ${url}`);
-    console.log(`Target: ${stockCodeArg === 'all' ? 'All Market' : targetCodes.join(', ')}`);
-
-    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-        try {
-            const response = await axios.get(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                timeout: 15000,
-            });
-            const data = response.data;
-
-            if (!data.tables || data.tables.length === 0) {
-                // 非交易日或無資料，不重試
-                const errMsg = 'TPEX 3insti: tables not found in response. Possibly a holiday or no data.';
-                console.error(errMsg);
-                writeOutput({ status: 'error', message: errMsg });
-                process.exit(1);
-            }
-
-            const table  = data.tables[0];
-            const fields = table.fields;
-            const rawData = table.data;
-
-            if (!rawData) {
-                const errMsg = 'TPEX 3insti: data not found in table.';
-                console.error(errMsg);
-                writeOutput({ status: 'error', message: errMsg });
-                process.exit(1);
-            }
-
-            let processedData = rawData.map(row => {
-                const obj = {};
-                fields.forEach((field, index) => {
-                    let value = row[index];
-                    if (typeof value === 'string') value = value.trim();
-                    obj[field] = value;
-                });
-                return obj;
-            });
-
-            if (targetCodes.length > 0) {
-                const codeField = fields.find(f => f === '代號') || fields.find(f => f === '證券代號') || fields.find(f => f.includes('代號'));
-                if (codeField) {
-                    processedData = processedData.filter(item => targetCodes.includes(item[codeField]));
-                } else {
-                    console.error('[fetch-tpex-3insti] 無法篩選個股：回應中找不到「代號」欄位，中止以避免回傳未過濾的全市場資料');
-                    writeOutput({ status: 'error', message: '無法篩選個股：API 回應中找不到代號欄位' });
-                    process.exit(1);
-                }
-            }
-
-            console.log(`Fetched ${processedData.length} records.`);
-            writeOutput({ status: 'success', message: { source: 'tpex', date: gregorianDateStr, data: processedData } });
-            return;
-
-        } catch (error) {
-            const attemptsLeft = MAX_RETRIES + 1 - attempt;
-            if (!isRetryable(error) || attemptsLeft <= 0) {
-                console.error('Request failed:', error.message);
-                writeOutput({ status: 'error', message: error.message });
-                process.exit(1);
-            }
-            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
-            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] ${error.message} — 等待 ${delay / 1000}s 後重試...`);
-            await sleep(delay);
-        }
+// --- run ---
+(async () => {
+    try {
+        const result = await fetchTpex3insti(dateStr, targetCodes.length > 0 ? targetCodes : undefined);
+        writeOutput({ status: 'success', message: result });
+    } catch (err) {
+        console.error(err.message || err);
+        writeOutput({ status: 'error', message: err.message || String(err) });
+        process.exit(1);
     }
-}
-
-fetchTpex3Insti().catch(err => {
-    console.error(err);
-    writeOutput({ status: 'error', message: err.message || String(err) });
-    process.exit(1);
-});
+})();
