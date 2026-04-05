@@ -19,7 +19,7 @@ const dateArg = process.argv[2];
 const outputArg = process.argv[3];
 
 const checkDate = (dateArg && /^\d{8}$/.test(dateArg)) ? dateArg : null;
-const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const today = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 const outputFile = outputArg || `tw_holiday_${checkDate || today}.json`;
 
 function writeOutput(payload) {

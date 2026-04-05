@@ -135,6 +135,8 @@ export function inspectHtml(html) {
     return { pass: false, type: DETECT_CAPTCHA, message: "server security block" };
   if (titleLower === "access denied" || (lower.includes("access denied") && lower.includes("edgesuite.net")))
     return { pass: false, type: DETECT_CAPTCHA, message: "access denied (WAF/CDN block)" };
+  if (lower.includes("something went wrong") && (lower.includes("x.com") || lower.includes("twitter.com")))
+    return { pass: false, type: DETECT_CAPTCHA, message: "X/Twitter error page" };
 
   // --- 驗證頁面 ---
   // 微信驗證頁會載入 secitptpage/ 路徑的 CSS/JS，真正的文章頁不會
