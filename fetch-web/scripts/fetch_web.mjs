@@ -7,6 +7,13 @@
 import { fetchWeb } from "./fetchWeb.mjs";
 import { writeFileSync } from "node:fs";
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+  if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+    throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 // ---------- 解析參數 ----------
 const args = process.argv.slice(2);
 
@@ -40,6 +47,7 @@ if (!url) {
 const result = await fetchWeb(url, { method });
 
 if (outputPath) {
+  _guardPath(outputPath);
   writeFileSync(outputPath, JSON.stringify(result, null, 2), "utf-8");
   console.log(
     result.status === "success"

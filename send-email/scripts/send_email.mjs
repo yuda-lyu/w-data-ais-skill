@@ -14,8 +14,16 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { sendEmail } from "./sendEmail.mjs";
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+  if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+    throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 // ---------- helpers ----------
 function writeResult(outputPath, obj) {
+  _guardPath(outputPath);
   writeFileSync(outputPath, JSON.stringify(obj, null, 2), "utf-8");
   console.log(`Result written to ${outputPath}`);
 }

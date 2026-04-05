@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import { fetchTpexMargin } from './fetchTpexMargin.mjs';
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+    if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+        throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 /**
  * TPEX (櫃買中心) 融資融券 CLI 包裝
  * 目的：解析命令列參數，呼叫核心模組，將結果寫入 JSON 檔案
@@ -46,6 +53,7 @@ const outputFile = outputPathArg || defaultFilename;
 
 function writeOutput(payload) {
     try {
+        _guardPath(outputFile);
         const dir = path.dirname(outputFile);
         if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), 'utf-8');

@@ -8,6 +8,13 @@ import { fetchTwDataHoliday } from './fetchTwDataHoliday.mjs';
 import fs from 'fs';
 import path from 'path';
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+  if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+    throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 const dateArg = process.argv[2];
 const outputArg = process.argv[3];
 
@@ -19,6 +26,7 @@ function writeOutput(payload) {
     try {
         const dir = path.dirname(outputFile);
         if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
+        _guardPath(outputFile);
         fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), 'utf-8');
         console.log(`Saved to ${outputFile}`);
     } catch (e) {

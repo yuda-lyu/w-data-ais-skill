@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import { fetchTaifex } from './fetchTaifex.mjs';
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+    if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+        throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 /**
  * TAIFEX (台灣期貨交易所) 資料抓取 CLI
  * 目的：抓取台指期行情、三大法人期貨未平倉、Put/Call Ratio
@@ -43,6 +50,7 @@ const outputFile = outputPathArg || `taifex_${dateStr}.json`;
 
 function writeOutput(payload) {
     try {
+        _guardPath(outputFile);
         const dir = path.dirname(outputFile);
         if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), 'utf-8');

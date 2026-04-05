@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import { fetchMoneydj } from './fetchMoneydj.mjs';
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+  if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+    throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 /**
  * MoneyDJ 新聞抓取 CLI
  * 薄包裝層：解析參數 → 呼叫核心 fetchMoneydj() → 寫入 JSON 檔案
@@ -29,6 +36,7 @@ function writeOutput(payload) {
     try {
         const dir = path.dirname(outputFile);
         if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
+        _guardPath(outputFile);
         fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), 'utf8');
         console.log(`結果已儲存至: ${outputFile}`);
     } catch (e) {

@@ -15,6 +15,13 @@ import { fetchCnyes } from "./fetchCnyes.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+  if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+    throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 const args = process.argv.slice(2);
 
 const TODAY = new Date()
@@ -27,6 +34,7 @@ function writeOutput(payload) {
   try {
     const dir = dirname(outputFile);
     if (dir && dir !== ".") mkdirSync(dir, { recursive: true });
+    _guardPath(outputFile);
     writeFileSync(outputFile, JSON.stringify(payload, null, 2), "utf-8");
     console.log(`結果已儲存至: ${outputFile}`);
   } catch (e) {

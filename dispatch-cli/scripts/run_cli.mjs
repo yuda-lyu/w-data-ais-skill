@@ -29,6 +29,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+  if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+    throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 // ─── 工具函式 ───────────────────────────────────────────────────────────────
 
 function truncate(str, maxLen) {
@@ -304,6 +311,7 @@ function appendLog(logFile, command, args, result) {
     try {
         const dir = path.dirname(logFile);
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        _guardPath(logFile);
         const entry = {
             timestamp: new Date().toISOString(),
             command,

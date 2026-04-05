@@ -2,6 +2,13 @@ import fs from 'fs';
 import path from 'path';
 import { fetchTwseT86 } from './fetchTwseT86.mjs';
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+    if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+        throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 /**
  * 證交所 (TWSE) 三大法人買賣超抓取程式 — CLI 包裝
  *
@@ -54,6 +61,7 @@ const outputFile = outputPathArg || defaultFilename;
 
 function writeOutput(payload) {
     try {
+        _guardPath(outputFile);
         const dir = path.dirname(outputFile);
         if (dir && dir !== '.') fs.mkdirSync(dir, { recursive: true });
         fs.writeFileSync(outputFile, JSON.stringify(payload, null, 2), 'utf8');
