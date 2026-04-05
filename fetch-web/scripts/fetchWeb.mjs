@@ -135,7 +135,7 @@ export function inspectHtml(html) {
     return { pass: false, type: DETECT_CAPTCHA, message: "server security block" };
   if (titleLower === "access denied" || (lower.includes("access denied") && lower.includes("edgesuite.net")))
     return { pass: false, type: DETECT_CAPTCHA, message: "access denied (WAF/CDN block)" };
-  if (lower.includes("something went wrong") && (lower.includes("x.com") || lower.includes("twitter.com")) && !lower.includes("<article") && html.length < 200000)
+  if (lower.includes("something went wrong") && (lower.includes("x.com") || lower.includes("twitter.com")) && !lower.includes("<article"))
     return { pass: false, type: DETECT_CAPTCHA, message: "X/Twitter error page" };
 
   // --- 驗證頁面 ---
