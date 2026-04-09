@@ -61,6 +61,16 @@ async function canRetry(label, attempt, reason) {
 // ---------- URL 轉址判識 ----------
 const MAX_REDIRECT_DEPTH = 3;
 
+// 判識 C：已知需要 Playwright 有頭模式的網站（headless 無法正確渲染內容）
+const HEADED_REQUIRED_PATTERNS = [
+  /^https?:\/\/open\.rankfor\.ai\//,
+  /^https?:\/\/brainbaking\.com\//,
+];
+
+function requiresHeaded(url) {
+  return HEADED_REQUIRED_PATTERNS.some((p) => p.test(url));
+}
+
 // 判識 A：已知需要 JS 執行的轉址服務（curl 永遠只拿到包裝頁）
 const JS_REDIRECT_PATTERNS = [
   /^https?:\/\/news\.google\.com\/rss\/articles\//,
@@ -437,6 +447,12 @@ export async function fetchWeb(url, options = {}) {
     }
   }
 
+  // 判識 C：已知需要 headed 模式的網站 — 跳過 curl 和 headless，直接 headed
+  if (requiresHeaded(url)) {
+    console.log("[fetch-web] headed-required domain, jumping to playwright-headed ...");
+    return autoEscalate(url, parse, { redirect: false, skipCurl: true, skipHeadless: true });
+  }
+
   // 判識 A：已知 JS 轉址域名 — 跳過 curl，直接 Playwright + 轉址等待
   if (requiresJsRedirect(url)) {
     console.log("[fetch-web] JS redirect domain, skipping curl ...");
@@ -457,7 +473,7 @@ function shouldEscalate(lastBlockType, lastFetchOk) {
 
 // ---------- auto 模式：階梯升級邏輯 ----------
 // 依序嘗試各方法，每步統一走 fetch → inspectHtml → 決定升級或回傳
-async function autoEscalate(url, parse, { redirect, skipCurl }) {
+async function autoEscalate(url, parse, { redirect, skipCurl, skipHeadless = false }) {
   const attempts = [];
   let lastBlockType = null;
   let lastFetchOk = true;
@@ -466,9 +482,9 @@ async function autoEscalate(url, parse, { redirect, skipCurl }) {
   const steps = [
     { label: "curl",                  guard: false, skip: skipCurl,
       fetch: () => tryCurl(url) },
-    { label: "Playwright headless",   guard: false, skip: false, showRedirect: true,
+    { label: "Playwright headless",   guard: false, skip: skipHeadless, showRedirect: true,
       fetch: () => tryPlaywright(url, true, { redirect }) },
-    { label: "Playwright headed",     guard: true,  skip: false, showRedirect: true,
+    { label: "Playwright headed",     guard: !skipHeadless,  skip: false, showRedirect: true,
       fetch: () => tryPlaywright(url, false, { redirect }) },
     { label: "Playwright headed-newtab", guard: true, skip: false,
       fetch: () => tryPlaywrightNewTab(url) },
