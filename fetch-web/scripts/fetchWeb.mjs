@@ -337,6 +337,76 @@ async function tryCurl(url) {
   return { success: true, html, method: METHOD_CURL };
 }
 
+// ---------- Shadow DOM 穿透提取 ----------
+// SPA 網站（如 MSN）使用 Web Components + Shadow DOM 渲染文章內容，
+// page.content() 只回傳 light DOM，Readability 無法解析。
+// 此函式在可見文字不足時，透過 page.evaluate 穿透 Shadow DOM 取得文字，
+// 再包裝成簡易 HTML 供 Readability 解析。
+const SHADOW_VISIBLE_THRESHOLD = 200;
+
+async function extractPageContent(page) {
+  const html = await page.content();
+
+  // 快速檢查：regular HTML 可見文字足夠就直接用
+  const visible = estimateVisibleText(html);
+  if (visible.length >= SHADOW_VISIBLE_THRESHOLD) return html;
+
+  // 穿透 Shadow DOM 提取文字
+  const shadow = await page.evaluate(() => {
+    function getDeepInnerText(el) {
+      if (!el) return "";
+      let text = "";
+      if (el.shadowRoot) {
+        for (const child of el.shadowRoot.children) {
+          text += getDeepInnerText(child);
+        }
+        return text;
+      }
+      for (const child of el.children) {
+        if (child.shadowRoot) {
+          text += getDeepInnerText(child);
+        }
+      }
+      if (text.length > 0) return text;
+      const tag = (el.tagName || "").toLowerCase();
+      if (tag === "script" || tag === "style") return "";
+      return el.innerText || "";
+    }
+
+    const containers = ["cp-article", "article", "[role=\"article\"]", "main"];
+    for (const sel of containers) {
+      try {
+        const el = document.querySelector(sel);
+        if (el) {
+          const t = getDeepInnerText(el);
+          if (t.length > 200) return { title: document.title || "", text: t };
+        }
+      } catch (_) { /* skip */ }
+    }
+    // fallback：整個 body
+    const all = getDeepInnerText(document.body);
+    if (all.length > 200) return { title: document.title || "", text: all };
+    return null;
+  }).catch(() => null);
+
+  if (!shadow || !shadow.text) return html;
+
+  console.log("[fetch-web] Shadow DOM extraction: " + shadow.text.length + " chars from web components");
+
+  // 包裝成簡易 HTML 供 Readability 解析
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const titleEsc = esc(shadow.title);
+  const paragraphs = shadow.text
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0)
+    .map((p) => "<p>" + esc(p) + "</p>")
+    .join("\n");
+
+  return "<!DOCTYPE html><html><head><title>" + titleEsc + "</title></head>"
+    + "<body><article><h1>" + titleEsc + "</h1>\n" + paragraphs + "</article></body></html>";
+}
+
 // ---------- 方法②③: Playwright ----------
 // 純 fetch — 僅處理瀏覽器層級錯誤與重試，不做內容判斷
 async function tryPlaywright(url, headless, { redirect = false } = {}) {
@@ -368,7 +438,7 @@ async function tryPlaywright(url, headless, { redirect = false } = {}) {
       await tryClickVerification(page);
     }
 
-    return page.content();
+    return extractPageContent(page);
   });
 }
 
@@ -398,7 +468,7 @@ async function tryPlaywrightNewTab(url) {
     // 嘗試點擊人機驗證 checkbox（Cloudflare Turnstile 等）
     await tryClickVerification(page);
 
-    return page.content();
+    return extractPageContent(page);
   });
 }
 
