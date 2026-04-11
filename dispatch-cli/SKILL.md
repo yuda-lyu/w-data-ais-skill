@@ -35,6 +35,8 @@ node --version   # 需要 Node.js >= 18
 node dispatch-cli/scripts/run_cli.mjs <exe> [args...]
 ```
 
+> 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
+
 所有參數**原樣傳遞**給目標 CLI，支援中文：
 
 ```bash

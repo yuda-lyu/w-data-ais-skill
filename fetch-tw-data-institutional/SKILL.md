@@ -125,11 +125,17 @@ node fetch-tw-data-institutional/scripts/fetch_tpex_3insti.mjs 6499,6610 2026021
 }
 ```
 
-錯誤（兩支腳本相同格式）：
+錯誤（兩支腳本相同格式，message 內容依來源不同）：
 ```json
 {
   "status": "error",
   "message": "TWSE T86 API returned: 很抱歉，沒有符合條件的資料!"
+}
+```
+```json
+{
+  "status": "error",
+  "message": "TPEX 3insti: tables not found in response. Possibly a holiday or no data."
 }
 ```
 

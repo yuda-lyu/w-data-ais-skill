@@ -2,7 +2,7 @@
 // fetch_web.mjs — CLI 入口：調用 fetchWeb 抓取網頁文章內容
 //
 // 用法：
-//   node fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed|playwright-headed-newtab]
+//   node fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed|camofox]
 
 import { fetchWeb } from "./fetchWeb.mjs";
 import { writeFileSync } from "node:fs";
@@ -19,7 +19,7 @@ const args = process.argv.slice(2);
 
 if (args.length === 0) {
   console.error(
-    "用法: node fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed|playwright-headed-newtab]"
+    "用法: node fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed|camofox]"
   );
   process.exit(1);
 }

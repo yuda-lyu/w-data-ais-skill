@@ -19,6 +19,13 @@ const OUTPUT_DIR = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR    = path.join(OUTPUT_DIR, 'raw');
 const REPORT_FILE = path.join(OUTPUT_DIR, `report_${TODAY}.md`);
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+  if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+    throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 function resolveBaseOutputDir(inputPath) {
     const resolved = path.resolve(inputPath);
     if (path.basename(resolved) === TODAY && path.basename(path.dirname(resolved)) === 'tw-stock-research') {
@@ -1644,5 +1651,6 @@ if (!fs.existsSync(OUTPUT_DIR)) {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
 
+_guardPath(REPORT_FILE);
 fs.writeFileSync(REPORT_FILE, report);
 console.log(`Report generated: ${REPORT_FILE}`);

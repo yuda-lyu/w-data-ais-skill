@@ -59,6 +59,8 @@ node dispatch-cli/scripts/run_cli.mjs \
   -f ./input.txt "分析這個檔案"
 ```
 
+> 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
+
 ### 模組匯入
 
 ```javascript

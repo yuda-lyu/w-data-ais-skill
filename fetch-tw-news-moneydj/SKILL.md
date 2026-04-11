@@ -32,7 +32,7 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞（最新 50 頁）
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "require('axios'); require('cheerio'); console.log('deps OK')"
+node -e "import('axios').then(() => import('cheerio')).then(() => console.log('deps OK'))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：

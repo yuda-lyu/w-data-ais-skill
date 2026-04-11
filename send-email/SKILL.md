@@ -146,10 +146,10 @@ node send-email/scripts/send_email.mjs \
 
 | 錯誤 | 原因 | 解法 |
 |------|------|------|
-| `缺少必填欄位: from` | 請求缺少 `from` | 補上寄件顯示名稱 |
+| `Missing required fields: from` | 請求缺少 `from` | 補上寄件顯示名稱 |
 | `HTTP 403` | Web App 部署權限不正確 | 確認 GAS 已部署為公開可呼叫的 Web App |
 | `Unauthorized` | token 錯誤 | 確認 token 大小寫與內容完全一致 |
-| `Missing body/htmlBody` | 兩者皆未提供 | 至少提供 `body` 或 `htmlBody` |
+| `Missing required fields: body or htmlBody` | 兩者皆未提供 | 至少提供 `body` 或 `htmlBody` |
 | 中文亂碼 | 編碼問題 | 腳本已內建 `charset=utf-8`，通常無須額外處理 |
 | 5xx 伺服器錯誤 | GAS 暫時不可用 | 腳本內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），等待 3s → 6s → ... → 上限 15s |
 | `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios` |

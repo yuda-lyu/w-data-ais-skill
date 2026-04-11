@@ -23,6 +23,13 @@ const RAW_DIR         = path.join(POST_MARKET_DIR, 'raw');
 const REPORT_FILE     = path.join(POST_MARKET_DIR, `report_${TODAY}.md`);
 const ERROR_LOG       = path.join(POST_MARKET_DIR, 'error_log.jsonl');
 
+// Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+  if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+    throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 function resolveBaseOutputDir(baseOutputPath) {
     const resolved = path.resolve(baseOutputPath);
     if (path.basename(resolved) === TODAY && path.basename(path.dirname(resolved)) === 'tw-stock-post-market') {
@@ -44,6 +51,7 @@ function appendErrorLog(source, phase, type, message) {
             error: { type, message },
             resolution: 'failed',
         };
+        _guardPath(ERROR_LOG);
         fs.appendFileSync(ERROR_LOG, JSON.stringify(entry) + '\n');
     } catch (_) { /* ignore log errors */ }
 }
@@ -500,6 +508,7 @@ function main() {
     fs.mkdirSync(POST_MARKET_DIR, { recursive: true });
     fs.mkdirSync(RAW_DIR, { recursive: true });
 
+    _guardPath(REPORT_FILE);
     fs.writeFileSync(REPORT_FILE, report);
     console.log(`Post-market report generated: ${REPORT_FILE}`);
 }

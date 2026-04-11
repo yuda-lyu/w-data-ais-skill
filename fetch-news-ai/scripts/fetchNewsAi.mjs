@@ -6,7 +6,7 @@
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 
-const __dirname = decodeURIComponent(new URL('.', import.meta.url).pathname).replace(/^\/([A-Z]:)/, '$1');
+const __dirname = decodeURIComponent(new URL('.', import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1');
 const skillsDir = path.resolve(__dirname, '..', '..');
 
 // ---------- 動態載入相依技能 ----------

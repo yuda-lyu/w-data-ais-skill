@@ -87,8 +87,8 @@ export async function fetchTwseMargin(dateStr, stockCodes) {
                 const marginSell    = parseNumber(row[3]);
                 const marginBalance = parseNumber(row[6]);
                 const marginPrev    = parseNumber(row[5]);
-                const shortBuy      = parseNumber(row[8]);  // 融券買進 = 券買/回補
-                const shortSell     = parseNumber(row[9]);  // 融券賣出 = 券賣/放空
+                const shortBuy      = parseNumber(row[8]);  // 融券買進（回補）
+                const shortSell     = parseNumber(row[9]);  // 融券賣出（新增放空）
                 const shortBalance  = parseNumber(row[12]);
                 const shortPrev     = parseNumber(row[11]);
 

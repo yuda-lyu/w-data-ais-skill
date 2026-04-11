@@ -41,6 +41,8 @@ CLI_TIMEOUT_MS=180000 CLI_CWD="/path/to/project" \
   gemini --approval-mode=yolo -m gemini-2.5-pro -p "你的任務描述"
 ```
 
+> 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
+
 > **重要：** Gemini CLI 以當前工作目錄作為專案路徑，無 `--workdir` 參數。
 > 使用 `CLI_CWD` 環境變數透過 dispatch-cli 設定，取代 `cd && gemini` 的 shell 串接方式。
 

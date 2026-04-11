@@ -41,12 +41,19 @@ function validateBaseOutputDir(baseDir) {
 
 validateBaseOutputDir(BASE_OUTPUT_DIR);
 
+const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
+function _guardPath(p) {
+    if (_WIN_RESERVED_RE.test(p.replace(/.*[/\\]/, '')))
+        throw new Error(`禁止寫入 Windows 保留裝置名稱: ${p}`);
+}
+
 function log(msg) {
     console.log(`[run_post_market] ${msg}`);
 }
 
 function appendErrorLog(source, phase, type, message, details = '') {
     try {
+        _guardPath(ERROR_LOG);
         fs.mkdirSync(path.dirname(ERROR_LOG), { recursive: true });
         const entry = {
             timestamp: new Date().toISOString(),

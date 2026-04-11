@@ -56,6 +56,8 @@ node dispatch-cli/scripts/run_cli.mjs \
   "你的任務描述"
 ```
 
+> 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
+
 ### 模組匯入
 
 ```javascript
@@ -111,7 +113,7 @@ if (result.ok) {
 |------|------|
 | `--allowedTools "Bash,Read,Edit"` | 只核准特定工具（比 `--dangerously-skip-permissions` 更安全） |
 | `--disallowedTools "Bash(rm *)"` | 封鎖特定危險操作 |
-| `--bare` | 跳過 hooks/skills/plugins/MCP/CLAUDE.md 載入（CI/CD 推薦） |
+| `--bare` | 跳過 hooks/skills/plugins/MCP/auto-memory/CLAUDE.md 載入（CI/CD 推薦） |
 | `--append-system-prompt "..."` | 追加額外系統提示 |
 | `--system-prompt "..."` | 完全替換系統提示 |
 | `--json-schema '{...}'` | 強制回應符合 JSON Schema（需搭配 `--output-format json`） |

@@ -81,10 +81,10 @@ node save-news-to-sheet/scripts/save_news_to_sheet.mjs <gas_url> <token> '<items
 ### 範例
 
 ```bash
-# JSON 模式 — 寄送多筆新聞
+# JSON 模式 — 儲存多筆新聞
 node save-news-to-sheet/scripts/save_news_to_sheet.mjs ./news_payload.json ./result.json
 
-# 參數模式 — 寄送單筆
+# 參數模式 — 儲存單筆
 node save-news-to-sheet/scripts/save_news_to_sheet.mjs \
   "https://script.google.com/macros/s/XXXX/exec" \
   "my_token" \
@@ -160,9 +160,9 @@ GAS 端以 `type + url + title + description + from` 五欄位組合作為唯一
 
 | 錯誤 | 原因 | 解法 |
 |------|------|------|
-| `缺少必填欄位: gas_url` | 請求缺少 GAS 網址 | 補上 GAS Web App 部署網址 |
-| `缺少必填欄位: itemsNew` | 陣列為空或未提供 | 確認 itemsNew 為非空陣列 |
-| `有 N 筆資料缺少 url 欄位` | 個別資料缺 url | 每筆資料至少要有 url |
+| `Missing required fields: gas_url` | 請求缺少 GAS 網址 | 補上 GAS Web App 部署網址 |
+| `Missing required fields: itemsNew (needs to be a non-empty array)` | 陣列為空或未提供 | 確認 itemsNew 為非空陣列 |
+| `N item(s) missing the url field` | 個別資料缺 url | 每筆資料至少要有 url |
 | `HTTP 403` | Web App 部署權限不正確 | 確認 GAS 已部署為公開可呼叫的 Web App |
 | `Unauthorized` / `token 驗證失敗` | token 錯誤 | 確認 token 大小寫與內容完全一致 |
 | `找不到工作表` | sheetName 設定與實際不符 | 確認 GAS 端 CONFIG.sheetName 與工作表名稱一致 |
