@@ -154,7 +154,9 @@ export function inspectHtml(html) {
     return { pass: false, type: DETECT_VERIFY, message: "WeChat verification page" };
 
   // --- 轉址包裝頁 ---
-  if (/<meta[^>]+http-equiv=["']refresh["'][^>]+url=/i.test(html))
+  // meta refresh：排除 url='' / url="" / url=\'\' 等空值（部分網站如 CoreWeave 含空 meta refresh，非真正轉址）
+  const _metaRefreshUrl = (html.match(/<meta[^>]+http-equiv=["']refresh["'][^>]+url=["']?([^"'\s>]*)["']?/i)?.[1] || "").replace(/[\\'"\s]/g, "");
+  if (_metaRefreshUrl.length > 0)
     return { pass: false, type: DETECT_REDIRECT, message: "meta refresh redirect" };
   if (lower.includes("c-wiz") && lower.includes("news.google.com"))
     return { pass: false, type: DETECT_REDIRECT, message: "Google News wrapper" };
