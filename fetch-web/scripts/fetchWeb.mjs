@@ -706,6 +706,9 @@ export async function fetchWeb(url, options = {}) {
     if (r.success) {
       const parsed = applyParse(r, url, parse);
       if (parsed.success) return finalize(url, parsed, [{ method: METHOD_CAMOFOX, status: "success", contentLength: r.html.length }]);
+      // Readability 解析失敗（驗證頁、空內容等）→ 回報為失敗
+      return finalize(url, { success: false, reason: parsed.reason || "parse-failed", message: parsed.message || "content extraction failed" },
+        [{ method: METHOD_CAMOFOX, status: "blocked", type: DETECT_EMPTY, message: parsed.message || "parse failed" }]);
     }
     return finalize(url, r, [{ method: METHOD_CAMOFOX, ...summarizeFail(r) }]);
   }
