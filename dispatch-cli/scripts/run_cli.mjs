@@ -77,63 +77,40 @@ function buildValidator(rule) {
 const IS_WIN = process.platform === 'win32';
 
 /**
- * 遞迴蒐集指定 PID 的所有子孫進程 PID
- */
-function collectDescendants(parentPid, result) {
-    try {
-        if (IS_WIN) {
-            const output = execSync(
-                `wmic process where (ParentProcessId=${parentPid}) get ProcessId /format:csv`,
-                { encoding: 'utf8', timeout: 5000, windowsHide: true }
-            );
-            const pids = output.split('\n')
-                .map(line => line.trim().split(',').pop())
-                .filter(p => p && /^\d+$/.test(p) && Number(p) !== parentPid);
-            for (const childPid of pids) {
-                result.push(Number(childPid));
-                collectDescendants(Number(childPid), result);
-            }
-        } else {
-            const output = execSync(
-                `pgrep -P ${parentPid}`,
-                { encoding: 'utf8', timeout: 5000 }
-            );
-            const pids = output.split('\n').map(s => s.trim()).filter(s => /^\d+$/.test(s));
-            for (const childPid of pids) {
-                result.push(Number(childPid));
-                collectDescendants(Number(childPid), result);
-            }
-        }
-    } catch {
-        // 查詢失敗（進程已退出等），忽略
-    }
-}
-
-/**
- * 殺掉指定 PID 的整棵進程樹（由葉到根）
+ * 殺掉指定 PID 的整棵進程樹
+ * Windows: 使用 taskkill /T（tree kill）一次殺掉整棵樹，不依賴 wmic（Windows 11 已移除）
+ * Unix: 遞迴 pgrep 蒐集子孫後由葉到根殺
  */
 function killProcessTree(pid) {
     if (!pid) return;
-    const descendants = [];
-    collectDescendants(pid, descendants);
-
-    // 由葉到根殺，避免父進程重新派生子進程
-    for (const childPid of descendants.reverse()) {
-        try {
-            if (IS_WIN) {
-                execSync(`taskkill /F /PID ${childPid}`, { stdio: 'ignore', timeout: 5000, windowsHide: true });
-            } else {
-                process.kill(childPid, 'SIGKILL');
-            }
-        } catch { /* 已退出 */ }
-    }
     try {
         if (IS_WIN) {
-            execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore', timeout: 5000, windowsHide: true });
+            // taskkill /T /F 會殺掉 PID 及其所有子進程（整棵樹）
+            execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore', timeout: 5000, windowsHide: true });
         } else {
-            process.kill(pid, 'SIGKILL');
+            // Unix: 先蒐集子孫再由葉到根殺
+            const descendants = [];
+            _collectDescendantsUnix(pid, descendants);
+            for (const childPid of descendants.reverse()) {
+                try { process.kill(childPid, 'SIGKILL'); } catch { /* 已退出 */ }
+            }
+            try { process.kill(pid, 'SIGKILL'); } catch { /* 已退出 */ }
         }
-    } catch { /* 已退出 */ }
+    } catch { /* 進程已退出 */ }
+}
+
+function _collectDescendantsUnix(parentPid, result) {
+    try {
+        const output = execSync(
+            `pgrep -P ${parentPid}`,
+            { encoding: 'utf8', timeout: 5000 }
+        );
+        const pids = output.split('\n').map(s => s.trim()).filter(s => /^\d+$/.test(s));
+        for (const childPid of pids) {
+            result.push(Number(childPid));
+            _collectDescendantsUnix(Number(childPid), result);
+        }
+    } catch { /* 查詢失敗或無子進程 */ }
 }
 
 // ─── 核心非同步引擎（內部使用）───────────────────────────────────────────────
