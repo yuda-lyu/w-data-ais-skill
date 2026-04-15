@@ -44,7 +44,7 @@ node dispatch-cli/scripts/run_cli.mjs <exe> [args...]
 node dispatch-cli/scripts/run_cli.mjs claude -p "請分析這段程式碼"
 
 # 調用 node 子腳本
-node dispatch-cli/scripts/run_cli.mjs node fetch-cnyes/scripts/fetch.mjs 20260328
+node dispatch-cli/scripts/run_cli.mjs node fetch-tw-news-cnyes/scripts/fetch_cnyes.mjs ./out.json
 
 # 調用 curl
 node dispatch-cli/scripts/run_cli.mjs curl -s -L "https://example.com"

@@ -164,8 +164,8 @@ npm install playwright
 - 腳本輸出 `錯誤：找不到 Chrome 或 Edge 瀏覽器`
 
 **解決方法**：
-- 確認系統已安裝 Chrome/Chromium。
-- 或手動修改腳本中的 `executablePath` 指向正確路徑。
+- 確認系統已安裝 Google Chrome（腳本使用 Playwright `channel: 'chrome'` 啟動）。
+- 若 Chrome 安裝在非預設路徑，可在環境變數中設定 `CHROME_PATH` 或修改腳本中的 `channel` 設定。
 
 ## 快速執行
 

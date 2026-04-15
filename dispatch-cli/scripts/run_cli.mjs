@@ -29,6 +29,107 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// ── Windows .cmd/.bat 支援 ──
+// npm 全域安裝的命令在 Windows 上是 .cmd 批次檔，Node.js spawn 無法直接執行
+// （CVE-2024-27980 安全修正後會回 EINVAL）。
+// 而 shell:true 會導致含特殊字元的參數被 cmd.exe 錯誤解析。
+// 參考 cross-spawn 做法：手動透過 cmd.exe /d /s /c 執行，並正確轉義參數。
+// 參考來源：https://github.com/moxystudio/node-cross-spawn
+
+/**
+ * 用 where 指令找到命令的實際路徑（.cmd / .exe）
+ */
+function _resolveCommand(cmd) {
+    if (process.platform !== 'win32') return cmd;
+    if (/\.(cmd|exe|bat|ps1)$/i.test(cmd)) return cmd;
+    if (path.isAbsolute(cmd)) return cmd;
+    try {
+        const out = execSync(`where ${cmd}`, { encoding: 'utf8', timeout: 5000, windowsHide: true }).trim();
+        const lines = out.split(/\r?\n/);
+        const cmdFile = lines.find(l => /\.cmd$/i.test(l));
+        if (cmdFile) return cmdFile;
+        const exeFile = lines.find(l => /\.exe$/i.test(l));
+        if (exeFile) return exeFile;
+        return lines[0] || cmd;
+    } catch {
+        return cmd;
+    }
+}
+
+/**
+ * 轉義 cmd.exe 的單一參數（cross-spawn escapeArgument 邏輯）
+ * 參考：https://qntm.org/cmd
+ */
+function _escapeWinArg(arg) {
+    // 1. 轉義反斜線 + 雙引號 組合
+    arg = arg.replace(/(\\*)"/g, '$1$1\\"');
+    // 2. 轉義尾端反斜線（避免吃掉結尾引號）
+    arg = arg.replace(/(\\*)$/, '$1$1');
+    // 3. 用雙引號包裹
+    arg = `"${arg}"`;
+    // 4. 轉義 cmd.exe 的 metacharacters（在引號外用 ^）
+    arg = arg.replace(/[()%!^"<>&|]/g, '^$&');
+    return arg;
+}
+
+/**
+ * 轉義 cmd.exe 的命令部分
+ */
+function _escapeWinCmd(cmd) {
+    return cmd.replace(/[()%!^"<>&|;, ]/g, '^$&');
+}
+
+/**
+ * 從 .cmd shim 中解析出實際的 JS 入口檔案路徑。
+ * npm 全域安裝的 .cmd 格式固定，末行為：
+ *   ... "%_prog%"  "%dp0%\node_modules\...\entry.js" %*
+ */
+function _parseJsEntryFromCmd(cmdPath) {
+    try {
+        const content = fs.readFileSync(cmdPath, 'utf8');
+        // 匹配 "%dp0%\..." 中的 node_modules 路徑
+        const m = content.match(/%dp0%\\(node_modules\\[^"]+\.js)/i);
+        if (!m) return null;
+        const dir = path.dirname(cmdPath);
+        const jsPath = path.join(dir, m[1]);
+        if (fs.existsSync(jsPath)) return jsPath;
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * 將 command + args 轉為 Windows 安全的 spawn 參數。
+ * 策略優先順序：
+ *   1. .exe → 直接 spawn
+ *   2. .cmd → 解析 JS 入口，用 node 直接執行（繞過 cmd.exe，支援多行參數）
+ *   3. .cmd 但無法解析 JS 入口 → 透過 cmd.exe /d /s /c 執行（fallback，不支援多行參數）
+ */
+function _buildSpawnArgs(command, args) {
+    if (process.platform !== 'win32') return { file: command, args };
+    const resolved = _resolveCommand(command);
+    // .exe 可直接 spawn
+    if (/\.exe$/i.test(resolved)) return { file: resolved, args };
+    // .cmd/.bat → 嘗試解析出 JS 入口，直接用 node 執行
+    if (/\.(cmd|bat)$/i.test(resolved)) {
+        const jsEntry = _parseJsEntryFromCmd(resolved);
+        if (jsEntry) {
+            return { file: process.execPath, args: [jsEntry, ...args] };
+        }
+        // fallback: 透過 cmd.exe 執行（注意：不支援多行參數）
+        const escaped = args.map(a => _escapeWinArg(a));
+        const cmdLine = `${_escapeWinCmd(resolved)} ${escaped.join(' ')}`;
+        const comspec = process.env.comspec || process.env.COMSPEC || 'cmd.exe';
+        return {
+            file: comspec,
+            args: ['/d', '/s', '/c', `"${cmdLine}"`],
+            options: { windowsVerbatimArguments: true },
+        };
+    }
+    return { file: resolved, args };
+}
+
 // Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
 const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
 function _guardPath(p) {
@@ -133,11 +234,13 @@ function _runCliOnce(command, args = [], options = {}) {
     const startTime = Date.now();
 
     return new Promise((resolve) => {
-        const proc = spawn(command, args, {
+        const winSpawn = _buildSpawnArgs(command, args);
+        const proc = spawn(winSpawn.file, winSpawn.args, {
             cwd,
             stdio: ['pipe', 'pipe', 'pipe'],
             windowsHide: true,
             env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            ...winSpawn.options,
         });
 
         let stdout = '';

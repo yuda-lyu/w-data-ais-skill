@@ -60,7 +60,7 @@ npm install axios
    - `date`: YYYYMMDD（例如 20260210）；可省略，預設為今日。
    > ⚠️ **注意**：個股查詢（STOCK_DAY）回傳的是該月份**整月**資料而非單日；全市場查詢（MI_INDEX）則為單日資料
    - `outputPath`: 輸出 JSON 檔案路徑
-2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `twse_STOCKCODE_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
+2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `twse_STOCKCODE_YYYYMMDD.json`）。API 執行階段的成功或錯誤均寫入後才 exit（參數驗證錯誤例外，會直接 exit 1 不寫檔）。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：抓取全市場 (2026/02/10) 並輸出至檔案
@@ -188,7 +188,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
    - `stockCode`: 股票代碼（單檔或逗號分隔）或 `all`（全市場）
    - `date`: YYYYMMDD（例如 20260210）；可省略，預設為今日
    - `outputPath`: 輸出 JSON 檔案路徑
-2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `tpex_YYYYMMDD.json`）。無論成功或錯誤均寫入後才 exit。請讀取輸出檔取得資料，勿依賴 stdout。
+2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `tpex_YYYYMMDD.json`）。API 執行階段的成功或錯誤均寫入後才 exit（參數驗證錯誤例外，會直接 exit 1 不寫檔）。請讀取輸出檔取得資料，勿依賴 stdout。
 
 ```bash
 # 範例：抓取全市場 (2026/02/10) 並輸出至檔案

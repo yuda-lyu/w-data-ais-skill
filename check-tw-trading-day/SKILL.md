@@ -47,7 +47,6 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs 20260316 ./output/tra
 
 ```
 檢查日期：20260316
-API：https://www.twse.com.tw/...
 結果：交易日 ✅
 TRADING_DAY=true
 ```

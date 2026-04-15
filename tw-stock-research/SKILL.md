@@ -138,7 +138,7 @@ run_research.mjs
 
 **法人資料往前偵測**：法人腳本（TWSE/TPEX）以前一工作日為起點，若 TWSE API 回傳無資料（公假日），自動往前推一個工作日，最多回溯 **30 個工作日**（可涵蓋農曆春節等長假）。
 
-> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-tw-news-moneydj 的 50 頁爬取）。各子程序 timeout 累計最大值可達約 900 秒，外層 exec 呼叫時請設定 **timeout ≥ 900000 ms（15 分鐘）**，避免 SIGTERM 中斷。
+> ⚠️ 腳本執行時間約 **3~8 分鐘**（主要取決於 fetch-tw-news-moneydj 的 50 頁爬取）。最差情況（所有子程序皆觸及 timeout）可超過 15 分鐘，外層 exec 呼叫時請設定 **timeout ≥ 3600000 ms（1 小時）**，避免 SIGTERM 中斷。
 
 **完成訊號**：腳本成功產出報告後，會在 stdout 輸出 `RESEARCH_COMPLETE=true`，接著立即 `process.exit(0)`。外層呼叫方可偵測此字串判斷執行成功，無需等待其他 I/O。
 
@@ -253,7 +253,7 @@ w-data-news/tw-stock-research/
   "phase": "fetch",
   "error": {
     "type": "unknown",
-    "message": "Puppeteer launch failed",
+    "message": "Browser launch failed",
     "details": "Error: Failed to launch the browser process"
   },
   "resolution": "failed"
@@ -357,8 +357,8 @@ npm install axios cheerio playwright
 - 腳本輸出 `Error: Browser not found.` (fetch-tw-news-mops)
 
 **解決方法**：
-- 確認系統已安裝 Chrome/Chromium。
-- 或手動修改腳本中的 `executablePath` 指向正確路徑。
+- 確認系統已安裝 Google Chrome（底層腳本使用 Playwright `channel: 'chrome'` 啟動）。
+- 若 Chrome 安裝在非預設路徑，可在環境變數中設定 `CHROME_PATH` 或修改底層腳本中的 `channel` 設定。
 
 ## 快速執行
 
@@ -379,7 +379,7 @@ node tw-stock-research/scripts/run_research.mjs 20260316
 
 ```bash
 # 1. 交易日檢查（須先建立輸出目錄）
-mkdir -p ./w-data-news/tw-stock-research/YYYYMMDD/raw
+mkdir -p ./w-data-news/tw-stock-research/YYYYMMDD/raw   # Unix/Git Bash；PowerShell 請用 New-Item -ItemType Directory -Force -Path .\w-data-news\tw-stock-research\YYYYMMDD\raw
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-news/tw-stock-research/YYYYMMDD/raw/trading_day.json
 
 # 2. 安裝依賴

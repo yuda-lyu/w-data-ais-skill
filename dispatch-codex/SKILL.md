@@ -25,10 +25,11 @@ description: This skill should be used when the user asks to "run codex as an ag
 ### 命令列
 
 ```bash
-# 基本呼叫
+# 基本呼叫（預設最強推理）
 node dispatch-cli/scripts/run_cli.mjs \
   codex exec --full-auto --skip-git-repo-check \
   --config sandbox_workspace_write.network_access=true \
+  --config model_reasoning_effort='"xhigh"' \
   "你的任務描述"
 
 # 完整防護：超時 + 重試
@@ -36,13 +37,15 @@ CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 \
   node dispatch-cli/scripts/run_cli.mjs \
   codex exec --full-auto --skip-git-repo-check \
   --config sandbox_workspace_write.network_access=true \
+  --config model_reasoning_effort='"xhigh"' \
   "你的任務描述"
 
-# 指定模型
+# 指定模型 + 推理等級
 CLI_TIMEOUT_MS=180000 \
   node dispatch-cli/scripts/run_cli.mjs \
   codex exec --full-auto --skip-git-repo-check \
   --config sandbox_workspace_write.network_access=true \
+  --config model_reasoning_effort='"xhigh"' \
   -m gpt-5.4 \
   "你的任務描述"
 ```
@@ -57,6 +60,7 @@ import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 const result = await runCli('codex', [
     'exec', '--full-auto', '--skip-git-repo-check',
     '--config', 'sandbox_workspace_write.network_access=true',
+    '--config', 'model_reasoning_effort="xhigh"',
     '重構此模組並撰寫單元測試',
 ], {
     timeoutMs: 180_000,
@@ -80,6 +84,20 @@ if (result.ok) {
 
 指定模型：`-m gpt-5.4`（不指定即使用預設 `gpt-5.4`）
 
+## 推理等級（model_reasoning_effort）
+
+| 等級 | 說明 |
+|------|------|
+| `xhigh` | **預設**，最強推理深度，適合複雜任務 |
+| `high` | 複雜除錯、架構決策、程式碼審查 |
+| `medium` | Codex 原廠預設，平衡速度與品質 |
+| `low` | 簡單任務，速度優先 |
+| `minimal` | 最快，適合提取、路由、簡單轉換 |
+
+指定推理等級：`--config model_reasoning_effort='"xhigh"'`
+
+> 本 skill 預設使用 `xhigh` 最強推理。若需加速可降級為 `high` 或 `medium`。
+
 ### 各參數說明
 
 | 參數 | 必要 | 說明 |
@@ -88,6 +106,7 @@ if (result.ok) {
 | `--full-auto` | ✅ | 允許 Codex 自動執行所有操作，不需人工確認 |
 | `--skip-git-repo-check` | ✅ | 允許在非 git repo 目錄下執行（否則報錯 "Not inside a trusted directory"） |
 | `--config sandbox_workspace_write.network_access=true` | ✅ | 啟用沙箱網路，讓 npm install / pip install 等可以正常使用 |
+| `--config model_reasoning_effort='"xhigh"'` | ✅ | 啟用最強推理模式（預設 `xhigh`） |
 
 ## 常見錯誤與處理
 
@@ -119,6 +138,7 @@ prompt: "... 寫入 result_dispatcher.txt"
 command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
          codex exec --full-auto --skip-git-repo-check \
          --config sandbox_workspace_write.network_access=true \
+         --config model_reasoning_effort='"xhigh"' \
          "... 寫入 result_codex.txt"
 ```
 

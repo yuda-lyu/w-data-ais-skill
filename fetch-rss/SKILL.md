@@ -96,7 +96,7 @@ JSON 陣列，每筆資料包含以下欄位：
 
 | 錯誤 | 原因 | 解法 |
 |------|------|------|
-| `用法: node fetch_rss.mjs <rssUrl>` | 未提供 RSS URL | 補上 RSS Feed 網址 |
+| `用法: node fetch-rss/scripts/fetch_rss.mjs <rssUrl>` | 未提供 RSS URL | 補上 RSS Feed 網址 |
 | `Request failed with status code 404` | RSS URL 無效或暫時性 404（如 YouTube RSS） | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），仍失敗請確認網址正確且可公開存取 |
 | `timeout of 30000ms exceeded` | 來源回應過慢 | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），仍失敗請確認網路連線 |
 | `Request failed with status code 5xx` | 伺服器暫時錯誤 | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次，線性遞增退避），仍失敗請稍後再試 |

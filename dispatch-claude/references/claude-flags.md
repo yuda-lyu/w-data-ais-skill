@@ -27,8 +27,21 @@ Claude CLI 不使用子命令進入 headless 模式，而是透過 `-p` / `--pri
 | 選項 | 縮寫 | 說明 |
 |------|------|------|
 | `--model` | — | 指定模型：別名（`opus`/`sonnet`/`haiku`）或完整 ID（`claude-opus-4-6`） |
-| `--effort` | — | 推理強度：`low`、`medium`、`high`、`max` |
+| `--effort` | — | 自適應推理深度：`low`、`medium`、`high`、`max`（見下方說明） |
 | `--fallback-model` | — | 主模型過載時的備援模型（僅 `-p` 模式） |
+
+### `--effort` 推理深度說明
+
+| 等級 | 說明 | 適用場景 |
+|------|------|----------|
+| `low` | 最低推理，快速便宜 | 簡單查詢、格式轉換 |
+| `medium` | 中等推理（Pro/Max 訂閱預設） | 日常編碼任務 |
+| `high` | 較深推理（API/Team/Enterprise 預設） | 除錯、架構分析 |
+| `max` | **最深推理，無 token 花費限制，僅 Opus 4.6 支援** | 高階推理、複雜除錯、安全審計 |
+
+> **注意**：`max` 不會跨 session 保留，每次呼叫需明確傳入。
+> 也可透過環境變數 `CLAUDE_CODE_EFFORT_LEVEL=max` 設定（優先級最高）。
+> 在 prompt 中加入 `ultrathink` 關鍵字可觸發 `high` 等級（但非 `max`）。
 
 ## 輸出控制
 
@@ -97,7 +110,6 @@ claude -p --no-session-persistence "一次性查詢"
 
 | 選項 | 說明 |
 |------|------|
-| `--max-turns <n>` | 限制工具呼叫回合數（僅 `-p` 模式） |
 | `--max-budget-usd <n>` | 最大花費上限（美元），超過自動停止 |
 | `--permission-mode <mode>` | 權限模式：`default`、`plan`、`auto`、`bypassPermissions`、`dontAsk` |
 

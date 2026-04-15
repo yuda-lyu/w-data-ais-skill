@@ -30,12 +30,12 @@ CLI_CWD="/path/to/project" \
   node dispatch-cli/scripts/run_cli.mjs \
   gemini --approval-mode=yolo -p "你的任務描述"
 
-# 完整防護：超時 + 重試
-CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 CLI_CWD="/path/to/project" \
+# 完整防護：超時 + 重試 + 最強模型
+CLI_TIMEOUT_MS=300000 CLI_MAX_RETRIES=1 CLI_CWD="/path/to/project" \
   node dispatch-cli/scripts/run_cli.mjs \
-  gemini --approval-mode=yolo -p "你的任務描述"
+  gemini --approval-mode=yolo -m gemini-3.1-pro-preview -p "你的任務描述"
 
-# 指定模型
+# 指定穩定版模型
 CLI_TIMEOUT_MS=180000 CLI_CWD="/path/to/project" \
   node dispatch-cli/scripts/run_cli.mjs \
   gemini --approval-mode=yolo -m gemini-2.5-pro -p "你的任務描述"
@@ -70,23 +70,39 @@ if (result.ok) {
 
 ### Preview 系列（最新前沿）
 
-| 模型 ID | 說明 |
-|---------|------|
-| `gemini-3.1-pro-preview` | 最新旗艦，進階推理 + agentic/vibe coding 能力 |
-| `gemini-3.1-flash-lite-preview` | 高效能輕量 preview 版 |
+| 模型 ID | 別名 | 說明 |
+|---------|------|------|
+| `gemini-3.1-pro-preview` | `pro` | **最強旗艦**，進階推理 + agentic/vibe coding 能力 |
+| `gemini-3.1-flash-lite-preview` | — | 高效能輕量 preview 版 |
 
 ### Stable 系列（生產環境推薦）
 
-| 模型 ID | 說明 |
-|---------|------|
-| `gemini-2.5-pro` | 最強穩定版，複雜推理任務 |
-| `gemini-2.5-flash` | 最佳性價比，低延遲高吞吐 |
-| `gemini-2.5-flash-lite` | 最快速、最省成本 |
+| 模型 ID | 別名 | 說明 |
+|---------|------|------|
+| `gemini-2.5-pro` | — | 最強穩定版，複雜推理任務 |
+| `gemini-2.5-flash` | `flash` | 最佳性價比，低延遲高吞吐 |
+| `gemini-2.5-flash-lite` | `flash-lite` | 最快速、最省成本 |
 
 > ⚠️ 注意：`gemini-3-pro-preview`（v3.0）已於 2026-03-09 關閉。
 > `gemini-3.1-pro-preview`（v3.1）為不同版本，目前仍可使用。
 
-指定模型：`-m gemini-3.1-pro-preview`（不指定則使用 CLI 預設）
+### CLI 預設行為（Auto 模式）
+
+不指定 `-m` 時，CLI 使用 **Auto (Gemini 3)** 路由策略：
+
+| 任務複雜度 | 自動路由到 |
+|-----------|-----------|
+| 簡單任務 | Gemini 2.5 Flash |
+| 複雜任務 | Gemini 3 Pro |
+
+> Auto 模式**不會**自動選用 3.1 Pro Preview。若需最強模型，須顯式指定 `-m gemini-3.1-pro-preview`。
+
+### 思考模式（Thinking）
+
+Gemini 3.x / 2.5 系列模型內建推理能力，API 層面支援 `thinkingBudget` 參數（0~24576，-1 = 動態）。
+**但 Gemini CLI 截至撰寫時尚無 `--thinking-budget` CLI flag**（請以 `gemini --help` 確認最新支援），思考深度由模型自行判斷，無法透過命令列控制。
+
+指定模型：`-m gemini-3.1-pro-preview`（不指定則使用 Auto 路由）
 
 ### 各參數說明
 
@@ -111,7 +127,7 @@ if (result.ok) {
 
 | 環境變數 | 建議值 | 說明 |
 |----------|--------|------|
-| `CLI_TIMEOUT_MS` | `180000`～`300000` | Gemini 含工具執行時間，建議至少 3 分鐘 |
+| `CLI_TIMEOUT_MS` | `180000`～`300000` | Gemini 含工具執行時間，建議至少 3 分鐘；使用 3.1 Pro Preview 建議 300000 |
 | `CLI_CWD` | 專案絕對路徑 | **必要**，Gemini 依賴工作目錄定位專案 |
 | `CLI_VALIDATE` | `nonempty` | 確保有實際輸出 |
 | `CLI_MAX_RETRIES` | `1` | OAuth token 過期等暫時性錯誤可重試（含初始請求最多執行 2 次） |

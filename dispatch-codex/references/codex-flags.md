@@ -29,9 +29,45 @@ codex exec [OPTIONS] "task prompt"
 --config sandbox_workspace_write.network_access=true
 
 # 指定模型
---config model='"gpt-4o"'
+--config model='"gpt-5.4"'
+
+# 推理等級（預設使用最強 xhigh）
+--config model_reasoning_effort='"xhigh"'
+
+# 推理摘要輸出格式
+--config model_reasoning_summary='"concise"'
+
+# 回應詳細程度
+--config model_verbosity='"medium"'
 
 # 值以 TOML 格式解析；包含空格時需加引號
+```
+
+### 推理相關設定
+
+| 設定 | 可選值 | 說明 |
+|------|--------|------|
+| `model_reasoning_effort` | `minimal` / `low` / `medium` / `high` / `xhigh` | 推理深度，`xhigh` 為最強 |
+| `model_reasoning_summary` | `auto` / `concise` / `detailed` / `none` | 推理摘要輸出格式 |
+| `model_verbosity` | `low` / `medium` / `high` | 回應長度控制 |
+
+### --profile 命名設定檔
+
+```bash
+# 使用命名設定檔
+codex exec --profile deep "你的任務描述"
+```
+
+對應 `~/.codex/config.toml` 中的設定檔定義：
+
+```toml
+[profiles.deep]
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+
+[profiles.fast]
+model = "gpt-5.4-mini"
+model_reasoning_effort = "low"
 ```
 
 ## 對應的 config.toml 設定
@@ -40,6 +76,9 @@ codex exec [OPTIONS] "task prompt"
 
 ```toml
 sandbox_mode = "workspace-write"
+model_reasoning_effort = "xhigh"
+model_reasoning_summary = "concise"
+model_verbosity = "medium"
 
 [sandbox_workspace_write]
 network_access = true

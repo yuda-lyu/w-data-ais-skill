@@ -35,7 +35,7 @@ node fetch-tw-data-holiday/scripts/fetch_tw_data_holiday.mjs [YYYYMMDD] [outputP
 | 參數 | 必填 | 說明 |
 |------|------|------|
 | `YYYYMMDD` | 否 | 西元日期（8 碼），指定時會判定該日是否為假日 |
-| `outputPath` | 否 | 輸出 JSON 路徑，預設 `tw_holiday.json` |
+| `outputPath` | 否 | 輸出 JSON 路徑，預設 `tw_holiday_YYYYMMDD.json` |
 
 ### 範例
 

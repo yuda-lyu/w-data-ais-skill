@@ -47,7 +47,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 ## ⏰ 執行時機
 
-- **建議時間**：14:30 ~ 17:30（收盤後，法人資料更新後）
+- **建議時間**：15:00 ~ 17:30（法人買賣超資料每日 15:00 後更新，過早執行會取得空資料）
 - **資料來源**：證交所收盤資料、櫃買中心收盤資料、官方三大法人買賣超
 
 ## 📦 資料來源與抓取技能
@@ -57,7 +57,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 | 資料 | 抓取技能 | 說明 |
 |------|----------|------|
 | 開收盤價（上市） | `fetch-tw-data-stock` (TWSE) | 證交所股票收盤資料（上市） |
-| 開收盤價（上櫃） | `fetch-tw-data-stock` (TPEX) | 櫃買中心股票收盤資料（上櫃；若 TWSE 查無資料則改用） |
+| 開收盤價（上櫃） | `fetch-tw-data-stock` (TPEX) | 櫃買中心股票收盤資料（上櫃；與 TWSE 並行抓取） |
 | 法人買賣超（逐檔） | `fetch-tw-data-institutional` | 以 TWSE + TPEX 官方資料抓指定日期、指定代碼三大法人買賣超（外資/投信/自營/合計） |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
@@ -129,7 +129,7 @@ run_post_market.mjs
 
 **容錯機制**：任一抓取步驟失敗時，錯誤自動記錄至 `error_log.jsonl`，**不中斷整體流程**，繼續執行下一步。報告產出失敗則 exit 2。
 
-> ⚠️ 腳本執行時間約 **1~3 分鐘**。外層 exec 呼叫時請設定 **timeout ≥ 300000 ms（5 分鐘）**，避免 SIGTERM 中斷。
+> ⚠️ 腳本執行時間約 **1~3 分鐘**（最差情況 4 步各 60s + 報告 300s ≈ 9 分鐘）。外層 exec 呼叫時請設定 **timeout ≥ 600000 ms（10 分鐘）**，避免 SIGTERM 中斷。
 
 **完成訊號**：腳本成功產出報告後，會在 stdout 輸出 `POST_MARKET_COMPLETE=true`，接著立即 `process.exit(0)`。外層呼叫方可偵測此字串判斷執行成功，無需等待其他 I/O。
 
@@ -153,7 +153,7 @@ w-data-news/tw-stock-post-market/
     └── raw/
         ├── trading_day.json        # 交易日檢查結果
         ├── prices_twse.json        # fetch-tw-data-stock (TWSE) all 全市場輸出（MI_INDEX 格式）
-        ├── prices_tpex.json        # fetch-tw-data-stock (TPEX) all 全市場輸出（tables 格式）
+        ├── prices_tpex.json        # fetch-tw-data-stock (TPEX) all 全市場輸出（{ source, date, count, data } 格式）
         ├── institutional_twse.json # fetch-tw-data-institutional TWSE T86 輸出
         └── institutional_tpex.json # fetch-tw-data-institutional TPEX 3Insti 輸出
 ```
@@ -349,7 +349,7 @@ node tw-stock-post-market/scripts/run_post_market.mjs 20260316
 
 ```bash
 # 1. 交易日檢查（須先建立輸出目錄）
-mkdir -p ./w-data-news/tw-stock-post-market/YYYYMMDD/raw
+mkdir -p ./w-data-news/tw-stock-post-market/YYYYMMDD/raw   # Unix/Git Bash；PowerShell 請用 New-Item -ItemType Directory -Force -Path .\w-data-news\tw-stock-post-market\YYYYMMDD\raw
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-news/tw-stock-post-market/YYYYMMDD/raw/trading_day.json
 
 # 2. 安裝依賴

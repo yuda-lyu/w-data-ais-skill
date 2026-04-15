@@ -25,34 +25,31 @@ description: This skill should be used when the user asks to "run claude as an a
 ### 命令列
 
 ```bash
-# 基本呼叫
+# 基本呼叫（預設 Opus 4.6 + max 推理深度）
 node dispatch-cli/scripts/run_cli.mjs \
   claude -p --dangerously-skip-permissions \
+  --model claude-opus-4-6 --effort max \
   "你的任務描述"
 
 # 完整防護：超時 + JSON 驗證 + 回合限制 + 重試
 CLI_TIMEOUT_MS=120000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 \
   node dispatch-cli/scripts/run_cli.mjs \
   claude -p --dangerously-skip-permissions \
-  --output-format json --max-turns 10 \
+  --model claude-opus-4-6 --effort max \
+  --output-format json \
   "你的任務描述"
 
 # 從檔案傳入 prompt（取代 shell pipe，避免 stdin 問題）
 CLI_TIMEOUT_MS=180000 CLI_INPUT_FILE=prompt.txt \
   node dispatch-cli/scripts/run_cli.mjs \
-  claude -p --dangerously-skip-permissions --output-format json
-
-# 指定模型
-CLI_TIMEOUT_MS=120000 \
-  node dispatch-cli/scripts/run_cli.mjs \
   claude -p --dangerously-skip-permissions \
-  --model claude-opus-4-6 \
-  "你的任務描述"
+  --model claude-opus-4-6 --effort max \
+  --output-format json
 
 # 只核准特定工具（更安全的替代方案）
 node dispatch-cli/scripts/run_cli.mjs \
   claude -p --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
-  --model claude-opus-4-6 \
+  --model claude-opus-4-6 --effort max \
   "你的任務描述"
 ```
 
@@ -65,8 +62,8 @@ import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
 const result = await runCli('claude', [
     '-p', '--dangerously-skip-permissions',
+    '--model', 'claude-opus-4-6', '--effort', 'max',
     '--output-format', 'json',
-    '--max-turns', '10',
     '請分析這段程式碼的安全性問題',
 ], {
     timeoutMs: 120_000,
@@ -91,6 +88,20 @@ if (result.ok) {
 
 指定模型：`--model claude-opus-4-6` 或 `--model opus`（不指定即使用帳號預設模型）
 
+## 推理深度（effort）
+
+**預設使用 `--effort max`**（最深推理，僅 Opus 4.6 支援）。
+
+| 等級 | 說明 |
+|------|------|
+| `low` | 簡單查詢，快速便宜 |
+| `medium` | 日常編碼任務 |
+| `high` | 除錯、架構分析 |
+| **`max`** | **最深推理，無 token 花費限制（預設）** |
+
+> `max` 不會跨 session 保留，每次呼叫需明確傳入 `--effort max`。
+> 若需降低推理深度以節省成本，可改為 `--effort high` 或 `--effort medium`。
+
 ### 各參數說明
 
 | 參數 | 必要 | 說明 |
@@ -98,8 +109,8 @@ if (result.ok) {
 | `-p` / `--print` | ✅ | 非互動/headless 模式，輸出回應後退出 |
 | `--dangerously-skip-permissions` | ✅ | 跳過所有權限確認，自動核准全部操作（僅建議用於受控環境） |
 | `--model <model>` | 建議 | 指定模型，可用別名（`opus`/`sonnet`/`haiku`）或完整 ID |
+| `--effort <level>` | 建議 | 推理深度：`low`/`medium`/`high`/`max`（預設 `max`，僅 Opus 4.6 支援 `max`） |
 | `--output-format <format>` | 建議 | 輸出格式：`text`（預設）、`json`、`stream-json` |
-| `--max-turns <n>` | 建議 | 限制工具呼叫回合數，防止無限迴圈 |
 | `--max-budget-usd <n>` | ❌ 可選 | 設定最大花費上限（美元），超過自動停止 |
 | `--verbose` | ❌ 可選 | 顯示完整的逐回合輸出 |
 
@@ -128,7 +139,7 @@ if (result.ok) {
 | 卡住等待權限確認 | 未使用自動核准旗標 | 加上 `--dangerously-skip-permissions` 或 `--allowedTools` |
 | 模型找不到 | 模型 ID 或別名拼寫錯誤 | 使用 `opus`、`sonnet`、`haiku` 別名或完整 ID |
 | 認證失敗 | 未登入或 token 過期 | 執行 `claude auth` 檢查認證狀態 |
-| 回應被截斷 | 超過預設回合數 | 加上 `--max-turns 30` 提高上限 |
+| 回應被截斷 | 任務過於複雜導致中途停止 | 加上 `--max-budget-usd 10.00` 提高花費上限 |
 | 花費超預期 | 任務過於複雜 | 加上 `--max-budget-usd 5.00` 設定上限 |
 | WebFetch hang | pipe 模式下 WebFetch 約 30-50% crash | 調度層自行抓取網頁，不依賴 Claude 的 WebFetch |
 
@@ -153,7 +164,8 @@ prompt: "... 寫入 result_dispatcher.txt"
 
 # Claude agent — 透過 dispatch-cli（背景執行）
 command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
-         claude -p --dangerously-skip-permissions --model claude-opus-4-6 \
+         claude -p --dangerously-skip-permissions \
+         --model claude-opus-4-6 --effort max \
          "... 寫入 result_claude.txt"
 ```
 
