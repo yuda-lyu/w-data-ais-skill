@@ -185,8 +185,71 @@ export function inspectHtml(html) {
   return { pass: true, type: DETECT_PASS, message: "ok" };
 }
 
+// ---------- 網站專用解析器白名單 ----------
+// Readability 是通用解析器，對某些網站結構無法正確提取內容。
+// 白名單內的網域會使用指定的解析器取代 Readability。
+// 每個解析器簽名：(html, url) => { success, title, content, contentLength } | { success: false, reason, message }
+
+const CUSTOM_PARSERS = [
+  { pattern: /^https?:\/\/(?:www\.)?gelonghui\.com\//, parse: parseGelonghui },
+];
+
+function findCustomParser(url) {
+  for (const entry of CUSTOM_PARSERS) {
+    if (entry.pattern.test(url)) return entry.parse;
+  }
+  return null;
+}
+
+// --- 格隆匯（快訊 / 文章）：從 Nuxt SSR state 提取結構化資料 ---
+function parseGelonghui(html, url) {
+  // 格隆匯使用 Nuxt.js，內容藏在 window.__NUXT__ 中。
+  // 不同頁面類型使用不同的物件名稱：
+  //   /live/ 快訊頁 → dtbDetail.content（純文字）
+  //   /p/    文章頁 → articleDetail.content（含 HTML 標籤）
+  // 物件內含巢狀 {}（count, statistic 等），不能用 [^}] 匹配。
+
+  // 依序嘗試各欄位名稱
+  const fields = ["dtbDetail", "articleDetail"];
+  for (const field of fields) {
+    const re = new RegExp(field + ":\\{[\\s\\S]*?(?:,|\\{)content:\"((?:[^\"\\\\]|\\\\.)*)\"");
+    const match = html.match(re);
+    if (!match) continue;
+
+    const raw = match[1]
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+      .replace(/\\n/g, "\n")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\");
+
+    // 移除 HTML 標籤取純文字
+    const content = raw.replace(/<[^>]+>/g, "").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
+    const title = extractHtmlTitle(html);
+
+    if (content.length < MIN_CONTENT) {
+      return { success: false, reason: "empty-content", message: "content too short (" + content.length + " chars)" };
+    }
+    return { success: true, title, content, contentLength: content.length };
+  }
+
+  // __NUXT__ 中找不到已知結構 → 回報失敗
+  return { success: false, reason: "custom-parser-miss", message: "gelonghui: no content found in __NUXT__ state" };
+}
+
+function extractHtmlTitle(html) {
+  return html.match(/<title>([^<]*)/i)?.[1]?.replace(/-[^-]*$/, "")?.trim() || "";
+}
+
 // ---------- Readability 解析 ----------
 function parseArticle(html, url) {
+  // 優先使用白名單專用解析器
+  const customParser = findCustomParser(url);
+  if (customParser) {
+    const result = customParser(html, url);
+    // 專用解析器成功 → 直接回傳；失敗 → 不 fallback Readability（該網站結構不適用）
+    return result;
+  }
+
   const doc = new JSDOM(html, { url });
   const article = new Readability(doc.window.document).parse();
   const content = article?.textContent?.trim() || "";
