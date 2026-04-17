@@ -27,6 +27,7 @@ const RSS_SOURCES = [
   { from: "橘鴉Juya",   rss: "https://www.youtube.com/feeds/videos.xml?channel_id=UCIDll3SRcbHwwcXbrwvBZNw" },
   { from: "最佳拍檔",    rss: "https://www.youtube.com/feeds/videos.xml?channel_id=UCGWYKICLOE8Wxy7q3eYXmPA" },
   { from: "GitCovery",  rss: "https://www.youtube.com/feeds/videos.xml?channel_id=UCBnIBXjWVKnkxDOwChuBHFA" },
+  { from: "唐国梁Tommy", rss: "https://www.youtube.com/feeds/videos.xml?channel_id=UCVezb06mOvkXDwB8ibaOlYQ" },
   { from: "奇客Solidot", rss: "https://www.solidot.org/index.rss" },
   { from: "36氪",       rss: "https://36kr.com/feed" },
   { from: "少数派",      rss: "https://sspai.com/feed" },
