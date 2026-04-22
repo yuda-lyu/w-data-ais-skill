@@ -55,7 +55,7 @@ npm install playwright
 所需套件：`@askjo/camofox-browser`
 
 ```bash
-node -e "require('@askjo/camofox-browser'); console.log('camofox OK')"
+node -e "import('@askjo/camofox-browser').then(() => console.log('camofox OK'))"
 ```
 
 若顯示錯誤則安裝：
