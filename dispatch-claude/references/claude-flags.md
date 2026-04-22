@@ -26,9 +26,18 @@ Claude CLI 不使用子命令進入 headless 模式，而是透過 `-p` / `--pri
 
 | 選項 | 縮寫 | 說明 |
 |------|------|------|
-| `--model` | — | 指定模型：別名（`opus`/`sonnet`/`haiku`）或完整 ID（`claude-opus-4-6`） |
-| `--effort` | — | 自適應推理深度：`low`、`medium`、`high`、`max`（見下方說明） |
+| `--model` | — | 指定模型：別名（`opus`/`sonnet`/`haiku`）或完整 ID（`claude-opus-4-7`） |
+| `--effort` | — | 自適應推理深度：`low`、`medium`、`high`、`xhigh`、`max`（見下方說明） |
 | `--fallback-model` | — | 主模型過載時的備援模型（僅 `-p` 模式） |
+
+### 可用模型
+
+| 模型 ID | 別名 | 說明 |
+|---------|------|------|
+| `claude-opus-4-7` | `opus` | 最新旗艦（2026-04 起），1M token context |
+| `claude-opus-4-6` | — | 上一代 Opus |
+| `claude-sonnet-4-6` | `sonnet` | 平衡性能與速度 |
+| `claude-haiku-4-5` | `haiku` | 最快速、最低成本 |
 
 ### `--effort` 推理深度說明
 
@@ -37,11 +46,13 @@ Claude CLI 不使用子命令進入 headless 模式，而是透過 `-p` / `--pri
 | `low` | 最低推理，快速便宜 | 簡單查詢、格式轉換 |
 | `medium` | 中等推理（Pro/Max 訂閱預設） | 日常編碼任務 |
 | `high` | 較深推理（API/Team/Enterprise 預設） | 除錯、架構分析 |
-| `max` | **最深推理，無 token 花費限制，僅 Opus 4.6 支援** | 高階推理、複雜除錯、安全審計 |
+| `xhigh` | **延伸推理（v2.1.111+，僅 Opus 4.7 支援）** | 長時程 agentic、大型編碼任務；官方建議此為多數工作起始等級 |
+| `max` | **絕對最深推理，無 token 花費限制；Opus 4.6 / 4.7 支援** | 高階推理、複雜除錯、安全審計、前沿問題 |
 
 > **注意**：`max` 不會跨 session 保留，每次呼叫需明確傳入。
 > 也可透過環境變數 `CLAUDE_CODE_EFFORT_LEVEL=max` 設定（優先級最高）。
-> 在 prompt 中加入 `ultrathink` 關鍵字可觸發 `high` 等級（但非 `max`）。
+> 在 prompt 中加入 `ultrathink` 關鍵字可觸發 `high` 等級（但非 `xhigh`/`max`）。
+> 非 Opus 4.7 模型傳入 `xhigh` 會退回到 `high`。
 
 ## 輸出控制
 
@@ -111,14 +122,16 @@ claude -p --no-session-persistence "一次性查詢"
 | 選項 | 說明 |
 |------|------|
 | `--max-budget-usd <n>` | 最大花費上限（美元），超過自動停止 |
-| `--permission-mode <mode>` | 權限模式：`default`、`plan`、`auto`、`bypassPermissions`、`dontAsk` |
+| `--max-turns <n>` | 限制 agentic 回合數上限（`-p` 模式） |
+| `--permission-mode <mode>` | 權限模式：`default`、`plan`、`auto`、`bypassPermissions`、`dontAsk`（`--enable-auto-mode` 已於 v2.1.111 移除，請改用 `--permission-mode auto`） |
 
 ## 上下文與環境
 
 | 選項 | 說明 |
 |------|------|
 | `--add-dir <path>` | 允許存取額外目錄（可多次指定） |
-| `--bare` | 精簡模式：跳過 hooks/skills/plugins/MCP/auto-memory/CLAUDE.md |
+| `--bare` | 精簡模式：跳過 hooks/skills/plugins/MCP/auto-memory/CLAUDE.md（v2.1.81+） |
+| `--exclude-dynamic-system-prompt-sections` | 將動態系統提示段落移至首個 user message，提升跨用戶 prompt cache 命中率（v2.1.98+） |
 | `--mcp-config <path>` | 載入 MCP 伺服器設定（JSON 檔案或字串） |
 | `--strict-mcp-config` | 僅使用 `--mcp-config` 指定的 MCP，忽略其他 |
 | `--plugin-dir <path>` | 載入指定目錄的 plugins |

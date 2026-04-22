@@ -77,26 +77,29 @@ if (result.ok) {
 
 | 模型 ID | 說明 |
 |---------|------|
-| `gpt-5.4` | **預設模型**，旗艦級專業工作用途 |
+| `gpt-5.4` | **預設模型**，最新旗艦（"Latest frontier agentic coding model"），272K 上下文 / 1M 最大 |
 | `gpt-5.4-mini` | 輕量版，速度更快、成本更低 |
 | `gpt-5.3-codex` | 專為程式碼優化的版本 |
-| `gpt-5.3-codex-spark` | Codex 精簡版 |
+| `gpt-5.2` | 舊版，可向後相容 |
 
 指定模型：`-m gpt-5.4`（不指定即使用預設 `gpt-5.4`）
+
+> 模型型錄來源：[codex-rs/models-manager/models.json](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json)。
 
 ## 推理等級（model_reasoning_effort）
 
 | 等級 | 說明 |
 |------|------|
-| `xhigh` | **預設**，最強推理深度，適合複雜任務 |
+| `xhigh` | **預設，目前 Codex CLI 支援的最強推理深度**，適合複雜任務 |
 | `high` | 複雜除錯、架構決策、程式碼審查 |
 | `medium` | Codex 原廠預設，平衡速度與品質 |
 | `low` | 簡單任務，速度優先 |
 | `minimal` | 最快，適合提取、路由、簡單轉換 |
+| `none` | 完全不進行推理 |
 
 指定推理等級：`--config model_reasoning_effort='"xhigh"'`
 
-> 本 skill 預設使用 `xhigh` 最強推理。若需加速可降級為 `high` 或 `medium`。
+> 本 skill 預設使用 `xhigh` 最強推理。Codex CLI 的 `ReasoningEffort` enum 目前**沒有** `max` 等級，`xhigh` 即為最深。若需加速可降級為 `high` 或 `medium`。
 
 ### 各參數說明
 
@@ -107,6 +110,22 @@ if (result.ok) {
 | `--skip-git-repo-check` | ✅ | 允許在非 git repo 目錄下執行（否則報錯 "Not inside a trusted directory"） |
 | `--config sandbox_workspace_write.network_access=true` | ✅ | 啟用沙箱網路，讓 npm install / pip install 等可以正常使用 |
 | `--config model_reasoning_effort='"xhigh"'` | ✅ | 啟用最強推理模式（預設 `xhigh`） |
+
+### 進階選項（近期新增旗標）
+
+| 參數 | 說明 |
+|------|------|
+| `--yolo` | `--dangerously-bypass-approvals-and-sandbox` 的別名（與 `--full-auto` 互斥，危險操作用） |
+| `--ephemeral` | 不落地 session，用於暫時性一次性任務 |
+| `--ignore-user-config` | 不載入 `$CODEX_HOME/config.toml`（認證仍會讀取） |
+| `--ignore-rules` | 跳過 user/project 的 execpolicy 規則 |
+| `--output-last-message <FILE>` / `-o` | 將最終訊息寫入檔案 |
+| `--output-schema <FILE>` | 強制回應符合 JSON Schema |
+| `--profile <NAME>` / `-p` | 載入 `~/.codex/config.toml` 中的命名 profile |
+| `--add-dir <DIR>` | 額外可寫入目錄（可重複） |
+| `--json`（推薦）/ `--experimental-json`（舊別名） | 輸出 JSONL 事件流 |
+| `codex exec resume --last` | 延續最近一次 session |
+| `codex exec review` | 程式碼審查子命令（搭配 `--base`、`--commit`、`--uncommitted`） |
 
 ## 常見錯誤與處理
 

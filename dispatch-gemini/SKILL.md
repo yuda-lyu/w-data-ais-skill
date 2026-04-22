@@ -25,17 +25,18 @@ description: This skill should be used when the user asks to "run gemini as an a
 ### 命令列
 
 ```bash
-# 基本呼叫（CLI_CWD 取代 cd，更安全）
+# 基本呼叫（CLI_CWD 取代 cd，更安全；預設最強 preview 模型）
 CLI_CWD="/path/to/project" \
-  node dispatch-cli/scripts/run_cli.mjs \
-  gemini --approval-mode=yolo -p "你的任務描述"
-
-# 完整防護：超時 + 重試 + 最強模型
-CLI_TIMEOUT_MS=300000 CLI_MAX_RETRIES=1 CLI_CWD="/path/to/project" \
   node dispatch-cli/scripts/run_cli.mjs \
   gemini --approval-mode=yolo -m gemini-3.1-pro-preview -p "你的任務描述"
 
-# 指定穩定版模型
+# 完整防護：超時 + 重試 + 最強模型 + JSON 輸出
+CLI_TIMEOUT_MS=300000 CLI_MAX_RETRIES=1 CLI_CWD="/path/to/project" \
+  node dispatch-cli/scripts/run_cli.mjs \
+  gemini --approval-mode=yolo -m gemini-3.1-pro-preview \
+  -o json -p "你的任務描述"
+
+# 指定穩定版模型（無 preview 存取權時的 fallback）
 CLI_TIMEOUT_MS=180000 CLI_CWD="/path/to/project" \
   node dispatch-cli/scripts/run_cli.mjs \
   gemini --approval-mode=yolo -m gemini-2.5-pro -p "你的任務描述"
@@ -53,6 +54,7 @@ import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
 const result = await runCli('gemini', [
     '--approval-mode=yolo',
+    '-m', 'gemini-3.1-pro-preview',
     '-p', '分析此專案架構並產出報告',
 ], {
     timeoutMs: 180_000,
@@ -100,20 +102,32 @@ if (result.ok) {
 ### 思考模式（Thinking）
 
 Gemini 3.x / 2.5 系列模型內建推理能力，API 層面支援 `thinkingBudget` 參數（0~24576，-1 = 動態）。
-**但 Gemini CLI 截至撰寫時尚無 `--thinking-budget` CLI flag**（請以 `gemini --help` 確認最新支援），思考深度由模型自行判斷，無法透過命令列控制。
+**Gemini CLI 目前仍無 `--thinking-budget` / `--effort` 類 CLI flag**（已向原始碼 `packages/cli/src/config/config.ts` 確認，2026-04 最新版亦無）。思考深度由模型自行判斷，無法透過命令列控制；內部上限由 `DEFAULT_THINKING_MODE = 8192` 控管，避免 runaway thinking。
 
-指定模型：`-m gemini-3.1-pro-preview`（不指定則使用 Auto 路由）
+指定模型：`-m gemini-3.1-pro-preview`（不指定則使用 Auto 路由，Auto **不會**自動選用 3.1 Pro Preview）
 
 ### 各參數說明
 
 | 參數 | 必要 | 說明 |
 |------|------|------|
 | `CLI_CWD`（dispatch-cli） | ✅ | Gemini 以當前目錄為工作路徑，透過 dispatch-cli 的 `cwd` 設定 |
-| `--approval-mode=yolo` | ✅ | 自動核准所有工具操作，不需人工確認（`--yolo` 為舊版別名，建議改用此參數） |
+| `--approval-mode=yolo` | ✅ | 自動核准所有工具操作，不需人工確認 |
+| `-y` / `--yolo` | 替代 | 穩定快速鍵，等同 `--approval-mode=yolo`（與 `--approval-mode` 互斥，兩者只能擇一） |
 | `-p "prompt"` | ✅ | 非互動/headless 模式，直接執行單一任務後退出 |
-| `--sandbox` | ❌ 避免 | 會限制網路存取，導致 npm install 失敗 |
+| `-m <model>` | 建議 | 顯式指定模型以確保使用最強（未指定時走 Auto 路由） |
+| `-o <format>` | 可選 | `text`（預設）/ `json` / `stream-json`（JSONL 事件流） |
+| `--sandbox` / `-s` | ❌ 避免 | 會限制網路存取，導致 npm install 失敗 |
 
 > **與 Codex 的差異**：Gemini 預設可連網，不需額外網路旗標；工作目錄靠 `CLI_CWD` / `cwd` 設定。
+
+### Headless 退出碼
+
+| 退出碼 | 意義 |
+|--------|------|
+| `0` | 成功 |
+| `1` | 一般 / API 錯誤 |
+| `42` | 輸入錯誤 |
+| `53` | 超過回合上限 |
 
 ## 常見錯誤與處理
 
@@ -121,7 +135,7 @@ Gemini 3.x / 2.5 系列模型內建推理能力，API 層面支援 `thinkingBudg
 |----------|------|------|
 | npm install 失敗 | 誤加了 `--sandbox` | 移除 `--sandbox` |
 | 任務在錯誤目錄執行 | 未設定 `CLI_CWD` / `cwd` | 設定 `CLI_CWD` 環境變數或 `cwd` 選項 |
-| 等待人工確認而卡住 | 缺少自動核准參數 | 加上 `--approval-mode=yolo`（`--yolo` 亦可但為舊版別名） |
+| 等待人工確認而卡住 | 缺少自動核准參數 | 加上 `--approval-mode=yolo` 或 `--yolo`（兩者擇一，不可同時使用） |
 
 ## dispatch-cli 建議參數
 

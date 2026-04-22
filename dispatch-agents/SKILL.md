@@ -23,13 +23,19 @@ Claude、Codex、Gemini 三個 agent 平行執行，全部使用**最強模型 +
 
 | Agent | 最強模型 | 最強思考深度 | 自動核准旗標 |
 |-------|---------|-------------|-------------|
-| **Claude** | `claude-opus-4-6` | `--effort max` | `--dangerously-skip-permissions` |
-| **Codex** | `gpt-5.4` | `--config model_reasoning_effort='"xhigh"'` | `--full-auto` |
-| **Gemini** | `gemini-3.1-pro-preview` | （CLI 暫無 flag，模型自行決定） | `--approval-mode=yolo` |
+| **Claude** | `claude-opus-4-7`（2026-04 新旗艦，1M context） | `--effort max`（絕對最深，無 token 上限） | `--dangerously-skip-permissions` |
+| **Codex** | `gpt-5.4`（`models.json` priority=2 旗艦） | `--config model_reasoning_effort='"xhigh"'`（**Codex 無 `max` 等級，`xhigh` 即最深**） | `--full-auto` |
+| **Gemini** | `gemini-3.1-pro-preview` | **CLI 目前無 thinking flag**（內部由 `DEFAULT_THINKING_MODE=8192` 控管，模型自行決定） | `--approval-mode=yolo` |
 
-> **Fallback 規則**：若 preview 模型不可用（429 / 無權限），退回穩定版：
+> **各 agent 思考深度的差異**：
+> - **Claude**：`max`（最深）＞ `xhigh`（Opus 4.7 專屬中間級，v2.1.111+）＞ `high` ＞ `medium` ＞ `low`
+> - **Codex**：`xhigh`（最深）＞ `high` ＞ `medium` ＞ `low` ＞ `minimal` ＞ `none`（無 `max` 等級）
+> - **Gemini**：無公開的深度控制選項
+>
+> **Fallback 規則**：若模型不可用（429 / 無權限 / 帳戶未開通），退回：
+> - Claude：`claude-opus-4-7` → `claude-opus-4-6`（Opus 4.6 仍支援 `--effort max`）
+> - Codex：`gpt-5.4` → `gpt-5.3-codex` 或 `gpt-5.2`（皆支援 `xhigh`）
 > - Gemini：`gemini-3.1-pro-preview` → `gemini-2.5-pro`
-> - Codex / Claude：穩定版即為預設，通常無需 fallback
 
 ## 執行流程
 
@@ -65,7 +71,7 @@ Claude、Codex、Gemini 三個 agent 平行執行，全部使用**最強模型 +
 CLI_TIMEOUT_MS=3600000 CLI_MAX_RETRIES=1 \
   node dispatch-cli/scripts/run_cli.mjs \
   claude -p --dangerously-skip-permissions \
-  --model claude-opus-4-6 --effort max \
+  --model claude-opus-4-7 --effort max \
   "【任務】{使用者的任務描述}
 
 請將完整結果寫入檔案: {輸出目錄}/result_claude.txt"
@@ -158,7 +164,7 @@ const outDir = 'd:/tmp/agents';
 const [claude, codex, gemini] = await Promise.all([
     runCli('claude', [
         '-p', '--dangerously-skip-permissions',
-        '--model', 'claude-opus-4-6', '--effort', 'max',
+        '--model', 'claude-opus-4-7', '--effort', 'max',
         `【任務】${task}\n\n請將完整結果寫入檔案: ${outDir}/result_claude.txt`,
     ], { timeoutMs: 3_600_000, maxRetries: 1 }),
 

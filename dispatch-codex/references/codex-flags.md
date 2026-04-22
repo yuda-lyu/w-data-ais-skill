@@ -1,7 +1,15 @@
 # Codex CLI 旗標完整參考
 
-來源：https://developers.openai.com/codex/config-advanced
-來源：https://developers.openai.com/codex/noninteractive
+來源（官方文件）：
+- https://developers.openai.com/codex/config-advanced
+- https://developers.openai.com/codex/noninteractive
+- https://developers.openai.com/codex/config-reference
+
+來源（原始碼確認，`rust-v0.123.0-alpha.7`，2026-04-21）：
+- `codex-rs/exec/src/cli.rs`
+- `codex-rs/utils/cli/src/shared_options.rs`
+- `codex-rs/protocol/src/openai_models.rs`
+- `codex-rs/models-manager/models.json`
 
 ## codex exec 子命令
 
@@ -15,12 +23,24 @@ codex exec [OPTIONS] "task prompt"
 
 | 選項 | 說明 |
 |------|------|
-| `--full-auto` | 自動核准所有操作，不需人工確認 |
+| `-m, --model <MODEL>` | 指定模型（例：`gpt-5.4`） |
+| `--full-auto` | 自動核准所有操作，不需人工確認（沙箱仍作用） |
+| `--dangerously-bypass-approvals-and-sandbox` / `--yolo` | 跳過所有核准且停用沙箱（與 `--full-auto` 互斥；危險） |
+| `-s, --sandbox <MODE>` | 沙箱模式：`read-only` / `workspace-write` / `danger-full-access` |
 | `--skip-git-repo-check` | 跳過 git repo 信任目錄檢查 |
-| `--json` | 以 JSONL 格式輸出事件流，適合 script 解析 |
+| `--json` | 以 JSONL 格式輸出事件流，適合 script 解析（舊名 `--experimental-json` 仍為別名） |
 | `--ephemeral` | 不儲存 session 到磁碟，適合暫時性任務 |
-| `--output-schema ./schema.json` | 強制最終回應符合 JSON Schema |
-| `--sandbox danger-full-access` | 完全開放沙箱（受控環境使用） |
+| `--ignore-user-config` | 不載入 `$CODEX_HOME/config.toml`（認證仍會讀取） |
+| `--ignore-rules` | 跳過 user/project 的 execpolicy 規則 |
+| `-o, --output-last-message <FILE>` | 將最終訊息寫入檔案 |
+| `--output-schema <FILE>` | 強制最終回應符合 JSON Schema |
+| `-C, --cd <DIR>` | 指定工作目錄 |
+| `--add-dir <DIR>` | 額外可寫入目錄（可重複） |
+| `-i, --image <FILE>` | 附加圖片（可重複或逗號分隔） |
+| `-p, --profile <NAME>` | 載入 `~/.codex/config.toml` 中的 profile |
+| `-c, --config <key=value>` | 覆蓋任意設定（可重複；RHS 以 TOML 解析，失敗退為字串） |
+| `--oss` / `--local-provider <lmstudio\|ollama>` | 使用本地模型 |
+| `--color <always\|never\|auto>` | 顏色輸出控制 |
 
 ### --config 旗標（點記法覆蓋設定）
 
@@ -47,7 +67,8 @@ codex exec [OPTIONS] "task prompt"
 
 | 設定 | 可選值 | 說明 |
 |------|--------|------|
-| `model_reasoning_effort` | `minimal` / `low` / `medium` / `high` / `xhigh` | 推理深度，`xhigh` 為最強 |
+| `model_reasoning_effort` | `none` / `minimal` / `low` / `medium` / `high` / `xhigh` | 推理深度，`xhigh` 為最強（目前**沒有** `max` 等級） |
+| `plan_mode_reasoning_effort` | 同上 | Plan mode 預設推理深度 |
 | `model_reasoning_summary` | `auto` / `concise` / `detailed` / `none` | 推理摘要輸出格式 |
 | `model_verbosity` | `low` / `medium` / `high` | 回應長度控制 |
 
@@ -84,7 +105,7 @@ model_verbosity = "medium"
 network_access = true
 ```
 
-## 多 agent 情境中的 Resume 功能
+## 多 agent 情境中的 Resume / Review 功能
 
 ```bash
 # 繼續上次 session
@@ -92,4 +113,29 @@ codex exec resume --last "繼續之前的任務"
 
 # 以 session ID 繼續
 codex exec resume <SESSION_ID> "追加指令"
+
+# 程式碼審查子命令
+codex exec review --base main "審查相對 main 的變更"
+codex exec review --commit <SHA>
+codex exec review --uncommitted
 ```
+
+## 可用模型（models.json 型錄）
+
+| 模型 ID | 說明 |
+|---------|------|
+| `gpt-5.4` | 最新旗艦（priority=2，預設） |
+| `gpt-5.4-mini` | 輕量版 |
+| `gpt-5.3-codex` | 程式碼優化 |
+| `gpt-5.2` | 舊版 |
+
+> 型錄來源：[codex-rs/models-manager/models.json](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json)
+> 注意：`gpt-5.1-codex-max` 只保留為舊版遷移提示用常數，已非有效型錄項目。
+
+## 已棄用／更名
+
+| 舊名 | 現況 | 建議 |
+|------|------|------|
+| `--experimental-json` | 仍為別名 | 改用 `--json` |
+| `experimental_instructions_file`（config） | 已棄用，被忽略 | 改用 `model_instructions_file` |
+| `--enable-auto-mode`（舊 Codex）／ 硬編碼 model presets | 已從原始碼移除 | 使用型錄檔 `models.json` 與 `--profile` |
