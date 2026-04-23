@@ -3,10 +3,10 @@
 // 輸出欄位：{ url, time, title, description, from, type }（type 固定為 "news-ai"）
 // 依賴技能：fetch-rss、fetch-ai-news-aggregator、fetch-hacker-news（動態 import，啟動時偵測路徑是否存在）
 
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
-const __dirname = decodeURIComponent(new URL('.', import.meta.url).pathname).replace(/^\/([A-Za-z]:)/, '$1');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillsDir = path.resolve(__dirname, '..', '..');
 
 // ---------- 動態載入相依技能 ----------

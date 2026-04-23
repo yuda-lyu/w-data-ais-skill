@@ -3,16 +3,16 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（25 個）
+## 技能總覽（28 個）
 
 | 分類 | 技能數 |
 |------|:------:|
 | [開發工作流](#開發工作流類) | 1 |
-| [前端設計](#前端設計類) | 1 |
+| [前端設計](#前端設計類) | 2 |
 | [綜合分析](#綜合分析類) | 2 |
-| [Multi-Agent 協作](#multi-agent-協作類) | 5 |
+| [Multi-Agent 協作](#multi-agent-協作類) | 6 |
 | [網頁抓取](#網頁抓取類) | 1 |
-| [台股數據抓取](#台股數據抓取類) | 4 |
+| [台股數據抓取](#台股數據抓取類) | 5 |
 | [台股新聞抓取](#台股新聞抓取類) | 4 |
 | [AI / 科技新聞](#ai--科技新聞類) | 4 |
 | [交易日檢查](#交易日檢查) | 1 |
@@ -50,10 +50,12 @@
 
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
-| `role-design-web` | 將 Agent 定位為設計工程師，以 HTML/CSS/JS + React / Vue 3 / Vue 2 打造網頁、登陸頁、儀表板、互動原型、HTML 簡報、動畫示範、UI mockup、資料視覺化等視覺化產物 | 無（純角色／規範技能，CDN 載入各框架） |
+| `role-design-web-for-prototype` | 將 Agent 定位為設計工程師，以 HTML/CSS/JS + React / Vue 3 / Vue 2 打造網頁、登陸頁、儀表板、互動原型、HTML 簡報、動畫示範、UI mockup、資料視覺化等視覺化產物 | 無（純角色／規範技能，CDN 載入各框架） |
+| `role-design-web-for-spec` | 在 `role-design-web-for-prototype` 的基礎上加法擴充四項硬性要求：研究前置（Persona / Journey）、WCAG AA 無障礙合規、量化驗收指標、亮／暗／跟隨系統三段式主題標配 | 無（純角色／規範技能，CDN 載入各框架） |
 
 - 預設 React 18 + Babel inline JSX，亦支援 Vue 3 Composition API 與 Vue 2 Options API，各框架硬規則與樣板分列於 `references/`
 - 涵蓋裝置外框、Tweaks 面板、`useTime` 動畫引擎、簡報引擎、ECharts/Chart.js、oklch 配色系統等進階模式
+- `role-design-web-for-spec` 相對於 `role-design-web-for-prototype` 的差異：新增 Step 0 研究前置、WCAG AA 硬性合規檢查、量化驗收指標（Lighthouse A11y / 對比值 / 響應式 / 鍵盤全路徑）、主題系統標配
 
 ---
 
@@ -97,9 +99,11 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 | `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | `npm install -g @openai/codex` |
 | `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | `npm install -g @google/gemini-cli` |
 | `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | `npm install -g opencode-ai` |
+| `dispatch-agents` | 同時派出 Claude / Codex / Gemini 三大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整三方結果 | 三者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`、`@google/gemini-cli` |
 
-- `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘 4 項技能透過它執行
+- `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘 5 項技能透過它執行
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
+- `dispatch-agents` 為多 agent 共識整合層，適用於高重要性任務需多方觀點交叉驗證
 
 ---
 
@@ -125,6 +129,7 @@ node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwrigh
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
+| `fetch-tw-data-holiday` | 查詢台灣國定假日（TWSE OpenAPI），回傳指定日期是否為假日及假日名稱 | `fetch_tw_data_holiday.mjs` | 無（Node.js 內建 `https`） |
 | `fetch-tw-data-stock` | 抓取收盤 OHLC 資料（上市 TWSE + 上櫃 TPEX） | `fetch_twse_stock.mjs`, `fetch_tpex_stock.mjs` | `axios` |
 | `fetch-tw-data-futures` | 抓取期交所台指期行情、法人未平倉、P/C Ratio | `fetch_taifex.mjs` | `axios` |
 | `fetch-tw-data-margin` | 抓取融資融券餘額（上市 + 上櫃） | `fetch_twse_margin.mjs`, `fetch_tpex_margin.mjs` | `axios` |
@@ -134,6 +139,7 @@ node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwrigh
 
 | 技能 | 參數格式 |
 |------|----------|
+| `fetch-tw-data-holiday` | `[YYYYMMDD] [outputPath]`（空字串即取當年度完整清單） |
 | `fetch-tw-data-stock` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
 | `fetch-tw-data-futures` | `[YYYYMMDD] [outputPath]` |
 | `fetch-tw-data-margin` | `[stockCode\|all] [date] [outputPath]`（TWSE 或 TPEX 腳本） |
@@ -235,12 +241,12 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ├── dispatch-cli/
 │   ├── SKILL.md
 │   └── scripts/
-│       └── run_cli.mjs              <- 核心 CLI 執行器
+│       └── run_cli.mjs
 ├── do-loop/
 │   ├── SKILL.md
 │   └── references/
-│       ├── roles.md                 <- 三角色行為規範
-│       └── state-example.jsonc      <- state.json 範例
+│       ├── roles.md
+│       └── state-example.jsonc
 ├── dispatch-claude/
 │   ├── SKILL.md
 │   └── references/
@@ -257,6 +263,8 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │   ├── SKILL.md
 │   └── references/
 │       └── opencode-flags.md
+├── dispatch-agents/
+│   └── SKILL.md
 ├── fetch-ai-news-aggregator/
 │   ├── SKILL.md
 │   └── scripts/
@@ -280,12 +288,17 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ├── fetch-web/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_web.mjs            <- CLI 入口
-│       └── fetchWeb.mjs             <- 核心函式
+│       ├── fetch_web.mjs
+│       └── fetchWeb.mjs
 ├── fetch-tw-data-futures/
 │   ├── SKILL.md
 │   └── scripts/
 │       └── fetch_taifex.mjs
+├── fetch-tw-data-holiday/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetch_tw_data_holiday.mjs
+│       └── fetchTwDataHoliday.mjs
 ├── fetch-tw-data-institutional/
 │   ├── SKILL.md
 │   └── scripts/
@@ -317,13 +330,23 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │   ├── SKILL.md
 │   └── scripts/
 │       └── fetch_statementdog.mjs
-├── role-design-web/
+├── role-design-web-for-prototype/
 │   ├── SKILL.md
 │   └── references/
 │       ├── react-patterns.md
 │       ├── vue3-patterns.md
 │       ├── vue2-patterns.md
 │       └── advanced-patterns.md
+├── role-design-web-for-spec/
+│   ├── SKILL.md
+│   └── references/
+│       ├── react-patterns.md
+│       ├── vue3-patterns.md
+│       ├── vue2-patterns.md
+│       ├── advanced-patterns.md
+│       ├── research-lite.md
+│       ├── accessibility-wcag-aa.md
+│       └── metrics-validation.md
 ├── save-news-to-sheet/
 │   ├── SKILL.md
 │   └── scripts/
@@ -335,12 +358,12 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ├── tw-stock-post-market/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── run_post_market.mjs   <- 主控腳本（推薦入口）
+│       ├── run_post_market.mjs
 │       └── generate_report.mjs
 └── tw-stock-research/
     ├── SKILL.md
     └── scripts/
-        ├── run_research.mjs      <- 主控腳本（推薦入口）
+        ├── run_research.mjs
         └── generate_report.mjs
 ```
 
