@@ -3,11 +3,12 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（24 個）
+## 技能總覽（25 個）
 
 | 分類 | 技能數 |
 |------|:------:|
 | [開發工作流](#開發工作流類) | 1 |
+| [前端設計](#前端設計類) | 1 |
 | [綜合分析](#綜合分析類) | 2 |
 | [Multi-Agent 協作](#multi-agent-協作類) | 5 |
 | [網頁抓取](#網頁抓取類) | 1 |
@@ -42,6 +43,17 @@
 # 斷點續接
 請依照 do-loop 繼續開發
 ```
+
+---
+
+## 前端設計類
+
+| 技能 | 說明 | 前置需求 |
+|------|------|----------|
+| `role-design-web` | 將 Agent 定位為設計工程師，以 HTML/CSS/JS + React / Vue 3 / Vue 2 打造網頁、登陸頁、儀表板、互動原型、HTML 簡報、動畫示範、UI mockup、資料視覺化等視覺化產物 | 無（純角色／規範技能，CDN 載入各框架） |
+
+- 預設 React 18 + Babel inline JSX，亦支援 Vue 3 Composition API 與 Vue 2 Options API，各框架硬規則與樣板分列於 `references/`
+- 涵蓋裝置外框、Tweaks 面板、`useTime` 動畫引擎、簡報引擎、ECharts/Chart.js、oklch 配色系統等進階模式
 
 ---
 
@@ -305,6 +317,13 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │   ├── SKILL.md
 │   └── scripts/
 │       └── fetch_statementdog.mjs
+├── role-design-web/
+│   ├── SKILL.md
+│   └── references/
+│       ├── react-patterns.md
+│       ├── vue3-patterns.md
+│       ├── vue2-patterns.md
+│       └── advanced-patterns.md
 ├── save-news-to-sheet/
 │   ├── SKILL.md
 │   └── scripts/
