@@ -57,7 +57,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 | 資料 | 抓取技能 | 說明 |
 |------|----------|------|
 | 開收盤價（上市） | `fetch-tw-data-stock` (TWSE) | 證交所股票收盤資料（上市） |
-| 開收盤價（上櫃） | `fetch-tw-data-stock` (TPEX) | 櫃買中心股票收盤資料（上櫃；與 TWSE 並行抓取） |
+| 開收盤價（上櫃） | `fetch-tw-data-stock` (TPEX) | 櫃買中心股票收盤資料（上櫃；於 TWSE 抓取完成後序列執行） |
 | 法人買賣超（逐檔） | `fetch-tw-data-institutional` | 以 TWSE + TPEX 官方資料抓指定日期、指定代碼三大法人買賣超（外資/投信/自營/合計） |
 
 > **技術細節**請參閱各抓取技能的 SKILL.md
