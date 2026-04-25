@@ -111,7 +111,7 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-web` | 通用網頁抓取，四階段自動升級：curl → Playwright 無頭 → Playwright 有頭 → Playwright 有頭+新分頁，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright` |
+| `fetch-web` | 通用網頁抓取，四階段自動升級：curl → Playwright 無頭 → Playwright 有頭 → Camofox 反偵測瀏覽器，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright`, `@askjo/camofox-browser` |
 
 ### 參數格式
 
@@ -119,7 +119,7 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwright|playwright-headed]
 ```
 
-- 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭 → Playwright 有頭+新分頁
+- 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭 → Camofox 反偵測瀏覽器（修改版 Firefox，繞 Cloudflare Turnstile）
 - 可用 `--method` 強制指定方法，跳過階梯升級
 - Playwright 使用系統 Chrome（`channel: 'chrome'`），不需額外下載 Chromium
 
@@ -174,7 +174,7 @@ node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwrigh
 | `fetch-rss` | 取得任意 RSS Feed 並轉為統一 JSON 格式，支援 YouTube、新聞網站等 | `fetch_rss.mjs` | `axios`, `rss-parser` |
 | `fetch-ai-news-aggregator` | 取得 AI News Aggregator 最近 24 小時 AI 新聞 | `fetch_ai_news_aggregator.mjs` | `axios` |
 | `fetch-hacker-news` | 取得 Hacker News 最新文章（newest），透過 Firebase API 批次取得文章詳情 | `fetch_hacker_news.mjs` | `axios` |
-| `fetch-news-ai` | 整合 9 個來源（RSS + AI News Aggregator + Hacker News），過濾今日與昨日新聞，依時間降冪排序 | `fetch_news_ai.mjs` | `axios`, `rss-parser` |
+| `fetch-news-ai` | 整合 10 個來源（RSS + AI News Aggregator + Hacker News），過濾今日與昨日新聞，依時間降冪排序 | `fetch_news_ai.mjs` | `axios`, `rss-parser` |
 
 ### 參數格式
 
@@ -225,7 +225,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 所有數據與新聞抓取類技能共享以下特性：
 
 - **結果寫檔**：一律寫入檔案（`outputPath` 或自動產生），無論成功或錯誤均寫入後才 exit，請讀取檔案取得結果
-- **自動重試**：5xx 或網路錯誤自動等待重試，線性遞增退避（台股數據類最多 10 次 / 5s~30s；新聞與 GAS 類最多 5~6 次 / 3s~15s）
+- **自動重試**：5xx 或網路錯誤自動等待重試，線性遞增退避（台股數據類最多重試 10 次 / 5s~30s，含初始請求最多執行 11 次；新聞與 GAS 類最多重試 5 次 / 3s~15s，含初始請求最多執行 6 次）
 - **執行位置**：由執行 agent 依自身環境決定，腳本不強制特定工作目錄
 
 ---
@@ -374,7 +374,7 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 npm install axios cheerio playwright
 
 # 網頁抓取（fetch-web）
-npm install @mozilla/readability jsdom playwright
+npm install @mozilla/readability jsdom playwright @askjo/camofox-browser
 
 # AI / 科技新聞
 npm install axios rss-parser
