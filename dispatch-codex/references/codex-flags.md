@@ -5,7 +5,7 @@
 - https://developers.openai.com/codex/noninteractive
 - https://developers.openai.com/codex/config-reference
 
-來源（原始碼確認，`rust-v0.123.0-alpha.7`，2026-04-21）：
+來源（原始碼確認，`codex-cli v0.124.0`，2026-04-24）：
 - `codex-rs/exec/src/cli.rs`
 - `codex-rs/utils/cli/src/shared_options.rs`
 - `codex-rs/protocol/src/openai_models.rs`
@@ -23,7 +23,7 @@ codex exec [OPTIONS] "task prompt"
 
 | 選項 | 說明 |
 |------|------|
-| `-m, --model <MODEL>` | 指定模型（例：`gpt-5.4`） |
+| `-m, --model <MODEL>` | 指定模型（例：`gpt-5.5`。本 skill 預設使用 `gpt-5.5`） |
 | `--full-auto` | 自動核准所有操作，不需人工確認（沙箱仍作用） |
 | `--dangerously-bypass-approvals-and-sandbox` / `--yolo` | 跳過所有核准且停用沙箱（與 `--full-auto` 互斥；危險） |
 | `-s, --sandbox <MODE>` | 沙箱模式：`read-only` / `workspace-write` / `danger-full-access` |
@@ -32,6 +32,7 @@ codex exec [OPTIONS] "task prompt"
 | `--ephemeral` | 不儲存 session 到磁碟，適合暫時性任務 |
 | `--ignore-user-config` | 不載入 `$CODEX_HOME/config.toml`（認證仍會讀取） |
 | `--ignore-rules` | 跳過 user/project 的 execpolicy 規則 |
+| `--enable <FEATURE>` / `--disable <FEATURE>` | v0.124.0+：啟/停特定功能（可重複），等同 `-c features.<name>=true/false` |
 | `-o, --output-last-message <FILE>` | 將最終訊息寫入檔案 |
 | `--output-schema <FILE>` | 強制最終回應符合 JSON Schema |
 | `-C, --cd <DIR>` | 指定工作目錄 |
@@ -48,8 +49,8 @@ codex exec [OPTIONS] "task prompt"
 # 啟用網路存取（允許 npm install 等）
 --config sandbox_workspace_write.network_access=true
 
-# 指定模型
---config model='"gpt-5.4"'
+# 指定模型（本 skill 預設使用最新旗艦 gpt-5.5）
+--config model='"gpt-5.5"'
 
 # 推理等級（預設使用最強 xhigh）
 --config model_reasoning_effort='"xhigh"'
@@ -83,7 +84,7 @@ codex exec --profile deep "你的任務描述"
 
 ```toml
 [profiles.deep]
-model = "gpt-5.4"
+model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
 
 [profiles.fast]
@@ -96,6 +97,7 @@ model_reasoning_effort = "low"
 `~/.codex/config.toml` 中的等效設定：
 
 ```toml
+model = "gpt-5.5"
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "xhigh"
 model_reasoning_summary = "concise"
@@ -120,17 +122,20 @@ codex exec review --commit <SHA>
 codex exec review --uncommitted
 ```
 
-## 可用模型（models.json 型錄）
+## 可用模型
 
 | 模型 ID | 說明 |
 |---------|------|
-| `gpt-5.4` | 最新旗艦（priority=2，預設） |
-| `gpt-5.4-mini` | 輕量版 |
-| `gpt-5.3-codex` | 程式碼優化 |
-| `gpt-5.2` | 舊版 |
+| `gpt-5.5` | **本 skill 預設**，OpenAI 最新旗艦（2026-04-23 發布），Codex 官方推薦首選；**僅透過 ChatGPT 登入可用**，API key 認證尚不可用 |
+| `gpt-5.4` | bundled `models.json` 中的旗艦（priority=2），API key 環境下的最強可用選項 |
+| `gpt-5.4-mini` | 輕量版（priority=4） |
+| `gpt-5.3-codex` | 程式碼優化（priority=6） |
+| `gpt-5.2` | 舊版（priority=10） |
 
 > 型錄來源：[codex-rs/models-manager/models.json](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json)
-> 注意：`gpt-5.1-codex-max` 只保留為舊版遷移提示用常數，已非有效型錄項目。
+> 注意事項：
+> - `gpt-5.5` 目前（2026-04-24）**尚未加入 bundled `models.json`**，但 CLI v0.124.0+ 接受 `-m gpt-5.5` 並走 ChatGPT 登入路由。
+> - `gpt-5.1-codex-max` 只保留為舊版遷移提示用常數，已非有效型錄項目。
 
 ## 已棄用／更名
 

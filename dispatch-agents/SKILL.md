@@ -24,7 +24,7 @@ Claude、Codex、Gemini 三個 agent 平行執行，全部使用**最強模型 +
 | Agent | 最強模型 | 最強思考深度 | 自動核准旗標 |
 |-------|---------|-------------|-------------|
 | **Claude** | `claude-opus-4-7`（2026-04 新旗艦，1M context） | `--effort max`（絕對最深，無 token 上限） | `--dangerously-skip-permissions` |
-| **Codex** | `gpt-5.4`（`models.json` priority=2 旗艦） | `--config model_reasoning_effort='"xhigh"'`（**Codex 無 `max` 等級，`xhigh` 即最深**） | `--full-auto` |
+| **Codex** | `gpt-5.5`（2026-04-23 OpenAI 最新旗艦，Codex 官方推薦首選） | `--config model_reasoning_effort='"xhigh"'`（**Codex 無 `max` 等級，`xhigh` 即最深**） | `--full-auto` |
 | **Gemini** | `gemini-3.1-pro-preview` | **CLI 目前無 thinking flag**（內部由 `DEFAULT_THINKING_MODE=8192` 控管，模型自行決定） | `--approval-mode=yolo` |
 
 > **各 agent 思考深度的差異**：
@@ -34,7 +34,8 @@ Claude、Codex、Gemini 三個 agent 平行執行，全部使用**最強模型 +
 >
 > **Fallback 規則**：若模型不可用（429 / 無權限 / 帳戶未開通），退回：
 > - Claude：`claude-opus-4-7` → `claude-opus-4-6`（Opus 4.6 仍支援 `--effort max`）
-> - Codex：`gpt-5.4` → `gpt-5.3-codex` 或 `gpt-5.2`（皆支援 `xhigh`）
+> - Codex：`gpt-5.5` → `gpt-5.4` → `gpt-5.3-codex` / `gpt-5.2`（皆支援 `xhigh`）
+>   - ⚠️ `gpt-5.5` 目前**僅 ChatGPT 登入**可用，API key 認證環境請改用 `gpt-5.4`
 > - Gemini：`gemini-3.1-pro-preview` → `gemini-2.5-pro`
 
 ## 執行流程
@@ -85,7 +86,7 @@ CLI_TIMEOUT_MS=3600000 CLI_CWD="{工作目錄}" CLI_MAX_RETRIES=1 \
   codex exec --full-auto --skip-git-repo-check \
   --config sandbox_workspace_write.network_access=true \
   --config model_reasoning_effort='"xhigh"' \
-  -m gpt-5.4 \
+  -m gpt-5.5 \
   "【任務】{使用者的任務描述}
 
 請將完整結果寫入檔案: {輸出目錄}/result_codex.txt"
@@ -172,7 +173,7 @@ const [claude, codex, gemini] = await Promise.all([
         'exec', '--full-auto', '--skip-git-repo-check',
         '--config', 'sandbox_workspace_write.network_access=true',
         '--config', 'model_reasoning_effort="xhigh"',
-        '-m', 'gpt-5.4',
+        '-m', 'gpt-5.5',
         `【任務】${task}\n\n請將完整結果寫入檔案: ${outDir}/result_codex.txt`,
     ], { timeoutMs: 3_600_000, maxRetries: 1 }),
 

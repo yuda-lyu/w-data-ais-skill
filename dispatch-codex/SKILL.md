@@ -25,9 +25,10 @@ description: This skill should be used when the user asks to "run codex as an ag
 ### 命令列
 
 ```bash
-# 基本呼叫（預設最強推理）
+# 基本呼叫（預設最強模型 + 最強推理）
 node dispatch-cli/scripts/run_cli.mjs \
   codex exec --full-auto --skip-git-repo-check \
+  -m gpt-5.5 \
   --config sandbox_workspace_write.network_access=true \
   --config model_reasoning_effort='"xhigh"' \
   "你的任務描述"
@@ -36,17 +37,18 @@ node dispatch-cli/scripts/run_cli.mjs \
 CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 \
   node dispatch-cli/scripts/run_cli.mjs \
   codex exec --full-auto --skip-git-repo-check \
+  -m gpt-5.5 \
   --config sandbox_workspace_write.network_access=true \
   --config model_reasoning_effort='"xhigh"' \
   "你的任務描述"
 
-# 指定模型 + 推理等級
+# 回退到 API key 可用模型（若未 ChatGPT 登入）
 CLI_TIMEOUT_MS=180000 \
   node dispatch-cli/scripts/run_cli.mjs \
   codex exec --full-auto --skip-git-repo-check \
+  -m gpt-5.4 \
   --config sandbox_workspace_write.network_access=true \
   --config model_reasoning_effort='"xhigh"' \
-  -m gpt-5.4 \
   "你的任務描述"
 ```
 
@@ -59,6 +61,7 @@ import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
 const result = await runCli('codex', [
     'exec', '--full-auto', '--skip-git-repo-check',
+    '-m', 'gpt-5.5',
     '--config', 'sandbox_workspace_write.network_access=true',
     '--config', 'model_reasoning_effort="xhigh"',
     '重構此模組並撰寫單元測試',
@@ -77,20 +80,21 @@ if (result.ok) {
 
 | 模型 ID | 說明 |
 |---------|------|
-| `gpt-5.4` | **預設模型**，最新旗艦（"Latest frontier agentic coding model"），272K 上下文 / 1M 最大 |
+| `gpt-5.5` | **預設模型**，OpenAI 最新旗艦（2026-04-23 發布），目前 Codex 官方推薦的首選模型。**僅透過 ChatGPT 登入可用，API key 認證尚不可用** |
+| `gpt-5.4` | API key 認證可用的最高階模型，272K 上下文 / 1M 最大 |
 | `gpt-5.4-mini` | 輕量版，速度更快、成本更低 |
 | `gpt-5.3-codex` | 專為程式碼優化的版本 |
 | `gpt-5.2` | 舊版，可向後相容 |
 
-指定模型：`-m gpt-5.4`（不指定即使用預設 `gpt-5.4`）
+指定模型：`-m gpt-5.5`（本 skill 預設使用 `gpt-5.5`；若僅有 API key 認證環境，請改用 `-m gpt-5.4`）
 
-> 模型型錄來源：[codex-rs/models-manager/models.json](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json)。
+> 模型型錄來源：[codex-rs/models-manager/models.json](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json)（註：`gpt-5.5` 目前尚未列入 bundled `models.json`，但 CLI v0.124.0+ 可直接以 `-m gpt-5.5` 啟用，走 ChatGPT 登入路由）。
 
 ## 推理等級（model_reasoning_effort）
 
 | 等級 | 說明 |
 |------|------|
-| `xhigh` | **預設，目前 Codex CLI 支援的最強推理深度**，適合複雜任務 |
+| `xhigh` | **預設，目前 Codex CLI 支援的最強推理深度**，GPT-5.5 / 5.4 / 5.3-codex 皆支援 |
 | `high` | 複雜除錯、架構決策、程式碼審查 |
 | `medium` | Codex 原廠預設，平衡速度與品質 |
 | `low` | 簡單任務，速度優先 |
@@ -99,7 +103,8 @@ if (result.ok) {
 
 指定推理等級：`--config model_reasoning_effort='"xhigh"'`
 
-> 本 skill 預設使用 `xhigh` 最強推理。Codex CLI 的 `ReasoningEffort` enum 目前**沒有** `max` 等級，`xhigh` 即為最深。若需加速可降級為 `high` 或 `medium`。
+> 本 skill 預設使用 `xhigh` 最強推理。Codex CLI v0.124.0 的 `ReasoningEffort` enum 仍為六階（`None` / `Minimal` / `Low` / `Medium` / `High` / `XHigh`），**沒有** `max` 等級，`xhigh` 即為最深。若需加速可降級為 `high` 或 `medium`。
+> 備註：v0.124.0 TUI 支援 `Alt+,` / `Alt+.` 即時降/升推理等級；切換模型時會重置為新模型的預設推理等級，記得顯式傳 `--config model_reasoning_effort='"xhigh"'` 以確保最深推理。
 
 ### 各參數說明
 
@@ -119,6 +124,7 @@ if (result.ok) {
 | `--ephemeral` | 不落地 session，用於暫時性一次性任務 |
 | `--ignore-user-config` | 不載入 `$CODEX_HOME/config.toml`（認證仍會讀取） |
 | `--ignore-rules` | 跳過 user/project 的 execpolicy 規則 |
+| `--enable <FEATURE>` / `--disable <FEATURE>` | v0.124.0+：啟/停特定功能（可重複），等同 `-c features.<name>=true/false` |
 | `--output-last-message <FILE>` / `-o` | 將最終訊息寫入檔案 |
 | `--output-schema <FILE>` | 強制回應符合 JSON Schema |
 | `--profile <NAME>` / `-p` | 載入 `~/.codex/config.toml` 中的命名 profile |
@@ -156,6 +162,7 @@ prompt: "... 寫入 result_dispatcher.txt"
 # Codex agent — 透過 dispatch-cli（背景執行）
 command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
          codex exec --full-auto --skip-git-repo-check \
+         -m gpt-5.5 \
          --config sandbox_workspace_write.network_access=true \
          --config model_reasoning_effort='"xhigh"' \
          "... 寫入 result_codex.txt"
@@ -176,15 +183,17 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
 ```bash
-codex --version   # 確認 codex-cli 已安裝
+codex --version   # 確認 codex-cli 已安裝（建議 v0.124.0+ 以使用 gpt-5.5）
 ```
 
-若未安裝，請執行：
+若未安裝或版本過舊，請執行：
 ```bash
-npm install -g @openai/codex
+npm install -g @openai/codex@latest
 ```
 
-若無事先通過 OAuth 認證，則需設定 OpenAI API Key：
-```bash
-export OPENAI_API_KEY=your_key_here
-```
+認證方式二擇一：
+- **ChatGPT 登入（推薦，支援 `gpt-5.5`）**：執行 `codex login` 依引導完成 OAuth
+- **API Key（目前尚不支援 `gpt-5.5`，最高可用 `gpt-5.4`）**：
+  ```bash
+  export OPENAI_API_KEY=your_key_here
+  ```
