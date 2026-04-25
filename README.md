@@ -3,12 +3,12 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（28 個）
+## 技能總覽（29 個）
 
 | 分類 | 技能數 |
 |------|:------:|
 | [開發工作流](#開發工作流類) | 1 |
-| [前端設計](#前端設計類) | 2 |
+| [角色定位](#角色定位類) | 3 |
 | [綜合分析](#綜合分析類) | 2 |
 | [Multi-Agent 協作](#multi-agent-協作類) | 6 |
 | [網頁抓取](#網頁抓取類) | 1 |
@@ -46,16 +46,18 @@
 
 ---
 
-## 前端設計類
+## 角色定位類
 
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
 | `role-design-web-for-prototype` | 將 Agent 定位為設計工程師，以 HTML/CSS/JS + React / Vue 3 / Vue 2 打造網頁、登陸頁、儀表板、互動原型、HTML 簡報、動畫示範、UI mockup、資料視覺化等視覺化產物 | 無（純角色／規範技能，CDN 載入各框架） |
 | `role-design-web-for-spec` | 在 `role-design-web-for-prototype` 的基礎上加法擴充四項硬性要求：研究前置（Persona / Journey）、WCAG AA 無障礙合規、量化驗收指標、亮／暗／跟隨系統三段式主題標配 | 無（純角色／規範技能，CDN 載入各框架） |
+| `role-writer-report` | 將 Agent 定位為受委任之資深技術顧問兼主筆工程師，以繁體中文工程白皮書／標案書面語撰寫服務建議書、服務實施計劃書、期中／期末報告等大型委辦案技術文件，採 L1（角色）→ L2（原則）→ L3（細則）三層 references 設計 | 無（純角色／規範技能） |
 
 - 預設 React 18 + Babel inline JSX，亦支援 Vue 3 Composition API 與 Vue 2 Options API，各框架硬規則與樣板分列於 `references/`
 - 涵蓋裝置外框、Tweaks 面板、`useTime` 動畫引擎、簡報引擎、ECharts/Chart.js、oklch 配色系統等進階模式
 - `role-design-web-for-spec` 相對於 `role-design-web-for-prototype` 的差異：新增 Step 0 研究前置、WCAG AA 硬性合規檢查、量化驗收指標（Lighthouse A11y / 對比值 / 響應式 / 鍵盤全路徑）、主題系統標配
+- `role-writer-report` 採三層分檔設計（共用 L1，依報告類型切換 L2/L3），目前已收錄「服務建議書」之 L2/L3，其他類型可在共用 L1 之上新增對應檔組
 
 ---
 
@@ -347,6 +349,12 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │       ├── research-lite.md
 │       ├── accessibility-wcag-aa.md
 │       └── metrics-validation.md
+├── role-writer-report/
+│   ├── SKILL.md
+│   └── references/
+│       ├── L1角色設定.md
+│       ├── L2報告設定-服務建議書.md
+│       └── L3撰寫設定-服務建議書.md
 ├── save-news-to-sheet/
 │   ├── SKILL.md
 │   └── scripts/

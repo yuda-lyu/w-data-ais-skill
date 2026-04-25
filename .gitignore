@@ -4,6 +4,10 @@ node_modules
 .claude
 package.json
 package-lock.json
+script.txt
+
+role-writer-report/res
+role-writer-report/test
 
 w-data-news
-script.txt
+
