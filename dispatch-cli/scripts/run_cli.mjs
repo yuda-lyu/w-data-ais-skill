@@ -24,7 +24,7 @@
  *   import { runCli } from './run_cli.mjs';
  */
 
-import { spawn, execSync } from 'node:child_process';
+import { spawn, execSync, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,7 +44,7 @@ function _resolveCommand(cmd) {
     if (/\.(cmd|exe|bat|ps1)$/i.test(cmd)) return cmd;
     if (path.isAbsolute(cmd)) return cmd;
     try {
-        const out = execSync(`where ${cmd}`, { encoding: 'utf8', timeout: 5000, windowsHide: true }).trim();
+        const out = execFileSync('where', [cmd], { encoding: 'utf8', timeout: 5000, windowsHide: true, shell: false }).trim();
         const lines = out.split(/\r?\n/);
         const cmdFile = lines.find(l => /\.cmd$/i.test(l));
         if (cmdFile) return cmdFile;
