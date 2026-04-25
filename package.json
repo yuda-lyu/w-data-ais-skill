@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@askjo/camofox-browser": "^1.5.2",
+    "@mozilla/readability": "^0.6.0",
+    "axios": "^1.15.0",
+    "cheerio": "^1.2.0",
+    "jsdom": "^26.1.0",
+    "playwright": "^1.52.0",
+    "rss-parser": "^3.13.0"
+  }
+}

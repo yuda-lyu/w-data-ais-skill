@@ -2,7 +2,6 @@ node_modules
 .env
 .opencode
 .claude
-package.json
 package-lock.json
 script.txt
 
