@@ -96,6 +96,16 @@ function requiresJsRedirect(url) {
   return JS_REDIRECT_PATTERNS.some((p) => p.test(url));
 }
 
+// 判識 E：已知 SPA 網站（curl 拿到的是 JS 渲染前空殼，Readability 只解析得到頁尾／導覽）
+// 與判識 A 區別：A 為 JS 轉址服務（需 redirect 等待轉址），E 為純 SPA（不需轉址等待）
+const HEADLESS_REQUIRED_PATTERNS = [
+  /^https?:\/\/(?:www\.)?aistackinsights\.ai\//,
+];
+
+function requiresHeadless(url) {
+  return HEADLESS_REQUIRED_PATTERNS.some((p) => p.test(url));
+}
+
 // 判識 B：query 參數中含真實 URL 的轉址服務
 const URL_PARAM_PATTERNS = [
   { match: /l\.facebook\.com\/l\.php/, param: "u" },
@@ -836,6 +846,12 @@ export async function fetchWeb(url, options = {}) {
   if (requiresJsRedirect(url)) {
     console.log("[fetch-web] JS redirect domain, skipping curl ...");
     return autoEscalate(url, parse, { redirect: true, skipCurl: true });
+  }
+
+  // 判識 E：已知 SPA 網站 — 跳過 curl，直接 Playwright 無頭（不需轉址等待）
+  if (requiresHeadless(url)) {
+    console.log("[fetch-web] headless-required SPA domain, skipping curl ...");
+    return autoEscalate(url, parse, { redirect: false, skipCurl: true });
   }
 
   // 階梯式升級：curl → headless → headed → headed-newtab
