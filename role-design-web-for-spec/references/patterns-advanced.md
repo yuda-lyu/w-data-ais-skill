@@ -2,9 +2,9 @@
 
 本檔收錄**與框架無關**的樣板與設計資源。框架專屬的元件樣板（React／Vue 3／Vue 2 版的裝置外框、Tweaks 面板、動畫引擎、ThemeProvider、設計畫布）請見：
 
-- [react-patterns.md](react-patterns.md) —— React 18 + Babel inline JSX
-- [vue3-patterns.md](vue3-patterns.md) —— Vue 3 + Composition API
-- [vue2-patterns.md](vue2-patterns.md) —— Vue 2 + Options API
+- [patterns-react.md](patterns-react.md) —— React 18 + Babel inline JSX
+- [patterns-vue3.md](patterns-vue3.md) —— Vue 3 + Composition API
+- [patterns-vue2.md](patterns-vue2.md) —— Vue 2 + Options API
 
 ## 目錄
 

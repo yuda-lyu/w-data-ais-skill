@@ -195,9 +195,15 @@ claude --version   # 確認 claude code 已安裝
 claude auth        # 確認認證狀態
 ```
 
-若未安裝，請執行：
+若未安裝，請依執行環境自行決定安裝方式（範例：全域 / 專案內 / 其他套件管理器）。安裝**位置**由執行 AI 自行決定，只要最終 `claude` 指令可被執行即可：
+
 ```bash
+# 範例 A：全域安裝（傳統做法）
 npm install -g @anthropic-ai/claude-code
+
+# 範例 B：專案內安裝（搭配 npx）
+npm install @anthropic-ai/claude-code
+# 之後以 npx claude ... 呼叫，或將 ./node_modules/.bin 加入 PATH
 ```
 
 認證方式：

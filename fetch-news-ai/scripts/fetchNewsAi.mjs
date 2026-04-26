@@ -22,6 +22,19 @@ async function loadDependency(absPath, exportName) {
   }
 }
 
+// ---------- 網域黑名單 ----------
+// 文章內容過短（多為一行快訊）無法供後續 AI 選文／摘要使用的來源網域
+// 比對方式：URL hostname 等於該網域，或為其子網域（例如 www.gelonghui.com 屬於 gelonghui.com）
+const BLOCKED_URL_DOMAINS = [
+  "gelonghui.com", // 格隆汇：一行快訊為主，無法摘要
+];
+
+function isBlockedUrl(url) {
+  let host = "";
+  try { host = new URL(url).hostname.toLowerCase(); } catch { return false; }
+  return BLOCKED_URL_DOMAINS.some((d) => host === d || host.endsWith("." + d));
+}
+
 // ---------- RSS 來源清單 ----------
 const RSS_SOURCES = [
   { from: "橘鴉Juya",   rss: "https://www.youtube.com/feeds/videos.xml?channel_id=UCIDll3SRcbHwwcXbrwvBZNw" },
@@ -105,8 +118,11 @@ export async function fetchNewsAi() {
     r.status === "fulfilled" ? r.value : []
   );
 
+  // 網域黑名單過濾（AI 選文前移除無法摘要的來源）
+  const allowed = allItems.filter((it) => !isBlockedUrl(it.url));
+
   // 過濾今日與昨日
-  const filtered = filterTodayAndYesterday(allItems);
+  const filtered = filterTodayAndYesterday(allowed);
 
   // 統一標記 type，避免外部 agent 自行補值導致 sheet 重複
   const typed = filtered.map((item) => ({ ...item, type: "news-ai" }));

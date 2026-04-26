@@ -230,9 +230,15 @@ codex --version    # OpenAI Codex CLI
 gemini --version   # Google Gemini CLI
 ```
 
-若未安裝：
+若未安裝，請依執行環境自行決定安裝方式。安裝**位置**由執行 AI 自行決定（全域、專案內、或其他套件管理器），只要最終三條指令可被執行即可：
+
 ```bash
+# 範例 A：全域安裝（傳統做法）
 npm install -g @anthropic-ai/claude-code
 npm install -g @openai/codex
 npm install -g @google/gemini-cli
+
+# 範例 B：專案內安裝（搭配 npx）
+npm install @anthropic-ai/claude-code @openai/codex @google/gemini-cli
+# 之後以 npx claude / npx codex / npx gemini 呼叫
 ```

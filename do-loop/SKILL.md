@@ -351,3 +351,11 @@ IF loopCount > 5 → status: "halted"（強制中止）
 # 強制重新規劃（會清除現有 state.json）
 請依照 do-loop 重新規劃「XXX 功能」
 ```
+
+## 安裝指引
+
+> **[執行AI須先依照技能內說明安裝指定依賴之套件]**
+
+本技能為角色循環方法論（Planner→Executor→Auditor），僅依賴執行 AI 自身的能力與 Node.js 內建 `fs` 模組讀寫 `{outputDir}/state.json` 等狀態檔，**無需安裝任何 npm 套件**。
+
+實際開發過程中若任務需要 lint、測試、執行專案腳本等工具，由執行 AI 依目標專案環境自行決定安裝方式（全域、專案內 `node_modules`、或其他套件管理器），本技能不對此設限。

@@ -189,9 +189,15 @@ opencode auth list   # 確認已登入的 provider
 opencode models      # 查看可用模型列表
 ```
 
-若未安裝，請執行：
+若未安裝，請依執行環境自行決定安裝方式。安裝**位置**由執行 AI 自行決定，只要最終 `opencode` 指令可被執行即可：
+
 ```bash
+# 範例 A：全域安裝
 npm install -g opencode-ai
+
+# 範例 B：專案內安裝（搭配 npx）
+npm install opencode-ai
+# 之後以 npx opencode ... 呼叫
 ```
 
 認證方式（依 provider 不同）：

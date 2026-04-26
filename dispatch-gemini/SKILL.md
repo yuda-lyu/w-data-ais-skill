@@ -180,9 +180,15 @@ command: CLI_TIMEOUT_MS=180000 CLI_CWD=/path/to/project \
 gemini --version   # 確認 gemini-cli 已安裝
 ```
 
-若未安裝，請執行：
+若未安裝，請依執行環境自行決定安裝方式。安裝**位置**由執行 AI 自行決定，只要最終 `gemini` 指令可被執行即可：
+
 ```bash
+# 範例 A：全域安裝
 npm install -g @google/gemini-cli
+
+# 範例 B：專案內安裝（搭配 npx）
+npm install @google/gemini-cli
+# 之後以 npx gemini ... 呼叫
 ```
 
 需通過 Google OAuth 認證（初次使用時互動登入），或設定 API Key：

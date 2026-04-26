@@ -192,6 +192,7 @@ export function inspectHtml(html) {
 
 const CUSTOM_PARSERS = [
   { pattern: /^https?:\/\/(?:www\.)?gelonghui\.com\//, parse: parseGelonghui },
+  { pattern: /^https?:\/\/(?:www\.)?bloomberg\.com\/(?:news\/articles|opinion|features)\//, parse: parseBloomberg },
 ];
 
 function findCustomParser(url) {
@@ -238,6 +239,55 @@ function parseGelonghui(html, url) {
 
 function extractHtmlTitle(html) {
   return html.match(/<title>([^<]*)/i)?.[1]?.replace(/-[^-]*$/, "")?.trim() || "";
+}
+
+// --- Bloomberg：從 __NEXT_DATA__ 提取 story.body.content ---
+function parseBloomberg(html, _url) {
+  // Bloomberg 用 Next.js，SSR 出來的 HTML 只渲染前 2 段預覽，其餘段落由 client 從
+  // __NEXT_DATA__ JSON 渲染。Readability 看不到那塊 JSON，會只擷到約 400 字，
+  // 表面像付費牆預覽，實則全文就在同一份 HTML 的 JSON 裡（premium=false 時）。
+  // 真付費牆文章（premium=true）body.content 也只剩預覽段，回傳該預覽即可。
+  const m = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/);
+  if (!m) {
+    return { success: false, reason: "custom-parser-miss", message: "bloomberg: no __NEXT_DATA__" };
+  }
+
+  let data;
+  try {
+    data = JSON.parse(m[1]);
+  } catch (_e) {
+    return { success: false, reason: "custom-parser-miss", message: "bloomberg: __NEXT_DATA__ JSON parse failed" };
+  }
+
+  const story = data?.props?.pageProps?.story;
+  const blocks = story?.body?.content;
+  if (!Array.isArray(blocks) || blocks.length === 0) {
+    return { success: false, reason: "custom-parser-miss", message: "bloomberg: no story.body.content" };
+  }
+
+  // 文字節點（含 entity 子節點）以遞迴串接：entity 的文字放在 entity.content[].value
+  const SKIP = new Set(["ad", "inline-newsletter", "inline-recirc", "media", "image", "video", "blockquote-instagram"]);
+  const nodeText = (n) => {
+    if (n == null || typeof n !== "object") return "";
+    let t = typeof n.value === "string" ? n.value : "";
+    if (Array.isArray(n.content)) t += n.content.map(nodeText).join("");
+    return t;
+  };
+
+  const paragraphs = [];
+  for (const block of blocks) {
+    if (SKIP.has(block?.type)) continue;
+    const t = nodeText(block).replace(/\s+/g, " ").trim();
+    if (t.length > 0) paragraphs.push(t);
+  }
+
+  const content = paragraphs.join("\n\n");
+  const title = (typeof story.headline === "string" ? story.headline : extractHtmlTitle(html)).trim();
+
+  if (content.length < MIN_CONTENT) {
+    return { success: false, reason: "empty-content", message: "bloomberg: content too short (" + content.length + " chars)" };
+  }
+  return { success: true, title, content, contentLength: content.length };
 }
 
 // ---------- Readability 解析 ----------

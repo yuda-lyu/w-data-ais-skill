@@ -1,6 +1,6 @@
 # Vue 3 global build + Composition API：寫法與樣板
 
-本檔為 [role-design-web-for-spec](../SKILL.md) 技能下使用 **Vue 3（global build，無 build step）** 模式的專屬指南：CDN 設定、硬規則、對應樣板。
+本檔為使用 **Vue 3（global build，無 build step）** 模式的專屬指南：CDN 設定、硬規則、對應樣板。
 
 > 設計理念（工作流程、設計原則、placeholder 哲學、變體探索、避開 AI 味）見主檔 [SKILL.md](../SKILL.md) —— 本檔只講「怎麼寫 Vue 3 程式碼」。
 

@@ -335,10 +335,10 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ├── role-design-web-for-prototype/
 │   ├── SKILL.md
 │   └── references/
-│       ├── react-patterns.md
-│       ├── vue3-patterns.md
-│       ├── vue2-patterns.md
-│       └── advanced-patterns.md
+│       ├── patterns-react.md
+│       ├── patterns-vue3.md
+│       ├── patterns-vue2.md
+│       └── patterns-advanced.md
 ├── role-design-web-for-spec/
 │   ├── SKILL.md
 │   └── references/

@@ -186,9 +186,15 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 codex --version   # 確認 codex-cli 已安裝（建議 v0.124.0+ 以使用 gpt-5.5）
 ```
 
-若未安裝或版本過舊，請執行：
+若未安裝或版本過舊，請依執行環境自行決定安裝方式。安裝**位置**由執行 AI 自行決定，只要最終 `codex` 指令可被執行即可：
+
 ```bash
+# 範例 A：全域安裝
 npm install -g @openai/codex@latest
+
+# 範例 B：專案內安裝（搭配 npx）
+npm install @openai/codex@latest
+# 之後以 npx codex ... 呼叫
 ```
 
 認證方式二擇一：
