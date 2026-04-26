@@ -3,12 +3,12 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（29 個）
+## 技能總覽（30 個）
 
 | 分類 | 技能數 |
 |------|:------:|
 | [開發工作流](#開發工作流類) | 1 |
-| [角色定位](#角色定位類) | 3 |
+| [角色定位](#角色定位類) | 4 |
 | [綜合分析](#綜合分析類) | 2 |
 | [Multi-Agent 協作](#multi-agent-協作類) | 6 |
 | [網頁抓取](#網頁抓取類) | 1 |
@@ -52,11 +52,13 @@
 |------|------|----------|
 | `role-design-web-for-prototype` | 將 Agent 定位為設計工程師，以 HTML/CSS/JS + React / Vue 3 / Vue 2 打造網頁、登陸頁、儀表板、互動原型、HTML 簡報、動畫示範、UI mockup、資料視覺化等視覺化產物 | 無（純角色／規範技能，CDN 載入各框架） |
 | `role-design-web-for-spec` | 在 `role-design-web-for-prototype` 的基礎上加法擴充四項硬性要求：研究前置（Persona / Journey）、WCAG AA 無障礙合規、量化驗收指標、亮／暗／跟隨系統三段式主題標配 | 無（純角色／規範技能，CDN 載入各框架） |
+| `role-design-web-for-magazine` | 將 Agent 定位為設計工程師，以「雜誌風格」（編輯感、紙面墨色、強字級節奏、真實圖片、細緻網格）製作高品質靜態 Web 視覺產物，採 L1（角色）→ L2（主設計）→ L3（主題色）→ L4（骨架）→ L5（必要）五層 references 設計 | 無（純角色／規範技能，CDN 載入各框架） |
 | `role-writer-report` | 將 Agent 定位為受委任之資深技術顧問兼主筆工程師，以繁體中文工程白皮書／標案書面語撰寫服務建議書、服務實施計劃書、期中／期末報告等大型委辦案技術文件，採 L1（角色）→ L2（原則）→ L3（細則）三層 references 設計 | 無（純角色／規範技能） |
 
 - 預設 React 18 + Babel inline JSX，亦支援 Vue 3 Composition API 與 Vue 2 Options API，各框架硬規則與樣板分列於 `references/`
 - 涵蓋裝置外框、Tweaks 面板、`useTime` 動畫引擎、簡報引擎、ECharts/Chart.js、oklch 配色系統等進階模式
 - `role-design-web-for-spec` 相對於 `role-design-web-for-prototype` 的差異：新增 Step 0 研究前置、WCAG AA 硬性合規檢查、量化驗收指標（Lighthouse A11y / 對比值 / 響應式 / 鍵盤全路徑）、主題系統標配
+- `role-design-web-for-magazine` 為獨立的雜誌風格設計分支：強調編輯感版面、強字級節奏、紙面墨色與真實圖片，採 L1–L5 五層 references（角色 / 主設計 / 主題色 / 骨架 / 必要）
 - `role-writer-report` 採三層分檔設計（共用 L1，依報告類型切換 L2/L3），目前已收錄「服務建議書」之 L2/L3，其他類型可在共用 L1 之上新增對應檔組
 
 ---
@@ -97,11 +99,11 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
 | `dispatch-cli` | 通用 CLI 子進程執行器（核心層），提供超時控制、進程樹清理、輸出驗證、結構化錯誤回報與自動重試，供其他 dispatch 技能調用 | Node.js ≥ 18（無 npm 依賴） |
-| `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | `npm install -g @anthropic-ai/claude-code` |
-| `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | `npm install -g @openai/codex` |
-| `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | `npm install -g @google/gemini-cli` |
-| `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | `npm install -g opencode-ai` |
-| `dispatch-agents` | 同時派出 Claude / Codex / Gemini 三大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整三方結果 | 三者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`、`@google/gemini-cli` |
+| `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | 需安裝 `@anthropic-ai/claude-code`（位置由執行 agent 決定，詳見 SKILL.md） |
+| `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | 需安裝 `@openai/codex`（位置由執行 agent 決定，詳見 SKILL.md） |
+| `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | 需安裝 `@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md） |
+| `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | 需安裝 `opencode-ai`（位置由執行 agent 決定，詳見 SKILL.md） |
+| `dispatch-agents` | 同時派出 Claude / Codex / Gemini 三大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整三方結果 | 三者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`、`@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md） |
 
 - `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘 5 項技能透過它執行
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
@@ -342,13 +344,24 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ├── role-design-web-for-spec/
 │   ├── SKILL.md
 │   └── references/
-│       ├── react-patterns.md
-│       ├── vue3-patterns.md
-│       ├── vue2-patterns.md
-│       ├── advanced-patterns.md
+│       ├── patterns-react.md
+│       ├── patterns-vue3.md
+│       ├── patterns-vue2.md
+│       ├── patterns-advanced.md
 │       ├── research-lite.md
 │       ├── accessibility-wcag-aa.md
 │       └── metrics-validation.md
+├── role-design-web-for-magazine/
+│   ├── SKILL.md
+│   └── references/
+│       ├── L1角色原則.md
+│       ├── L2主設計原則.md
+│       ├── L3主題色原則.md
+│       ├── L4骨架原則.md
+│       ├── L5必要原則.md
+│       ├── patterns-react.md
+│       ├── patterns-vue3.md
+│       └── patterns-vue2.md
 ├── role-writer-report/
 │   ├── SKILL.md
 │   └── references/
