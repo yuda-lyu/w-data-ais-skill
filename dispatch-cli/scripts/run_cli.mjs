@@ -263,6 +263,8 @@ function _runCliOnce(command, args = [], options = {}) {
         });
 
         // ── stdin ──
+        // 子進程提早關閉 stdin 時 write/end 會觸發 EPIPE，需 listen 'error' 才不會拋 unhandled event
+        proc.stdin.on('error', () => {});
         if (input !== undefined) {
             proc.stdin.write(input, 'utf8');
         }

@@ -69,18 +69,49 @@ const marginTpexData = readJson('margin_tpex.json');
 
 const reportDate = `${TODAY.substring(0, 4)}/${TODAY.substring(4, 6)}/${TODAY.substring(6, 8)}`;
 
-// 往前推一個工作日（跳過週六日）
+// 國定假日集合（YYYYMMDD），由 fetch-tw-data-holiday 載入；載入失敗時退回純週末跳過
+let _holidaySet = null;
+
+async function loadHolidaySet() {
+    try {
+        // 由 generate_report.mjs 自身位置定位 fetch-tw-data-holiday 的核心模組
+        // 兩個技能在同一技能庫下：tw-stock-research/scripts/generate_report.mjs
+        // 與                       fetch-tw-data-holiday/scripts/fetchTwDataHoliday.mjs
+        const here = new URL(import.meta.url);
+        const skillsDirUrl = new URL('../../', here);
+        const modUrl = new URL('fetch-tw-data-holiday/scripts/fetchTwDataHoliday.mjs', skillsDirUrl);
+        const { fetchTwDataHoliday } = await import(modUrl.href);
+        const result = await fetchTwDataHoliday();
+        _holidaySet = new Set((result.holidays || []).map(h => h.date));
+    } catch (e) {
+        console.warn(`[generate_report] ⚠️ 國定假日清單載入失敗（${e.message}），退回純週末跳過`);
+        _holidaySet = new Set();
+    }
+}
+
+function _toYmd(dt) {
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yyyy}${mm}${dd}`;
+}
+
+// 往前推一個交易日：跳過週六日；若已載入國定假日清單，亦跳過國定假日
 function prevWeekday(dateStr) {
     const y = parseInt(dateStr.substring(0, 4));
     const m = parseInt(dateStr.substring(4, 6)) - 1;
     const d = parseInt(dateStr.substring(6, 8));
     const dt = new Date(y, m, d);
-    do { dt.setDate(dt.getDate() - 1); } while (dt.getDay() === 0 || dt.getDay() === 6);
-    const yyyy = dt.getFullYear();
-    const mm   = String(dt.getMonth() + 1).padStart(2, '0');
-    const dd   = String(dt.getDate()).padStart(2, '0');
-    return `${yyyy}${mm}${dd}`;
+    while (true) {
+        dt.setDate(dt.getDate() - 1);
+        if (dt.getDay() === 0 || dt.getDay() === 6) continue;
+        if (_holidaySet && _holidaySet.has(_toYmd(dt))) continue;
+        break;
+    }
+    return _toYmd(dt);
 }
+
+await loadHolidaySet();
 
 // --- 前一交易日 (T-1) 與 T-2 日期常數（全報告共用）---
 const instDateT1 = prevWeekday(TODAY);

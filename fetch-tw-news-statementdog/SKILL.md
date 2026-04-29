@@ -58,6 +58,12 @@ node fetch-tw-news-statementdog/scripts/fetch_statementdog.mjs
 - 內建 fallback CSS selector：若主要 selector 因網站改版失效，自動嘗試通用結構（article/a）。
 - 輸出結構化 JSON。
 
+> **SPA 備案**：本技能假設 statementdog 仍以 SSR 渲染主要新聞列表。若日後該頁改為純 SPA（前端 JS 動態載入），axios + cheerio 將回 0 筆且觸發「抓取到 0 筆新聞」錯誤（不會自動重試）。此時應改用 `fetch-web` 技能（method = `auto` 會自動升級至 Playwright）抓取原始 HTML 後再解析，例如：
+> ```bash
+> node fetch-web/scripts/fetch_web.mjs https://statementdog.com/news/latest --no-parse > raw.html
+> # 再用 cheerio 在 raw.html 上重新跑相同的 selector 流程
+> ```
+
 ---
 
 ## 輸出格式

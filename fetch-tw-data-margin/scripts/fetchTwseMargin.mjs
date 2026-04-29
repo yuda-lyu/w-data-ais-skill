@@ -66,7 +66,18 @@ export async function fetchTwseMargin(dateStr, stockCodes) {
             // fields: ["代號","名稱","買進","賣出","現金償還","前日餘額","今日餘額","次一營業日限額",
             //          "買進","賣出","現券償還","前日餘額","今日餘額","次一營業日限額","資券互抵","註記"]
             // 前8欄為融資，後6欄(idx 8-13)為融券，idx 14=資券互抵, idx 15=註記
-            const detailTable = data.tables?.find(t => t.data?.length > 0 && t.title?.includes('融資融券彙總'));
+            // 比對策略：先用 title「融資融券彙總」精確比對；若 schema 改版改稱（例如「信用交易彙總」），
+            // 退而以 fields 同時含「融資」與「融券」雙重比對，提升 schema 改版容忍度
+            const tables = Array.isArray(data.tables) ? data.tables : [];
+            let detailTable = tables.find(t => t.data?.length > 0 && t.title?.includes('融資融券彙總'));
+            if (!detailTable) {
+                detailTable = tables.find(t =>
+                    t.data?.length > 0 &&
+                    Array.isArray(t.fields) &&
+                    t.fields.some(f => String(f).includes('融資')) &&
+                    t.fields.some(f => String(f).includes('融券'))
+                );
+            }
             if (!detailTable || !detailTable.data || detailTable.data.length === 0) {
                 throw new Error('TWSE MI_MARGN: 找不到融資融券彙總資料表');
             }

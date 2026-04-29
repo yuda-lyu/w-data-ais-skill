@@ -51,12 +51,20 @@ export async function fetchTpex3insti(dateStr, stockCodes) {
                 throw new Error('TPEX 3insti: tables not found in response. Possibly a holiday or no data.');
             }
 
-            const table   = data.tables[0];
+            // 比對策略：以 fields 含「代號」與三大法人欄位（含「外資」「投信」「自營」其一）雙重比對；
+            // 失敗退而取 tables[0]，避免未來新增其他資料表時誤抓
+            const tables = Array.isArray(data.tables) ? data.tables : [];
+            const table = tables.find(t =>
+                Array.isArray(t.fields) &&
+                t.fields.some(f => String(f).includes('代號')) &&
+                t.fields.some(f => /外資|投信|自營/.test(String(f)))
+            ) || tables[0];
+
             const fields  = table.fields;
             const rawData = table.data;
 
-            if (!rawData) {
-                throw new Error('TPEX 3insti: data not found in table.');
+            if (!Array.isArray(fields) || !rawData) {
+                throw new Error('TPEX 3insti: data/fields not found in table.');
             }
 
             let processedData = rawData.map(row => {

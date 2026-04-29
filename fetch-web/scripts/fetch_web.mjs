@@ -5,7 +5,8 @@
 //   node fetch_web.mjs <url> [outputPath] [--method=auto|curl|playwright|playwright-headed|camofox]
 
 import { fetchWeb } from "./fetchWeb.mjs";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 // Windows reserved-device-name guard — 避免 fs 寫入 nul/con/prn 等產生無法刪除的檔案
 const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i;
@@ -48,6 +49,8 @@ const result = await fetchWeb(url, { method });
 
 if (outputPath) {
   _guardPath(outputPath);
+  const dir = dirname(outputPath);
+  if (dir && dir !== '.') mkdirSync(dir, { recursive: true });
   writeFileSync(outputPath, JSON.stringify(result, null, 2), "utf-8");
   console.log(
     result.status === "success"

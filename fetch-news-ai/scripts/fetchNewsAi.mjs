@@ -84,39 +84,37 @@ export async function fetchNewsAi() {
     path.join(skillsDir, 'fetch-hacker-news', 'scripts', 'fetchHackerNews.mjs'), "fetchHackerNews"
   );
 
-  // 並行取得所有來源
-  const tasks = [
-    // AI News Aggregator（非 RSS，使用專用函式）
-    fetchAiNewsAggregator()
-      .then((items) => items.map((it) => ({ ...it, from: "AI News Aggregator" })))
-      .catch((err) => {
-        console.error(`[fetch-news-ai] AI News Aggregator 失敗: ${err.message}`);
-        return [];
-      }),
-    // Hacker News（非 RSS，使用專用函式）
-    fetchHackerNews()
-      .then((items) => items.map((it) => ({ ...it, from: "Hacker News" })))
-      .catch((err) => {
-        console.error(`[fetch-news-ai] Hacker News 失敗: ${err.message}`);
-        return [];
-      }),
-    // 各 RSS 來源
-    ...RSS_SOURCES.map((src) =>
-      fetchRSS(src.rss)
-        .then((items) => items.map((it) => ({ ...it, from: src.from })))
-        .catch((err) => {
-          console.error(`[fetch-news-ai] ${src.from} 失敗: ${err.message}`);
-          return [];
-        })
-    ),
+  // 序列取得所有來源（避免同站連續快速請求觸發速率限制；
+  // 例如 RSS_SOURCES 中含 4 個 youtube.com 來源，須以延時拉開）
+  const INTER_SOURCE_DELAY_MS = 500;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const sourceTasks = [
+    {
+      from: "AI News Aggregator",
+      run: () => fetchAiNewsAggregator(),
+    },
+    {
+      from: "Hacker News",
+      run: () => fetchHackerNews(),
+    },
+    ...RSS_SOURCES.map((src) => ({
+      from: src.from,
+      run: () => fetchRSS(src.rss),
+    })),
   ];
 
-  const results = await Promise.allSettled(tasks);
-
-  // 彙整所有資料
-  const allItems = results.flatMap((r) =>
-    r.status === "fulfilled" ? r.value : []
-  );
+  const allItems = [];
+  for (let i = 0; i < sourceTasks.length; i++) {
+    const { from, run } = sourceTasks[i];
+    if (i > 0) await sleep(INTER_SOURCE_DELAY_MS);
+    try {
+      const items = await run();
+      for (const it of items) allItems.push({ ...it, from });
+    } catch (err) {
+      console.error(`[fetch-news-ai] ${from} 失敗: ${err.message}`);
+    }
+  }
 
   // 網域黑名單過濾（AI 選文前移除無法摘要的來源）
   const allowed = allItems.filter((it) => !isBlockedUrl(it.url));

@@ -37,17 +37,42 @@ function validateBaseOutputDir(baseDir) {
 
 validateBaseOutputDir(BASE_OUTPUT_DIR);
 
-// 往前推一個工作日（跳過週六日）
+// 國定假日集合（YYYYMMDD），由 fetch-tw-data-holiday 載入；載入失敗時退回純週末跳過
+let _holidaySet = null;
+
+async function loadHolidaySet() {
+    try {
+        const modPath = path.join(SKILLS_DIR, 'fetch-tw-data-holiday/scripts/fetchTwDataHoliday.mjs');
+        const { fetchTwDataHoliday } = await import(`file://${modPath.replace(/\\/g, '/')}`);
+        const result = await fetchTwDataHoliday();
+        _holidaySet = new Set((result.holidays || []).map(h => h.date));
+        console.log(`[run_research] 已載入國定假日：${_holidaySet.size} 筆`);
+    } catch (e) {
+        console.warn(`[run_research] ⚠️ 國定假日清單載入失敗（${e.message}），退回純週末跳過`);
+        _holidaySet = new Set();
+    }
+}
+
+function _toYmd(dt) {
+    const yyyy = dt.getFullYear();
+    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getDate()).padStart(2, '0');
+    return `${yyyy}${mm}${dd}`;
+}
+
+// 往前推一個交易日：跳過週六日；若已載入國定假日清單，亦跳過國定假日
 function prevWeekday(dateStr) {
     const y = parseInt(dateStr.substring(0, 4));
     const m = parseInt(dateStr.substring(4, 6)) - 1;
     const d = parseInt(dateStr.substring(6, 8));
     const dt = new Date(y, m, d);
-    do { dt.setDate(dt.getDate() - 1); } while (dt.getDay() === 0 || dt.getDay() === 6);
-    const yyyy = dt.getFullYear();
-    const mm   = String(dt.getMonth() + 1).padStart(2, '0');
-    const dd   = String(dt.getDate()).padStart(2, '0');
-    return `${yyyy}${mm}${dd}`;
+    while (true) {
+        dt.setDate(dt.getDate() - 1);
+        if (dt.getDay() === 0 || dt.getDay() === 6) continue;
+        if (_holidaySet && _holidaySet.has(_toYmd(dt))) continue;
+        break;
+    }
+    return _toYmd(dt);
 }
 
 const RAW_DIR    = path.join(OUTPUT_DIR, 'raw');
@@ -103,6 +128,9 @@ function run(label, scriptRelPath, extraArgs = [], timeoutMs = 120000) {
     log(`${label} ✅`);
     return true;
 }
+
+// ── Step 0: 載入國定假日清單，讓 prevWeekday 能正確跳過公假日 ────────────────
+await loadHolidaySet();
 
 // ── Step 1: 交易日檢查 ────────────────────────────────────────────────────────
 fs.mkdirSync(RAW_DIR, { recursive: true });

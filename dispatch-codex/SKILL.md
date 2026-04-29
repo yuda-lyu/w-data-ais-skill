@@ -105,6 +105,10 @@ if (result.ok) {
 
 > 本 skill 預設使用 `xhigh` 最強推理。Codex CLI v0.124.0 的 `ReasoningEffort` enum 仍為六階（`None` / `Minimal` / `Low` / `Medium` / `High` / `XHigh`），**沒有** `max` 等級，`xhigh` 即為最深。若需加速可降級為 `high` 或 `medium`。
 > 備註：v0.124.0 TUI 支援 `Alt+,` / `Alt+.` 即時降/升推理等級；切換模型時會重置為新模型的預設推理等級，記得顯式傳 `--config model_reasoning_effort='"xhigh"'` 以確保最深推理。
+>
+> **跨 shell 差異提醒**：上述 `'"xhigh"'`（外層單引號包雙引號）為 bash／zsh 寫法，需讓 codex CLI 收到帶雙引號的 TOML 字面值。
+> - **PowerShell**：使用 `--config model_reasoning_effort='\"xhigh\"'`（外層單引號內以反斜線跳脫雙引號），或改用程式化呼叫（推薦）：`spawn('codex', ['--config', 'model_reasoning_effort="xhigh"'])`，以陣列直傳參數可繞過 shell escaping 問題。
+> - **cmd.exe**：使用 `--config "model_reasoning_effort=\"xhigh\""`。
 
 ### 各參數說明
 

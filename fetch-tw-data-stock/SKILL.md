@@ -178,6 +178,8 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 }
 ```
 
+> 注意：個股查詢（STOCK_DAY）回傳的是該月份整月資料。若指定 `date` 屬於該月有資料的範圍但該日無交易（例如假日、停盤、未開市），腳本會以 `status: "error"` 回傳，message 形如「TWSE 個股 XXXX 於 YYYYMMDD 無交易資料（可能為假日或停盤）」。呼叫端需以此區分「整月查無資料」與「該日無交易」。
+
 ---
 
 ## 上櫃（TPEX）

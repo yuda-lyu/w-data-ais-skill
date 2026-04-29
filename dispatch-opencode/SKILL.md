@@ -127,7 +127,7 @@ if (result.ok) {
 |------|------|------|
 | `run` | ✅ | 非互動/headless 模式，執行完即退出 |
 | `--agent build` | ✅ | 使用 `build` agent，權限全開（自動核准所有操作） |
-| `-m "nameProvider/nameAI/model"` | 建議 | 指定模型，格式為 `nameProvider/nameAI/model`（如 `nvidia/deepseek-ai/deepseek-r1`）或 `provider/model`（如 `opencode/nemotron-3-super-free`） |
+| `-m "<provider>/<model>"` 或 `-m "<provider>/<vendor>/<model>"` | 建議 | 指定模型，支援兩段或三段格式：兩段（`provider/model`，如 `opencode/nemotron-3-super-free`）為多數情境；三段（`provider/vendor/model`，如 `nvidia/deepseek-ai/deepseek-r1`）用於 vendor 命名空間下的特定模型 |
 | `--format json` | ❌ 可選 | 輸出 JSONL 事件流，適合程式解析 |
 | `-f <file>` | ❌ 可選 | 附加檔案給任務 |
 | `--variant` | ❌ 可選 | 推理強度（如 `high`、`max`、`minimal`） |

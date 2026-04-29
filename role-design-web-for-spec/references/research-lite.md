@@ -22,7 +22,7 @@
 
 ## 輕量 Persona 模板（5 欄位）
 
-刻意做簡，避免變成 jnMetaCode UI Designer 那種長篇規格。
+刻意做簡，避免變成完整 UX Researcher 那種長篇規格。
 
 ```markdown
 ## Persona：[一句話稱呼，如「忙碌的財務長」]

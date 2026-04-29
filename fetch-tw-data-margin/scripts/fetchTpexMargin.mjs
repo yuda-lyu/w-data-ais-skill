@@ -69,7 +69,14 @@ export async function fetchTpexMargin(dateStr, stockCodes) {
             // TPEX format: { stat: 'ok', tables: [{ title, fields, data }] }
             // fields: ["代號","名稱","前資餘額(張)","資買","資賣","現償","資餘額","資屬證金","資使用率(%)",
             //          "資限額","前券餘額(張)","券賣","券買","券償","券餘額","券屬證金","券使用率(%)","券限額","資券相抵(張)","備註"]
-            const marginTable = data.tables?.find(t => t.data?.length > 0);
+            // 比對策略：以 fields 同時含「資餘額」與「券餘額」雙重比對；若失敗退而取第一張有資料表
+            const tables = Array.isArray(data.tables) ? data.tables : [];
+            let marginTable = tables.find(t =>
+                t.data?.length > 0 &&
+                Array.isArray(t.fields) &&
+                t.fields.some(f => String(f).includes('資餘額')) &&
+                t.fields.some(f => String(f).includes('券餘額'))
+            ) || tables.find(t => t.data?.length > 0);
             if (!marginTable || !marginTable.data || marginTable.data.length === 0) {
                 throw new Error('TPEX margin API returned no data. Possibly a holiday or data not yet available.');
             }

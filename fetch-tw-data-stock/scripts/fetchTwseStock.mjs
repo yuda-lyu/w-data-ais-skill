@@ -22,6 +22,14 @@ function isRetryable(error) {
     return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
 }
 
+// 將 YYYYMMDD 轉為民國 ROC 日期字串（用以與 STOCK_DAY 回傳之日期欄位比對）
+function toRocDateString(yyyymmdd) {
+    const y = parseInt(yyyymmdd.substring(0, 4)) - 1911;
+    const m = yyyymmdd.substring(4, 6);
+    const d = yyyymmdd.substring(6, 8);
+    return `${y}/${m}/${d}`;
+}
+
 export async function fetchTwseStock(dateStr, stockCode) {
     const isSingleStock = stockCode && stockCode.toLowerCase() !== 'all';
     const stockNo = isSingleStock ? stockCode : 'ALLBUT0999';
@@ -49,6 +57,18 @@ export async function fetchTwseStock(dateStr, stockCode) {
 
             if (data.stat !== 'OK') {
                 throw new Error(`TWSE API returned: ${data.stat}`);
+            }
+
+            // STOCK_DAY 回傳整月資料；若呼叫者明確指定單一日期，過濾為該日單筆
+            // 保留原欄位結構（fields/data/title/...），僅替換 data 為篩選後陣列
+            if (isSingleStock && Array.isArray(data.data)) {
+                const rocDate = toRocDateString(dateStr);
+                const filtered = data.data.filter(row => row[0] === rocDate);
+                data.data = filtered;
+                if (filtered.length === 0) {
+                    // 整月有資料但指定日無 → 當日停盤／假日／未開市
+                    throw new Error(`TWSE 個股 ${stockCode} 於 ${dateStr} 無交易資料（可能為假日或停盤）`);
+                }
             }
 
             return data;

@@ -35,7 +35,7 @@
     justify-content: center;
     height: 100vh;
     overflow: hidden;
-    font-family: system-ui, sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
   }
   .stage {
     width: 1920px;

@@ -54,17 +54,47 @@ async function fetchWithRetry(url, label) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Parse a single CSV line, supporting quoted fields with embedded commas
+ * and "" escaped double quotes (RFC 4180 子集，足以涵蓋 TAIFEX 未來欄位變動)。
+ */
+function parseCSVLine(line) {
+    const result = [];
+    let cur = '';
+    let inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (inQuote) {
+            if (c === '"') {
+                if (line[i + 1] === '"') { cur += '"'; i++; }
+                else inQuote = false;
+            } else {
+                cur += c;
+            }
+        } else if (c === ',') {
+            result.push(cur.trim());
+            cur = '';
+        } else if (c === '"' && cur.length === 0) {
+            inQuote = true;
+        } else {
+            cur += c;
+        }
+    }
+    result.push(cur.trim());
+    return result;
+}
+
+/**
  * Parse CSV text into an array of objects using the header row as keys.
- * Handles trailing commas and trims whitespace.
+ * Handles trailing commas, quoted fields, and trims whitespace.
  */
 function parseCSV(csvText) {
     const lines = csvText.trim().split('\n').map(l => l.trim()).filter(l => l.length > 0);
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim());
+    const headers = parseCSVLine(lines[0]);
     const rows = [];
     for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
+        const values = parseCSVLine(lines[i]);
         const obj = {};
         for (let j = 0; j < headers.length; j++) {
             obj[headers[j]] = values[j] || '';
@@ -255,33 +285,33 @@ export async function fetchTaifex(dateStr) {
     let institutional = null;
     let pcRatio = null;
 
-    // Fetch all three in parallel
-    const [futResult, instResult, pcResult] = await Promise.allSettled([
-        fetchFuturesData(dateSlash),
-        fetchInstitutionalData(dateSlash),
-        fetchPCRatio(dateSlash)
-    ]);
+    // 對 TAIFEX 同網域請求改為序列執行，每支間隔 1 秒，降低被限流風險
+    const INTER_REQUEST_DELAY_MS = 1000;
 
-    if (futResult.status === 'fulfilled') {
-        futures = futResult.value;
-    } else {
-        const msg = `台指期行情: ${futResult.reason?.message || futResult.reason}`;
+    try {
+        futures = await fetchFuturesData(dateSlash);
+    } catch (e) {
+        const msg = `台指期行情: ${e?.message || e}`;
         console.error(msg);
         errors.push(msg);
     }
 
-    if (instResult.status === 'fulfilled') {
-        institutional = instResult.value;
-    } else {
-        const msg = `三大法人: ${instResult.reason?.message || instResult.reason}`;
+    await sleep(INTER_REQUEST_DELAY_MS);
+
+    try {
+        institutional = await fetchInstitutionalData(dateSlash);
+    } catch (e) {
+        const msg = `三大法人: ${e?.message || e}`;
         console.error(msg);
         errors.push(msg);
     }
 
-    if (pcResult.status === 'fulfilled') {
-        pcRatio = pcResult.value;
-    } else {
-        const msg = `Put/Call Ratio: ${pcResult.reason?.message || pcResult.reason}`;
+    await sleep(INTER_REQUEST_DELAY_MS);
+
+    try {
+        pcRatio = await fetchPCRatio(dateSlash);
+    } catch (e) {
+        const msg = `Put/Call Ratio: ${e?.message || e}`;
         console.error(msg);
         errors.push(msg);
     }

@@ -48,6 +48,12 @@ node -e "require('axios'); console.log('deps OK')"
 npm install axios
 ```
 
+> **Node.js 版本需求**：本技能透過 `TextDecoder('big5')` 解碼 TAIFEX MS950 編碼之 CSV，需要 Node.js ≥ 18 且包含完整 ICU（full-icu）。Node.js 21+ 預設啟用 full-icu；若使用 18/20 之 small-icu 版本（少數官方剝離 ICU 之精簡版）會在解碼處失敗。可用以下指令驗證：
+> ```bash
+> node -e "console.log(new TextDecoder('big5').decode(new Uint8Array([0xa4,0x40])))"
+> # 預期輸出：「一」（Big5 中文）；若拋 RangeError，需切換至 full-icu 版本或安裝 full-icu 套件
+> ```
+
 ### 執行方式
 
 > 執行前須先偵測所需套件是否已安裝（參考安裝指引中的驗證指令）。

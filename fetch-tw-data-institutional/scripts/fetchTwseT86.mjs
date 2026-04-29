@@ -24,6 +24,16 @@ export async function fetchTwseT86(dateStr, stockCodes) {
     if (!/^\d{8}$/.test(dateStr)) {
         throw new Error(`dateStr must be YYYYMMDD, got: ${dateStr}`);
     }
+    // 合法性驗證：例如 20260230 雖然符合 8 碼但日期不存在
+    {
+        const _y = parseInt(dateStr.substring(0, 4));
+        const _m = parseInt(dateStr.substring(4, 6));
+        const _d = parseInt(dateStr.substring(6, 8));
+        const testDate = new Date(_y, _m - 1, _d);
+        if (testDate.getFullYear() !== _y || testDate.getMonth() !== _m - 1 || testDate.getDate() !== _d) {
+            throw new Error(`dateStr 不是合法日期: ${dateStr}（年=${_y} 月=${_m} 日=${_d}）`);
+        }
+    }
 
     const targetCodes = Array.isArray(stockCodes) ? stockCodes : [];
     const url = `https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date=${dateStr}&selectType=ALL`;

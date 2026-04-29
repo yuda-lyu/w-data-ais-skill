@@ -51,7 +51,11 @@ export async function fetchTpexStock(dateStr, stockCodes) {
             const data = response.data;
 
             // TPEX API 格式（2026 年後）：{ stat, tables: [{ title: '上櫃股票行情', data: [...] }] }
-            const rows = data.tables?.find(t => t.data?.length > 0)?.data;
+            // 優先以 title 「行情」字樣比對，避免未來新增其他資料表時誤抓
+            const tables = Array.isArray(data.tables) ? data.tables : [];
+            const targetTable = tables.find(t => t.title?.includes('行情') && t.data?.length > 0)
+                || tables.find(t => t.data?.length > 0);
+            const rows = targetTable?.data;
 
             if (!rows || rows.length === 0) {
                 throw new Error('TPEX API returned no data. Possibly a holiday or data not yet available.');
@@ -61,7 +65,8 @@ export async function fetchTpexStock(dateStr, stockCodes) {
             if (targetCodes.length > 0) {
                 resultData = resultData.filter(row => targetCodes.includes(row[0]));
                 if (resultData.length === 0) {
-                    throw new Error(`指定個股 ${targetCodes.join(',')} 不在上櫃資料中（可能為上市股或代碼有誤）`);
+                    // 整體有資料但過濾後為空 → 個股不在上櫃市場（與整體無資料的錯誤訊息明確區分）
+                    throw new Error(`指定個股 ${targetCodes.join(',')} 在 ${dateStr} 之上櫃資料中查無資料（可能為上市股、代碼有誤、或當日無交易）`);
                 }
             }
 
