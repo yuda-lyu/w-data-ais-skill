@@ -84,37 +84,44 @@ export async function fetchNewsAi() {
     path.join(skillsDir, 'fetch-hacker-news', 'scripts', 'fetchHackerNews.mjs'), "fetchHackerNews"
   );
 
-  // 序列取得所有來源（避免同站連續快速請求觸發速率限制；
-  // 例如 RSS_SOURCES 中含 4 個 youtube.com 來源，須以延時拉開）
-  const INTER_SOURCE_DELAY_MS = 500;
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // 並行取得所有來源（多支獨立來源 → 整批耗時 = 最慢那支，而非各支耗時加總；
+  // 上游 trigger 有 timeout 約束，序列模式會線性累加並撞破天花板）
+  // 每支再加單支硬上限 45s race timeout，避免單支跑滿重試（最壞 225s）拖慢整批
+  const PER_SOURCE_TIMEOUT_MS = 45000;
+  function withTimeout(promise, ms, from) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`${from} timeout ${ms}ms`)), ms)
+      ),
+    ]);
+  }
 
-  const sourceTasks = [
-    {
-      from: "AI News Aggregator",
-      run: () => fetchAiNewsAggregator(),
-    },
-    {
-      from: "Hacker News",
-      run: () => fetchHackerNews(),
-    },
-    ...RSS_SOURCES.map((src) => ({
-      from: src.from,
-      run: () => fetchRSS(src.rss),
-    })),
+  const tasks = [
+    withTimeout(fetchAiNewsAggregator(), PER_SOURCE_TIMEOUT_MS, "AI News Aggregator")
+      .then((items) => items.map((it) => ({ ...it, from: "AI News Aggregator" })))
+      .catch((err) => {
+        console.error(`[fetch-news-ai] AI News Aggregator 失敗: ${err.message}`);
+        return [];
+      }),
+    withTimeout(fetchHackerNews(), PER_SOURCE_TIMEOUT_MS, "Hacker News")
+      .then((items) => items.map((it) => ({ ...it, from: "Hacker News" })))
+      .catch((err) => {
+        console.error(`[fetch-news-ai] Hacker News 失敗: ${err.message}`);
+        return [];
+      }),
+    ...RSS_SOURCES.map((src) =>
+      withTimeout(fetchRSS(src.rss), PER_SOURCE_TIMEOUT_MS, src.from)
+        .then((items) => items.map((it) => ({ ...it, from: src.from })))
+        .catch((err) => {
+          console.error(`[fetch-news-ai] ${src.from} 失敗: ${err.message}`);
+          return [];
+        })
+    ),
   ];
 
-  const allItems = [];
-  for (let i = 0; i < sourceTasks.length; i++) {
-    const { from, run } = sourceTasks[i];
-    if (i > 0) await sleep(INTER_SOURCE_DELAY_MS);
-    try {
-      const items = await run();
-      for (const it of items) allItems.push({ ...it, from });
-    } catch (err) {
-      console.error(`[fetch-news-ai] ${from} 失敗: ${err.message}`);
-    }
-  }
+  const results = await Promise.allSettled(tasks);
+  const allItems = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 
   // 網域黑名單過濾（AI 選文前移除無法摘要的來源）
   const allowed = allItems.filter((it) => !isBlockedUrl(it.url));
