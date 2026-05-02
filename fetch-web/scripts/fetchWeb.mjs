@@ -133,7 +133,8 @@ export function inspectHtml(html) {
   const titleLower = title.toLowerCase();
 
   // --- CAPTCHA / anti-bot challenge ---
-  if (lower.includes("captcha-delivery.com") && !lower.includes("<article"))
+  // 子技能會把 shadow-DOM 萃取的短內容包進 <article>，故不能用 <article> 當例外
+  if (lower.includes("captcha-delivery.com"))
     return { pass: false, type: DETECT_CAPTCHA, message: "DataDome CAPTCHA" };
   if (lower.includes("perimeterx"))
     return { pass: false, type: DETECT_CAPTCHA, message: "PerimeterX challenge" };
