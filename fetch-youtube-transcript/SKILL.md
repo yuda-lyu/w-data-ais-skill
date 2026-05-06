@@ -141,7 +141,7 @@ await fetchYoutubeTranscript(url, {
     { "tMs": 0, "t": "00:00", "txt": "聽說你的留言當中..." },
     { "tMs": 6000, "t": "00:06", "txt": "比較能夠同理..." }
   ],
-  "segmentsCount": 1480,
+  "segmentsCount": 740,
   "plainText": "聽說你的留言當中...\n比較能夠同理...",
   "timestampedText": "[00:00] 聽說你的留言當中...\n[00:06] 比較能夠同理...",
   "source": "dom",

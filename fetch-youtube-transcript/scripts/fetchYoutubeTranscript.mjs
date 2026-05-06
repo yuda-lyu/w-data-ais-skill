@@ -307,6 +307,16 @@ export async function fetchYoutubeTranscript(url, options = {}) {
                 throw new Error(lastMessage)
             }
 
+            // YouTube 同時渲染多個 transcript panel 容器時 DOM 會把每段抓到兩次（觀察：1480/1050/730 段對折為 740/525/365）；用 tMs+txt 去重再依 tMs 排序，對 network 路徑為 no-op
+            {
+                const seen = new Map()
+                for (const s of segments) {
+                    const k = `${s.tMs}|${s.txt}`
+                    if (!seen.has(k)) seen.set(k, s)
+                }
+                segments = [...seen.values()].sort((a, b) => a.tMs - b.tMs)
+            }
+
             const timestampedText = segments.map((s) => `[${s.t}] ${s.txt}`).join('\n')
             const plainText = segments.map((s) => s.txt).join('\n')
 
