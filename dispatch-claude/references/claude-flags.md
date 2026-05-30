@@ -26,7 +26,7 @@ Claude CLI 不使用子命令進入 headless 模式，而是透過 `-p` / `--pri
 
 | 選項 | 縮寫 | 說明 |
 |------|------|------|
-| `--model` | — | 指定模型：別名（`opus`/`sonnet`/`haiku`）或完整 ID（`claude-opus-4-7`） |
+| `--model` | — | 指定模型：別名（`opus`/`sonnet`/`haiku`）或完整 ID（`claude-opus-4-8`） |
 | `--effort` | — | 自適應推理深度：`low`、`medium`、`high`、`xhigh`、`max`（見下方說明） |
 | `--fallback-model` | — | 主模型過載時的備援模型（僅 `-p` 模式） |
 
@@ -34,10 +34,15 @@ Claude CLI 不使用子命令進入 headless 模式，而是透過 `-p` / `--pri
 
 | 模型 ID | 別名 | 說明 |
 |---------|------|------|
-| `claude-opus-4-7` | `opus` | 最新旗艦（2026-04 起），1M token context |
-| `claude-opus-4-6` | — | 上一代 Opus |
+| `claude-opus-4-8` | `opus` | 最新旗艦（CLI v2.1.154 起 `opus` 別名指向此），1M token context |
+| `claude-opus-4-7` | — | 前一代 Opus |
+| `claude-opus-4-6` | — | 再前一代 Opus |
 | `claude-sonnet-4-6` | `sonnet` | 平衡性能與速度 |
 | `claude-haiku-4-5` | `haiku` | 最快速、最低成本 |
+| `opusplan` | — | 混合：plan 階段用 Opus，執行階段用 Sonnet |
+| `opus[1m]` / `sonnet[1m]` | — | 1M token context 變體（大型程式碼庫用） |
+
+> 環境變數：`ANTHROPIC_MODEL=<id-or-alias>` 全域指定；`ANTHROPIC_DEFAULT_OPUS_MODEL=<full-id>` 固定 `opus` 別名指向的版本。
 
 ### `--effort` 推理深度說明
 
@@ -46,13 +51,13 @@ Claude CLI 不使用子命令進入 headless 模式，而是透過 `-p` / `--pri
 | `low` | 最低推理，快速便宜 | 簡單查詢、格式轉換 |
 | `medium` | 中等推理（Pro/Max 訂閱預設） | 日常編碼任務 |
 | `high` | 較深推理（API/Team/Enterprise 預設） | 除錯、架構分析 |
-| `xhigh` | **延伸推理（v2.1.111+，僅 Opus 4.7 支援）** | 長時程 agentic、大型編碼任務；官方建議此為多數工作起始等級 |
-| `max` | **絕對最深推理，無 token 花費限制；Opus 4.6 / 4.7 支援** | 高階推理、複雜除錯、安全審計、前沿問題 |
+| `xhigh` | **延伸推理（v2.1.111+，Opus 4.7 / 4.8 支援）** | 長時程 agentic、大型編碼任務；官方建議此為多數工作起始等級 |
+| `max` | **絕對最深推理，無 token 花費限制；Opus 4.6 / 4.7 / 4.8 支援** | 高階推理、複雜除錯、安全審計、前沿問題 |
 
 > **注意**：`max` 不會跨 session 保留，每次呼叫需明確傳入。
 > 也可透過環境變數 `CLAUDE_CODE_EFFORT_LEVEL=max` 設定（優先級最高）。
 > 在 prompt 中加入 `ultrathink` 關鍵字可觸發 `high` 等級（但非 `xhigh`/`max`）。
-> 非 Opus 4.7 模型傳入 `xhigh` 會退回到 `high`。
+> 非 Opus 系列（Sonnet / Haiku）傳入 `xhigh` / `max` 會退回到 `high`。
 
 ## 輸出控制
 

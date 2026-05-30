@@ -1,6 +1,6 @@
 ---
 name: dispatch-claude
-description: This skill should be used when the user asks to "run claude as an agent", "call claude", "use claude cli as agent", "create claude agent", "multi-agent with claude", "dispatch task to claude", "launch claude", or needs to drive Claude Code CLI as a subprocess agent within a multi-agent workflow.
+description: This skill should be used when the user asks to "run claude as an agent", "call claude", "use claude cli as agent", "create claude agent", "multi-agent with claude", "dispatch task to claude", "launch claude", or needs to drive Claude Code CLI as a subprocess agent within a multi-agent workflow. v2.1.154+ 的 -p 模式預設掛載 Workflow tool（Max/Team/Enterprise 零設定）。
 ---
 
 # dispatch-claude — 以 Claude Code CLI 作為 Agent 驅動
@@ -25,17 +25,17 @@ description: This skill should be used when the user asks to "run claude as an a
 ### 命令列
 
 ```bash
-# 基本呼叫（預設 Opus 4.7 + max 推理深度）
+# 基本呼叫（預設 Opus 4.8 + max 推理深度）
 node dispatch-cli/scripts/run_cli.mjs \
   claude -p --dangerously-skip-permissions \
-  --model claude-opus-4-7 --effort max \
+  --model claude-opus-4-8 --effort max \
   "你的任務描述"
 
 # 完整防護：超時 + JSON 驗證 + 回合限制 + 重試
 CLI_TIMEOUT_MS=120000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 \
   node dispatch-cli/scripts/run_cli.mjs \
   claude -p --dangerously-skip-permissions \
-  --model claude-opus-4-7 --effort max \
+  --model claude-opus-4-8 --effort max \
   --output-format json \
   "你的任務描述"
 
@@ -43,13 +43,13 @@ CLI_TIMEOUT_MS=120000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 \
 CLI_TIMEOUT_MS=180000 CLI_INPUT_FILE=prompt.txt \
   node dispatch-cli/scripts/run_cli.mjs \
   claude -p --dangerously-skip-permissions \
-  --model claude-opus-4-7 --effort max \
+  --model claude-opus-4-8 --effort max \
   --output-format json
 
 # 只核准特定工具（更安全的替代方案）
 node dispatch-cli/scripts/run_cli.mjs \
   claude -p --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
-  --model claude-opus-4-7 --effort max \
+  --model claude-opus-4-8 --effort max \
   "你的任務描述"
 ```
 
@@ -62,7 +62,7 @@ import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
 const result = await runCli('claude', [
     '-p', '--dangerously-skip-permissions',
-    '--model', 'claude-opus-4-7', '--effort', 'max',
+    '--model', 'claude-opus-4-8', '--effort', 'max',
     '--output-format', 'json',
     '請分析這段程式碼的安全性問題',
 ], {
@@ -82,38 +82,64 @@ if (result.ok) {
 
 | 模型 ID | 別名 | 說明 |
 |---------|------|------|
-| `claude-opus-4-7` | `opus` | **預設模型**，旗艦級、最強推理能力，1M token context |
-| `claude-opus-4-6` | — | 上一代 Opus，仍可指定使用 |
-| `claude-sonnet-4-6` | `sonnet` | 平衡性能與速度 |
+| `claude-opus-4-8` | `opus` | **預設模型**（自 CLI v2.1.154 起 `opus` 別名指向此），旗艦級、最強推理能力，1M token context |
+| `claude-opus-4-7` | — | 前一代 Opus，仍可指定使用 |
+| `claude-opus-4-6` | — | 再前一代 Opus |
+| `claude-sonnet-4-6` | `sonnet` | 平衡性能與速度（`--fallback-model sonnet` 常用 fallback） |
 | `claude-haiku-4-5` | `haiku` | 最快速、最低成本 |
+| `opusplan` | — | 混合模式：plan 階段用 Opus、執行階段用 Sonnet |
+| `opus[1m]` / `sonnet[1m]` | — | 1M token context 變體（大型程式碼庫用） |
 
-指定模型：`--model claude-opus-4-7` 或 `--model opus`（不指定即使用帳號預設模型）
+指定模型：`--model claude-opus-4-8` 或 `--model opus`（不指定即使用帳號預設模型）
+
+> 也可用環境變數 `ANTHROPIC_MODEL=claude-opus-4-8` 全域指定，或 `ANTHROPIC_DEFAULT_OPUS_MODEL=claude-opus-4-8` 固定 `opus` 別名指向的版本。
 
 ## 推理深度（effort）
 
-**預設使用 `--effort max`**（最深推理，無 token 花費限制，Opus 4.6 / 4.7 皆支援）。
+**預設使用 `--effort max`**（最深推理，無 token 花費限制，Opus 4.6 / 4.7 / 4.8 皆支援）。
 
 | 等級 | 說明 |
 |------|------|
 | `low` | 簡單查詢，快速便宜 |
 | `medium` | 中等推理（Pro/Max 訂閱預設） |
-| `high` | 較深推理（API/Team/Enterprise 預設） |
-| `xhigh` | **延伸推理**，適合長時程 agentic / 編碼任務（僅 Opus 4.7 支援；v2.1.111+） |
-| **`max`** | **絕對最深推理，無任何限制（預設）**；Opus 4.6 / 4.7 支援 |
+| `high` | 較深推理（API/Team/Enterprise 預設）；prompt 內加 `ultrathink` 關鍵字也對應此等級 |
+| `xhigh` | **延伸推理**，適合長時程 agentic / 編碼任務；Opus 4.7 / 4.8 支援（v2.1.111+） |
+| **`max`** | **絕對最深推理，無任何限制（預設）**；Opus 4.6 / 4.7 / 4.8 支援（啟用 Workflow tool 條件見下節） |
 
 > `max` 不會跨 session 保留，每次呼叫需明確傳入 `--effort max`。
 > 也可透過環境變數 `CLAUDE_CODE_EFFORT_LEVEL=max` 設定（優先級最高）。
 > 官方建議：多數 agentic / 編碼工作用 `xhigh` 即可，`max` 保留給真正的前沿問題（可能大幅增加成本但品質提升有限）。
 > 若需降低推理深度以節省成本，可改為 `--effort xhigh` 或 `--effort high`。
 
-### 各參數說明
+## 啟用 Workflow Tool
+
+Claude Code v2.1.154+ 的 `claude -p` headless 模式**預設掛載 Workflow tool**：
+
+| 帳號 tier | 需要設定 |
+|----------|---------|
+| Max / Team / Enterprise | 零設定；prompt 內直接要求 Claude 用 Workflow 即可 |
+| Pro | 須先在互動模式跑 `/config` 啟用 Dynamic Workflows，或 `--settings '{"enableWorkflows":true}'` |
+
+明確收斂 allowlist 時加：`--allowedTools "Bash,Read,Edit,Write,Workflow"`
+
+> ⚠ IDE 的「Ultracode」按鈕（UI 標為 "xhigh"，實際是 setting key `ultracode`）綁兩件事：`effortLevel=xhigh` + **自動決定何時用 workflow 的啟發式**。**自動編排啟發式只在互動 / IDE 模式可用**；`-p` headless 模式必須在 prompt 內顯式要求 Claude 使用 Workflow。實機驗證 `--settings '{"ultracode":true}'` 與 `--settings '{"effortLevel":"ultracode"}'` 在 `-p` 模式皆被 silent ignore（debug log 完全不出現 `ultracode` / `effort` 字眼，tool registry 與 baseline 無差異）。`--effort ultracode` 也被 CLI 直接拒絕（只接受 `low/medium/high/xhigh/max`）。
+
+診斷「Workflow 沒被調用」優先檢查：
+- `~/.claude/settings.json` 是否有 `disableWorkflows: true`
+- 環境變數 `CLAUDE_CODE_DISABLE_WORKFLOWS` 是否設為 `1`
+- Claude Code 版本是否 ≥ v2.1.154
+- 帳號是否為 Pro tier（需先啟用，否則預設關閉）
+
+> `--betas workflows-...` header 在訂閱模式（OAuth）會被靜默丟棄，**不要當開關用**；只在 `ANTHROPIC_API_KEY` 模式才會送出。
+
+## 各參數說明
 
 | 參數 | 必要 | 說明 |
 |------|------|------|
 | `-p` / `--print` | ✅ | 非互動/headless 模式，輸出回應後退出 |
 | `--dangerously-skip-permissions` | ✅ | 跳過所有權限確認，自動核准全部操作（僅建議用於受控環境） |
 | `--model <model>` | 建議 | 指定模型，可用別名（`opus`/`sonnet`/`haiku`）或完整 ID |
-| `--effort <level>` | 建議 | 推理深度：`low`/`medium`/`high`/`xhigh`/`max`（預設 `max`；`xhigh` 僅 Opus 4.7 支援、`max` Opus 4.6/4.7 支援） |
+| `--effort <level>` | 建議 | 推理深度：`low`/`medium`/`high`/`xhigh`/`max`（預設 `max`；`xhigh` Opus 4.7/4.8 支援、`max` Opus 4.6/4.7/4.8 支援） |
 | `--output-format <format>` | 建議 | 輸出格式：`text`（預設）、`json`、`stream-json` |
 | `--max-budget-usd <n>` | ❌ 可選 | 設定最大花費上限（美元），超過自動停止 |
 | `--verbose` | ❌ 可選 | 顯示完整的逐回合輸出 |
@@ -172,7 +198,7 @@ prompt: "... 寫入 result_dispatcher.txt"
 # Claude agent — 透過 dispatch-cli（背景執行）
 command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
          claude -p --dangerously-skip-permissions \
-         --model claude-opus-4-7 --effort max \
+         --model claude-opus-4-8 --effort max \
          "... 寫入 result_claude.txt"
 ```
 
