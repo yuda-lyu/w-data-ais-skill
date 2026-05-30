@@ -118,7 +118,7 @@
 
 | 情境 | 推薦 | 理由 |
 |---|---|---|
-| 儀表板、複雜互動、大資料集 | **ECharts**（預設） | 2000+ 圖表類型、內建 zoom/pan/tooltip/legend、支援百萬級資料點、官方 dark theme |
+| 儀表板、複雜互動、大資料集 | **ECharts**（預設） | 涵蓋折線/長條/圓餅/散點/熱力/關係圖等數十種圖表類型、內建 zoom/pan/tooltip/legend、支援百萬級資料點、官方 dark theme |
 | 小規模、快速拋棄式原型、簡單需求 | **Chart.js** | 輕量、API 最簡單、適合 Landing page 與單一 KPI 卡 |
 | 完全客製視覺、藝術向資料藝術 | **D3.js**（見主檔 SKILL.md 常用 CDN 一節） | 最底層，學習曲線陡，但表現力最強 |
 
@@ -133,9 +133,11 @@
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>
   // 初始化，第二參數為主題：'default' | 'dark' | 自訂 theme 名稱
-  const chart = echarts.init(document.getElementById('chart'), 'default');
+  // chart 用 let（切換主題時 dispose 後需重新指派，見下方 Dark Mode 切換）
+  let chart = echarts.init(document.getElementById('chart'), 'default');
 
-  chart.setOption({
+  // option 抽成變數，供初始化與切換主題時共用
+  const option = {
     tooltip: { trigger: 'axis' },
     legend: { show: false },
     grid: { left: 40, right: 20, top: 20, bottom: 30 },
@@ -168,7 +170,8 @@
         }
       }
     }]
-  });
+  };
+  chart.setOption(option);
 
   // 響應式：容器尺寸變動時重繪
   new ResizeObserver(() => chart.resize())
@@ -181,12 +184,11 @@
 ```js
 function applyTheme(isDark) {
   chart.dispose();                         // ECharts 切主題需重建實例
-  const newChart = echarts.init(
+  chart = echarts.init(                    // 重新指派外層 chart，後續 dispose/resize 才指向新實例
     document.getElementById('chart'),
     isDark ? 'dark' : 'default'
   );
-  newChart.setOption(option);              // 把上面的 option 抽成變數重用
-  return newChart;
+  chart.setOption(option);                 // 重用上面抽出的 option 變數
 }
 
 // 跟隨系統
@@ -303,7 +305,7 @@ window.matchMedia('(prefers-color-scheme: dark)')
 
 | 風格 | 主色（oklch） | 字體搭配 | 適用情境 |
 |---|---|---|---|
-| 現代科技 | `oklch(0.55 0.25 250)` 藍紫色 | Space Grotesk + Inter | SaaS、開發者工具、AI 產品 |
+| 現代科技 | `oklch(0.55 0.25 250)` 藍紫色 | Space Grotesk + Outfit | SaaS、開發者工具、AI 產品 |
 | 優雅編輯 | `oklch(0.35 0.10 30)` 暖棕色 | Newsreader + Outfit | 內容平台、部落格、編輯類 |
 | 高端品牌 | `oklch(0.20 0.02 250)` 近黑 | Sora + Plus Jakarta Sans | 精品、顧問、金融 |
 | 活潑消費 | `oklch(0.70 0.20 30)` 珊瑚色 | Plus Jakarta Sans + Outfit | 電商、生活風格、社群 |

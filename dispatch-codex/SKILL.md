@@ -53,6 +53,8 @@ CLI_TIMEOUT_MS=180000 \
 ```
 
 > 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
+>
+> ⚠ 上述範例中的 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node ...` 環境變數前綴寫法為 **bash／zsh／Git Bash 專用**。Windows（PowerShell／cmd）請見下方「[推理等級](#推理等級model_reasoning_effort) → 跨 shell 差異提醒」的環境變數對應寫法。
 
 ### 模組匯入
 
@@ -106,9 +108,17 @@ if (result.ok) {
 > 本 skill 預設使用 `xhigh` 最強推理。Codex CLI v0.124.0 的 `ReasoningEffort` enum 仍為六階（`None` / `Minimal` / `Low` / `Medium` / `High` / `XHigh`），**沒有** `max` 等級，`xhigh` 即為最深。若需加速可降級為 `high` 或 `medium`。
 > 備註：v0.124.0 TUI 支援 `Alt+,` / `Alt+.` 即時降/升推理等級；切換模型時會重置為新模型的預設推理等級，記得顯式傳 `--config model_reasoning_effort='"xhigh"'` 以確保最深推理。
 >
-> **跨 shell 差異提醒**：上述 `'"xhigh"'`（外層單引號包雙引號）為 bash／zsh 寫法，需讓 codex CLI 收到帶雙引號的 TOML 字面值。
+> **跨 shell 差異提醒**：本節命令列範例（含上方各 `node dispatch-cli/...` 範例）皆以 bash／zsh／Git Bash 語法書寫，含兩處需依 shell 調整的寫法：「引號跳脫」與「環境變數前綴」。Windows 使用者照抄會失敗，請改用對應寫法。
+>
+> **(1) 引號跳脫**：上述 `'"xhigh"'`（外層單引號包雙引號）為 bash／zsh 寫法，需讓 codex CLI 收到帶雙引號的 TOML 字面值。
 > - **PowerShell**：使用 `--config model_reasoning_effort='\"xhigh\"'`（外層單引號內以反斜線跳脫雙引號），或改用程式化呼叫（推薦）：`spawn('codex', ['--config', 'model_reasoning_effort="xhigh"'])`，以陣列直傳參數可繞過 shell escaping 問題。
 > - **cmd.exe**：使用 `--config "model_reasoning_effort=\"xhigh\""`。
+>
+> **(2) 環境變數前綴**：上述 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node ...`（在命令前以 `VAR=value` 設定環境變數）為 bash／zsh／Git Bash 專用語法。PowerShell 會 parse error、cmd 不適用，須改寫：
+> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='180000'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=180000 && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **程式化呼叫不受影響**：改用「模組匯入」段的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 180_000 }`）時，不經 shell、無此差異。
 
 ### 各參數說明
 
@@ -164,6 +174,8 @@ if (result.ok) {
 prompt: "... 寫入 result_dispatcher.txt"
 
 # Codex agent — 透過 dispatch-cli（背景執行）
+# 註：以下 CLI_TIMEOUT_MS=180000 前綴為 bash／zsh／Git Bash 專用；
+#     Windows（PowerShell／cmd）的環境變數寫法請見「推理等級 → 跨 shell 差異提醒」章節。
 command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
          codex exec --full-auto --skip-git-repo-check \
          -m gpt-5.5 \

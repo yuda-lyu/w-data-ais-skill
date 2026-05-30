@@ -148,12 +148,14 @@ GAS 端以 `type + url + title + description + from` 五欄位組合作為唯一
 }
 ```
 
+> 本技能採**嚴格成功判定**：僅當 body 為 `{ "ok": true, ... }` 才回 `status:"success"`。GAS 回 `{ "ok": false, ... }` 時回 `reason:"gas-error"`；若 `gas_url` 部署權限非「任何人」或網址錯誤，GAS 會回 HTTP 200 的 **HTML 登入/授權頁**（非 JSON），此時回 `reason:"gas-unexpected-response"`——避免把「資料其實沒寫進 Sheet」誤判成功。請務必依 `status` 判斷，不可只看 HTTP 狀態碼。
+
 ## AI Agent 標準操作流程
 
 1. 向使用者確認 `gas_url` 與 `token`（若尚未提供）
 2. 組成 `itemsNew` 陣列，每筆至少包含 `url` 欄位
 3. 寫入 payload JSON 檔，再用模式 A 執行
-4. 讀取輸出檔案，檢查 `status` 是否為 `success`
+4. 讀取輸出檔案，檢查 `status` 是否為 `success`（GAS 回 `ok:false` 時本技能回 `status:error`，`reason:gas-error`）
 5. 向使用者回報結果（含 `addCount` 新增筆數與 `oldCount` 既有筆數）
 
 ## 常見錯誤與排除

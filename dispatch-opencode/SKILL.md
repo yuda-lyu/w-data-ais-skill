@@ -60,6 +60,12 @@ node dispatch-cli/scripts/run_cli.mjs \
 ```
 
 > 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
+>
+> ⚠ **跨 shell 環境變數寫法**：上述 `CLI_TIMEOUT_MS=180000 ... node ...`（在命令前以 `VAR=value` 設定環境變數的前綴寫法）為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫：
+> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='180000'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=180000 && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **程式化呼叫不受影響**：改用下方「模組匯入」段的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 180_000 }`）時，不經 shell、無此差異。
 
 ### 模組匯入
 

@@ -58,11 +58,13 @@ node fetch-tw-news-statementdog/scripts/fetch_statementdog.mjs
 - 內建 fallback CSS selector：若主要 selector 因網站改版失效，自動嘗試通用結構（article/a）。
 - 輸出結構化 JSON。
 
-> **SPA 備案**：本技能假設 statementdog 仍以 SSR 渲染主要新聞列表。若日後該頁改為純 SPA（前端 JS 動態載入），axios + cheerio 將回 0 筆且觸發「抓取到 0 筆新聞」錯誤（不會自動重試）。此時應改用 `fetch-web` 技能（method = `auto` 會自動升級至 Playwright）抓取原始 HTML 後再解析，例如：
+> **SPA 備案**：本技能假設 statementdog 仍以 SSR 渲染主要新聞列表。若日後該頁改為純 SPA（前端 JS 動態載入），axios + cheerio 將回 0 筆且觸發「抓取到 0 筆新聞」錯誤（不會自動重試）。此時應改用 `fetch-web` 技能（method = `auto` 會自動階梯升級至 Playwright 無頭瀏覽器渲染 SPA），取得頁面內容後再處理，例如：
 > ```bash
-> node fetch-web/scripts/fetch_web.mjs https://statementdog.com/news/latest --no-parse > raw.html
-> # 再用 cheerio 在 raw.html 上重新跑相同的 selector 流程
+> node fetch-web/scripts/fetch_web.mjs https://statementdog.com/news/latest ./tmp/statementdog_raw.json --method=auto
 > ```
+> `fetch-web` CLI 參數順序為 `<url> [outputPath] [--method=...]`（第一個非 `--method=` token 視為 url、第二個視為輸出檔路徑）。執行完畢後結果**寫入 outputPath 指定的 JSON 檔**（stdout 只印一行狀態，不會輸出原始 HTML）。
+>
+> 注意：CLI 一律走 Readability 解析，輸出 JSON 的 `content` 欄位是**解析後的純文字**（非 raw HTML），結構為 `{ status, url, method, title, content, contentLength, ... }`。因此無法在此輸出上重跑 cheerio selector；改用方式為讀取該 JSON 的 `content` 純文字、再依文字結構（標題、日期、段落）萃取所需新聞條目。
 
 ---
 
@@ -76,7 +78,7 @@ node fetch-tw-news-statementdog/scripts/fetch_statementdog.mjs
   "status": "success",
   "message": [
     {
-      "time": "2026-02-05",
+      "time": "2026/05/29",
       "title": "台積電 2024 Q4 財報分析：營收創高，毛利率維持",
       "link": "https://statementdog.com/news/..."
     }
@@ -121,7 +123,7 @@ node fetch-tw-news-statementdog/scripts/fetch_statementdog.mjs
 腳本本身不過濾日期，會抓取頁面所有文章。
 呼叫方 Agent 須自行根據文章日期欄位（`time`）過濾：
 - 超過兩天的文章略過
-- 日期格式可能為：`2026-02-05`、`02/05`、`今天`
+- 日期格式為網站原樣文字，目前實際為 `YYYY/MM/DD`（例：`2026/05/29`）；網站若改版顯示文字可能變動（如 `MM/DD`、`今天`），Agent 過濾時須容錯
 
 ## 🔧 常見問題與排除
 

@@ -233,6 +233,12 @@ async function fetchInstitutionalData(dateSlash) {
         console.log(`  ${identity}: 未平倉淨額 ${result[key].netContracts} 口`);
     }
 
+    // rows 非空但無任一身份別命中（例如官方變更欄位用語），視為解析失敗，
+    // 比照本檔其他解析在資料缺漏時 throw 的慣例，避免回傳空物件被當成成功而靜默缺資料
+    if (Object.keys(result).length === 0) {
+        throw new Error('三大法人期貨未平倉：無法解析身份別（可能官方變更欄位用語）');
+    }
+
     return result;
 }
 

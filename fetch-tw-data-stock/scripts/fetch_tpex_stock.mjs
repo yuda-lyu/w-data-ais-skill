@@ -33,7 +33,12 @@ const dateArg       = args[1];
 const outputPathArg = args[2];
 
 let dateStr;
-if (dateArg && /^\d{8}$/.test(dateArg)) {
+if (dateArg) {
+    // 使用者有提供日期 → 必須符合 YYYYMMDD 格式，格式不符即明確報錯，不靜默 fallback 今日
+    if (!/^\d{8}$/.test(dateArg)) {
+        console.error(`日期參數格式錯誤：須為 YYYYMMDD（例如 20260210），收到 (${dateArg})`);
+        process.exit(1);
+    }
     const _y = parseInt(dateArg.substring(0, 4));
     const _m = parseInt(dateArg.substring(4, 6));
     const _d = parseInt(dateArg.substring(6, 8));
@@ -44,6 +49,7 @@ if (dateArg && /^\d{8}$/.test(dateArg)) {
     }
     dateStr = dateArg;
 } else {
+    // 完全未提供日期 → 使用今日（台北時區）
     dateStr = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
 }
 

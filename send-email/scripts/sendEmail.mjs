@@ -60,13 +60,31 @@ export async function sendEmail(payload) {
         maxRedirects: 5,
       });
 
+      // GAS Web App 契約：成功必為 { ok: true, ... }；應用層失敗為 { ok: false, ... }。
+      // 但部署權限非「任何人」或 gas_url 跑到登入/授權頁時，GAS 會回 HTTP 200 + HTML
+      // （axios 解析非 JSON 失敗 → data 為字串）。故成功必須「明確驗證 ok === true」，
+      // 不可用「非 ok:false 即成功」，否則 HTML 200 會被誤判成功（信根本沒寄出卻回報成功）。
+      if (data && data.ok === true) {
+        return {
+          status: "success",
+          sentAt: ts(),
+          to,
+          from,
+          subject,
+          gasResponse: data,
+        };
+      }
+
+      // 非成功：區分「應用層 ok:false」與「非預期 body（HTML 登入/授權頁、缺 ok 欄位）」
+      const _isObj = data && typeof data === "object";
       return {
-        status: "success",
+        status: "error",
+        message: _isObj
+          ? (data.message || data.error || "GAS returned ok:false")
+          : "GAS 回應非預期格式（可能為 HTTP 200 的 HTML 登入/授權頁）：請確認 gas_url 正確且部署權限為「任何人」",
+        reason: _isObj ? "gas-error" : "gas-unexpected-response",
+        gasResponse: typeof data === "string" ? data.slice(0, 500) : data,
         sentAt: ts(),
-        to,
-        from,
-        subject,
-        gasResponse: data,
       };
     } catch (err) {
       const status = err.response?.status;

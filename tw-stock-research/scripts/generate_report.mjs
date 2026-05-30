@@ -40,7 +40,9 @@ const readJson = (filename) => {
         if (fs.existsSync(filePath)) {
             const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
             // Unwrap unified output format: { status: 'success', message: <data> }
-            if (raw && raw.status === 'success') return raw.message;
+            // 'partial'（部分資料抓取成功）的 message 結構與 'success' 相同，同樣解包，
+            // 否則已成功取得的欄位（如台指期、P/C ratio）會被整個 wrapper 包住而從報告中消失。
+            if (raw && (raw.status === 'success' || raw.status === 'partial')) return raw.message;
             if (raw && raw.status === 'error') {
                 console.warn(`${filename} contains error: ${raw.message}`);
                 return null;
@@ -114,7 +116,14 @@ function prevWeekday(dateStr) {
 await loadHolidaySet();
 
 // --- 前一交易日 (T-1) 與 T-2 日期常數（全報告共用）---
-const instDateT1 = prevWeekday(TODAY);
+// T-1 優先採用「實際抓取資料檔內帶的權威日期」，而非自行重算。
+// run_research 以最多回溯 30 個工作日的迴圈確定真正有資料的交易日（instDate），
+// 並把該日寫入法人資料的 message.date（fetchTwseT86/fetchTpex3insti 回傳 { date }）。
+// 所有 price/futures/margin 子技能皆以同一 instDate 抓取，T-2 價格以 prevWeekday(instDate) 抓取。
+// 因此以 twseData.date（fallback: tpexData.date）為錨點，可讓報告標註的日期與實際抓取資料一致；
+// 兩者皆缺時才退回 prevWeekday(TODAY)（與 run_research 起算點相同）。
+const _authT1 = (d) => (typeof d === 'string' && /^\d{8}$/.test(d)) ? d : null;
+const instDateT1 = _authT1(twseData?.date) || _authT1(tpexData?.date) || prevWeekday(TODAY);
 const instDateT2 = prevWeekday(instDateT1);
 const T1_SHORT = `${instDateT1.substring(4, 6)}/${instDateT1.substring(6, 8)}`;
 const T2_SHORT = `${instDateT2.substring(4, 6)}/${instDateT2.substring(6, 8)}`;

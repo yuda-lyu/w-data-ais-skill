@@ -48,7 +48,7 @@ node fetch-hacker-news/scripts/fetch_hacker_news.mjs [outputPath] [limit]
 ```
 
 - `outputPath`（選填）— 輸出 JSON 檔案路徑；未指定時直接輸出至 stdout
-- `limit`（選填）— 取得文章數量上限，預設 30
+- `limit`（選填）— 取得文章數量上限，預設 30；若傳入非數字或 <= 0 的值，會自動改用預設 30
 
 ### 範例
 

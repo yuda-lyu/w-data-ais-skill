@@ -133,6 +133,10 @@ node send-email/scripts/send_email.mjs \
 }
 ```
 
+注意：GAS Web App 即使 token 錯誤，常仍回 HTTP 200 但 body 為 `{ "ok": false, ... }`。此情況不視為已寄出，腳本會回 `status: "error"`（含 `reason: "gas-error"` 與原始 `gasResponse`），請務必依 `status` 判斷，不可只看 HTTP 狀態碼。
+
+> 本技能採**嚴格成功判定**：僅當 body 為 `{ "ok": true, ... }` 才回 `status:"success"`。若 `gas_url` 部署權限非「任何人」或網址錯誤，GAS 會回 HTTP 200 的 **HTML 登入/授權頁**（非 JSON）——此時回 `status:"error"`、`reason:"gas-unexpected-response"`，避免把「其實沒寄出」誤判成功。
+
 ## AI Agent 標準操作流程
 
 1. 向使用者確認 `gas_url` 與 `token`（若尚未提供）

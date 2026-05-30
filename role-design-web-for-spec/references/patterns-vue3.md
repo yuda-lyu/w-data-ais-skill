@@ -14,7 +14,7 @@
 6. [樣板：Tweaks 面板](#樣板tweaks-面板)
 7. [樣板：動畫時間軸 composable](#樣板動畫時間軸-composable)
 8. [樣板：設計畫布](#樣板設計畫布)
-9. [樣板：Dark Mode composable](#樣板dark-mode-composable)
+9. [樣板：三段式主題 composable（light / dark / system）](#樣板三段式主題-composablelight--dark--system)
 
 ---
 
@@ -133,7 +133,7 @@ app.mount('#app');
 **兩種註冊方式，依情境選用**：
 
 ```js
-// 全域註冊：整個 app 都能用（適合 TweaksPanel、ThemeProvider 這類貫穿元件）
+// 全域註冊：整個 app 都能用（適合 TweaksPanel、ThemeSwitch 這類貫穿元件）
 const app = createApp(Root);
 app.component('tweaks-panel', TweaksPanel);
 app.mount('#app');
@@ -512,73 +512,134 @@ window.DesignCanvas = DesignCanvas;
 
 ---
 
-## 樣板：Dark Mode composable
+## 樣板：三段式主題 composable（light / dark / system）
 
-以 `provide` / `inject` + `prefers-color-scheme` 實作：
+> SKILL.md 把「light / dark / system 三段式 + localStorage 記憶 + 不寫死 hex（用 CSS 變數／`data-theme`）」列為**所有產物的硬性交付項**。三框架（React / Vue 3 / Vue 2）的主題邏輯**語意一致**：同樣三態、同樣 localStorage key（`'theme'`）、同樣以 `document.documentElement.dataset.theme` 套用，只是各框架語法不同。
+
+### 色彩用 CSS custom properties（不在 JS 寫死 hex）
+
+顏色由 `[data-theme]` 驅動的 CSS 變數決定，**不在 `data()`／`setup()` 維護 hex 物件**。把這段放進 `<style>`（與 SKILL.md「主題系統硬規則」一致）：
+
+```css
+:root {
+  /* light 預設 tokens */
+  --bg: oklch(98% 0.01 250);
+  --surface: oklch(96% 0.01 250);
+  --border: oklch(90% 0.01 250);
+  --fg: oklch(20% 0.02 250);
+  --fg-muted: oklch(45% 0.02 250);
+  --primary: oklch(55% 0.18 255);
+}
+[data-theme="dark"] {
+  --bg: oklch(15% 0.02 250);
+  --surface: oklch(20% 0.02 250);
+  --border: oklch(30% 0.02 250);
+  --fg: oklch(95% 0.01 250);
+  --fg-muted: oklch(70% 0.02 250);
+  --primary: oklch(70% 0.16 255);
+}
+/* system（未顯式指定 light/dark）時，跟隨 OS 偏好 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --bg: oklch(15% 0.02 250);
+    --surface: oklch(20% 0.02 250);
+    --border: oklch(30% 0.02 250);
+    --fg: oklch(95% 0.01 250);
+    --fg-muted: oklch(70% 0.02 250);
+    --primary: oklch(70% 0.16 255);
+  }
+}
+```
+
+template 裡用 `var(--bg)` 等變數，而非 hex：`:style="{ background: 'var(--bg)', color: 'var(--fg)' }"`。
+
+### `useTheme` composable：三態狀態機
 
 ```js
-const ThemeKey = Symbol('theme');
+const THEMES = ['light', 'dark', 'system'];
 
-function provideTheme() {
-  const { ref, computed, provide } = Vue;
-  const dark = ref(window.matchMedia('(prefers-color-scheme: dark)').matches);
-  const theme = computed(() => dark.value ? {
-    bg: '#0a0a0b',
-    surface: '#18181b',
-    border: '#27272a',
-    text: '#fafafa',
-    textMuted: '#a1a1aa',
-    primary: '#3b82f6'
-  } : {
-    bg: '#ffffff',
-    surface: '#f4f4f5',
-    border: '#e4e4e7',
-    text: '#18181b',
-    textMuted: '#71717a',
-    primary: '#2563eb'
-  });
-  const setDark = (v) => { dark.value = v; };
-  const ctx = { theme, dark, setDark };
-  provide(ThemeKey, ctx);
-  return ctx;
-}
-
+// 回傳 { mode, isDark, setMode }
+// - mode（ref）：'light' | 'dark' | 'system'（預設 'system'）
+// - setMode：三態切換，寫入 <html data-theme> + localStorage
+// - isDark（ref）：實際亮暗（system 模式看 prefers-color-scheme，否則看 mode）
 function useTheme() {
-  return Vue.inject(ThemeKey);
+  const { ref, watch, onUnmounted } = Vue;
+  const saved = localStorage.getItem('theme');
+  const mode = ref(THEMES.includes(saved) ? saved : 'system'); // 無記錄則 system
+  const isDark = ref(false);
+
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  let off = null; // system 模式下掛的 change handler
+
+  watch(mode, (m) => {
+    document.documentElement.dataset.theme = m; // 套用：設 data-theme（CSS 變數控色）
+    localStorage.setItem('theme', m);           // 記憶：存使用者選擇
+
+    const apply = () => { isDark.value = m === 'system' ? mq.matches : m === 'dark'; };
+    apply();
+
+    if (off) { mq.removeEventListener('change', off); off = null; }
+    if (m === 'system') { off = apply; mq.addEventListener('change', off); } // 非 system 不跟隨
+  }, { immediate: true });
+
+  onUnmounted(() => { if (off) mq.removeEventListener('change', off); });
+
+  const setMode = (m) => { if (THEMES.includes(m)) mode.value = m; };
+  return { mode, isDark, setMode };
 }
 
-window.provideTheme = provideTheme;
 window.useTheme = useTheme;
-window.ThemeKey = ThemeKey;
+```
+
+### 三段切換 UI（放進 Tweaks 面板）
+
+```js
+const ThemeSwitch = {
+  props: { mode: { type: String, required: true } },
+  emits: ['update:mode'],
+  setup(props, { emit }) {
+    const options = ['light', 'dark', 'system'];
+    const btnStyle = (m) => ({
+      flex: 1,
+      padding: '6px 8px',
+      minHeight: '44px',
+      borderRadius: '6px',
+      border: '1px solid var(--border)',
+      background: props.mode === m ? 'var(--primary)' : 'transparent',
+      color: props.mode === m ? '#fff' : 'var(--fg)',
+      cursor: 'pointer'
+    });
+    return { options, btnStyle, pick: (m) => emit('update:mode', m) };
+  },
+  template: `
+    <div role="radiogroup" aria-label="Theme" style="display:flex; gap:4px">
+      <button v-for="m in options" :key="m" role="radio"
+        :aria-checked="mode === m" :style="btnStyle(m)" @click="pick(m)">
+        {{ m }}
+      </button>
+    </div>
+  `
+};
+
+window.ThemeSwitch = ThemeSwitch;
 ```
 
 使用方式：
 
 ```js
 const App = {
+  components: { ThemeSwitch: window.ThemeSwitch },
   setup() {
-    const { theme, dark, setDark } = window.provideTheme();
-    const rootStyle = Vue.computed(() => ({
-      background: theme.value.bg,
-      color: theme.value.text,
-      minHeight: '100vh'
-    }));
-    return { rootStyle, dark, setDark };
+    const { mode, isDark, setMode } = window.useTheme();
+    const rootStyle = { background: 'var(--bg)', color: 'var(--fg)', minHeight: '100vh' };
+    return { mode, isDark, setMode, rootStyle };
   },
   template: `
     <div :style="rootStyle">
-      <button @click="setDark(!dark)">Toggle</button>
-      <child-component />
+      <theme-switch :mode="mode" @update:mode="setMode" />
     </div>
   `
 };
-
-// 子元件透過 useTheme() 讀取：
-const ChildComponent = {
-  setup() {
-    const { theme } = window.useTheme();
-    return { theme };
-  },
-  template: `<div :style="{ color: theme.primary }">themed</div>`
-};
 ```
+
+> **三框架一致性**：React 用 `useState` + `useEffect`、Vue 3 用 `ref` + `watch`、Vue 2 用 `data` + `watch`，但三態名稱、`'theme'` localStorage key、`data-theme` 套用機制、system 監聽行為完全相同 —— 對照 [patterns-react.md](patterns-react.md) 與 [patterns-vue2.md](patterns-vue2.md) 的同名樣板。

@@ -58,6 +58,13 @@ async function fetchTargetWithRetry(page, target) {
                 const text = await response.text();
                 try {
                     const json = JSON.parse(text);
+                    // 驗證 MOPS application-level 狀態碼（HTTP 200 不代表查詢成功）
+                    // 實測契約：code=200「查詢成功」、code=406「查無相符資料」（正常空結果）、其餘（如 500）為 application-level 錯誤
+                    const code = json && json.code;
+                    if (code !== 200 && code !== 406) {
+                        // 非成功且非「查無資料」→ application-level 錯誤；帶原始回應供除錯，屬非暫時性故不重試
+                        return { error: `MOPS code ${code}: ${(json && json.message) || ''}`, json, raw: text.substring(0, 500), retryable: false };
+                    }
                     return { json, raw: text.substring(0, 500) };
                 } catch (e) {
                     return { error: 'Parse Error', raw: text, retryable: false };
@@ -94,6 +101,9 @@ export async function fetchMops() {
         try {
             browser = await chromium.launch({
                 headless: true,
+                // 若設定環境變數 CHROME_PATH 則用該路徑啟動瀏覽器；
+                // 未設定時為 undefined，Playwright 會忽略 executablePath 改走 channel: 'chrome'，行為不變
+                executablePath: process.env.CHROME_PATH || undefined,
                 channel: 'chrome',
                 args: ['--no-sandbox', '--disable-setuid-sandbox'],
                 timeout: 360000

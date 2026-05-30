@@ -79,17 +79,19 @@ const Counter = {
 瀏覽器 HTML parser 會把所有標籤自動轉小寫，所以**在 template 字串或 in-DOM template 中引用元件必須用 kebab-case**：
 
 ```js
-const IPhoneFrame = { /* ... */ };
+const PhoneFrame = { /* ... */ };
 
 // ✅ template 字串中用 kebab-case
 createApp({
-  components: { IPhoneFrame },
-  template: `<iphone-frame>content</iphone-frame>`
+  components: { PhoneFrame },
+  template: `<phone-frame>content</phone-frame>`
 }).mount('#app');
 
 // ❌ template 字串中用 PascalCase 會失效
-// template: `<IPhoneFrame>content</IPhoneFrame>`
+// template: `<PhoneFrame>content</PhoneFrame>`
 ```
+
+> **元件名避免相鄰大寫字母**：Vue 的 PascalCase→kebab-case 轉換規則是在「每個大寫字母前」插連字號（`/\B([A-Z])/g`），所以 `IPhoneFrame` 會變成 `<i-phone-frame>`（而非 `<iphone-frame>`），易踩雷；命名時避開相鄰大寫（用 `PhoneFrame` 而非 `IPhoneFrame`），kebab 標籤才直觀。
 
 > 如果走 `.vue` SFC（`vue3-sfc-loader`），則可以用 PascalCase —— 但 SFC 非本文件主軸。
 
@@ -98,13 +100,13 @@ createApp({
 每個 `<script>` 是獨立執行環境，頂層宣告彼此看不到。需要跨檔共用：
 
 ```js
-// 在 iphone-frame.js 結尾
-window.IPhoneFrame = IPhoneFrame;
+// 在 phone-frame.js 結尾
+window.PhoneFrame = PhoneFrame;
 
 // 在主檔
 createApp({
-  components: { IPhoneFrame: window.IPhoneFrame },
-  template: `<iphone-frame>...</iphone-frame>`
+  components: { PhoneFrame: window.PhoneFrame },
+  template: `<phone-frame>...</phone-frame>`
 }).mount('#app');
 ```
 
@@ -112,7 +114,7 @@ createApp({
 
 ```js
 const app = createApp(RootComponent);
-app.component('iphone-frame', window.IPhoneFrame);
+app.component('phone-frame', window.PhoneFrame);
 app.component('tweaks-panel', window.TweaksPanel);
 app.mount('#app');
 ```
@@ -135,8 +137,8 @@ app.mount('#app');
 
 // 區域註冊：只在父元件內可用（用於只在特定頁面用的元件）
 const Page = {
-  components: { IPhoneFrame },
-  template: `<iphone-frame>...</iphone-frame>`
+  components: { PhoneFrame },
+  template: `<phone-frame>...</phone-frame>`
 };
 ```
 

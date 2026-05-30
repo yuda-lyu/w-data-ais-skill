@@ -76,10 +76,19 @@ async function fetchHtml(url) {
     err.httpCode = r.httpCode;
     throw err;
   }
-  // 偵測「302 跳首頁」— 觀察者網對下架文章/不存在路徑會跳首頁
-  // 首頁 title 是「观察者网」（無破折號）；文章頁 title 是具體標題
-  // 用 final URL 比對更穩：若 r.url 與輸入 url 不一致且回到根域名，視為被 redirect
+  // 注意：觀察者網對「不存在的 slug／已下架文章」會 302 跳首頁（curl -L 跟隨後 httpCode 仍為 200）。
+  // fetchWebByCurl 不回傳 effective URL，無法靠 URL 比對；list 頁與首頁的 <title> 又同為「观察者网」，
+  // 故 title 也無法區分。改以結構特徵偵測（見 isHomepageHtml），由各 caller 視情境處理。
   return r.html;
+}
+
+// 偵測抓回的 HTML 是否其實是「觀察者網首頁」（被 302 redirect 的徵兆）。
+// 判準：首頁底部含 A-Z 作者索引 <dl class="fix"><dt>X</dt>...，即 parseAuthorIndex 仰賴的標記；
+// 真正的作者欄頁／欄目頁／主題集頁皆無此區塊。實測：首頁 <dt>[A-Z]</dt> ~22 個，
+// 真實 list 頁為 0 個。取門檻 >= 5 以容忍站方版型微調，同時遠離 0。
+function isHomepageHtml(html) {
+  const m = html.match(/<dt>[A-Z]<\/dt>/g);
+  return !!m && m.length >= 5;
 }
 
 // ───────────────────────── HTML utilities ─────────────────────────
@@ -277,6 +286,20 @@ async function fetchAllListPages(slug) {
       process.stderr.write(`[info] page ${page} fetch error (assumed end of list): ${e.message}\n`);
       break;
     }
+
+    // 偵測「不存在的 slug 被 302 跳首頁」：抓回的是首頁而非該 slug 的 list 頁。
+    // 第 1 頁就是首頁 → 此 slug 不存在，拋出讓 caller 回 status:error（與「真有文章」可區分）；
+    // 後續頁是首頁（翻過頭被導向首頁）→ 視為到底，停止翻頁。
+    if (isHomepageHtml(html)) {
+      if (page === 1) {
+        const err = new Error(`slug "${slug}" 不存在：請求 list 頁被觀察者網 302 導向首頁。`);
+        err.reason = 'redirected-to-homepage';
+        throw err;
+      }
+      process.stderr.write(`[info] page ${page} 被導向首頁，視為到底，停止翻頁\n`);
+      break;
+    }
+
     pagesFetched++;
 
     const items = parseListPage(html, slug);
@@ -342,6 +365,7 @@ export async function fetchAuthorArticles({ name, slug } = {}) {
       query: resolvedName || resolvedSlug,
       resolved: { slug: resolvedSlug, url, name: resolvedName },
       fetched_at: new Date().toISOString(),
+      reason: e.reason,
       error: e.message,
     };
   }
@@ -435,6 +459,7 @@ export async function fetchTopicArticles({ name, slug } = {}) {
       query: resolvedName || resolvedSlug,
       resolved: { slug: resolvedSlug, url, name: resolvedName },
       fetched_at: new Date().toISOString(),
+      reason: e.reason,
       error: e.message,
     };
   }

@@ -167,12 +167,18 @@ export function inspectHtml(html) {
     return { pass: false, type: DETECT_REDIRECT, message: "meta refresh redirect" };
   if (lower.includes("c-wiz") && lower.includes("news.google.com"))
     return { pass: false, type: DETECT_REDIRECT, message: "Google News wrapper" };
+  // 估算可見內文長度（轉址/載入殼頁判斷與空內容判斷共用）
+  const visible = estimateVisibleText(html);
+
+  // 轉址/載入 interstitial 殼頁：標題含平台/載入關鍵字「且」頁面幾乎無實質內容，才判定。
+  // 雙條件缺一不可——只靠標題子字串會把標題剛好含關鍵字的正常文章誤殺（實測 Wikipedia
+  // 「Loading screen」visible≈13k、「MSN」≈49k 被誤判為轉址頁 → 整篇抓取失敗）；真殼頁
+  // visible 近 0（實測 MSN 殼=0、Google News=1822，後者另由上方 c-wiz 規則攔）。
   const WRAPPER_TITLES = ["google news", "redirecting", "loading", "msn"];
-  if (WRAPPER_TITLES.some((t) => titleLower.includes(t)))
+  if (visible.length < 500 && WRAPPER_TITLES.some((t) => titleLower.includes(t)))
     return { pass: false, type: DETECT_REDIRECT, message: "platform wrapper: \"" + title + "\"" };
 
   // --- 空內容 / 無實質可見文字 ---
-  const visible = estimateVisibleText(html);
   if (html.length > 5000 && visible.length < 200)
     return { pass: false, type: DETECT_EMPTY, message: "minimal visible text (" + visible.length + " chars in " + html.length + " bytes HTML)" };
 

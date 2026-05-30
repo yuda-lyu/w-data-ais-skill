@@ -54,6 +54,12 @@ node dispatch-cli/scripts/run_cli.mjs \
 ```
 
 > 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
+>
+> ⚠ **跨 shell 環境變數寫法**：上述 `CLI_TIMEOUT_MS=120000 ... node ...`（在命令前以 `VAR=value` 設定環境變數的前綴寫法）為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫：
+> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=120000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='120000'; $env:CLI_VALIDATE='json'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=120000 && set CLI_VALIDATE=json && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **程式化呼叫不受影響**：改用下方「模組匯入」段的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 120_000 }`）時，不經 shell、無此差異。
 
 ### 模組匯入
 
@@ -172,7 +178,7 @@ Claude Code v2.1.154+ 的 `claude -p` headless 模式**預設掛載 Workflow too
 | 卡住等待權限確認 | 未使用自動核准旗標 | 加上 `--dangerously-skip-permissions` 或 `--allowedTools` |
 | 模型找不到 | 模型 ID 或別名拼寫錯誤 | 使用 `opus`、`sonnet`、`haiku` 別名或完整 ID |
 | 認證失敗 | 未登入或 token 過期 | 執行 `claude auth` 檢查認證狀態 |
-| 回應被截斷 | 任務過於複雜導致中途停止 | 加上 `--max-budget-usd 10.00` 提高花費上限 |
+| 回應被截斷 | 任務過於複雜導致中途停止；或先前設了 `--max-budget-usd` 花費上限被打到而中止 | 拆小／簡化任務分次執行；改用 `--output-format stream-json` 邊產生邊收集，避免一次性長輸出被截；若曾設花費上限，提高 `--max-budget-usd` 數值或移除該旗標（注意：`--max-budget-usd` 只會「導致」截斷，不會「解決」一般複雜度造成的截斷） |
 | 花費超預期 | 任務過於複雜 | 加上 `--max-budget-usd 5.00` 設定上限 |
 | WebFetch hang | pipe 模式下 WebFetch 約 30-50% crash | 調度層自行抓取網頁，不依賴 Claude 的 WebFetch |
 

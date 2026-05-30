@@ -5,8 +5,11 @@ node_modules
 package-lock.json
 script.txt
 
+_temp
+tmp
+
 role-writer-report/res
 role-writer-report/test
+download-baidu-pdf/tmp
 
 w-data-news
-

@@ -106,11 +106,25 @@ export async function fetchCnyes() {
   const finalItems = allItems.slice(0, TARGET_TOTAL);
   console.log(`Total items collected: ${finalItems.length}`);
 
-  const parsedItems = finalItems.map((item) => ({
-    time: formatTime(item.publishAt),
-    title: item.title,
-    link: `https://news.cnyes.com/news/id/${item.newsId}`,
-  }));
+  const parsedItems = finalItems.map((item) => {
+    // 單筆 publishAt 缺漏/異常（undefined、非數字字串等）時，formatTime 會 throw
+    // RangeError: Invalid time value，若不攔截會冒泡至頂層導致整批抓取失敗。
+    // 此處 per-item 容錯：壞筆 time 退回空字串並記錄，保留 title/link，避免拖垮其餘正常新聞。
+    let time;
+    try {
+      time = formatTime(item.publishAt);
+    } catch (error) {
+      console.warn(
+        `[fetch-cnyes] 時間格式化失敗（newsId=${item.newsId}, publishAt=${item.publishAt}）：${error.message} — 該筆 time 退回空字串`
+      );
+      time = "";
+    }
+    return {
+      time,
+      title: item.title,
+      link: `https://news.cnyes.com/news/id/${item.newsId}`,
+    };
+  });
 
   return parsedItems;
 }

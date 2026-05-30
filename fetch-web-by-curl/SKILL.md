@@ -108,11 +108,11 @@ await fetchWebByCurl(url, {
   "httpCode": 403,
   "method": "curl",
   "fetchedAt": "2026-04-29T15:30:00.000Z",
-  "attempts": 6
+  "attempts": 1
 }
 ```
 
-`reason` 列舉：`http-error`（4xx/5xx）、`empty-response`（HTML < 100 字元）、`curl-error`（curl 進程錯誤、timeout）、`network-error`（網路層錯誤）、`invalid-url`（URL 格式錯）。
+`reason` 列舉：`http-error`（4xx/5xx）、`empty-response`（HTML < 100 字元）、`curl-error`（curl 進程錯誤、timeout、網路層錯誤）、`invalid-url`（URL 格式錯）。
 
 ## status 約定
 
@@ -150,4 +150,4 @@ await fetchWebByCurl(url, {
 1. **不解析 HTML**：本技能只回原始 HTML；要提取文章正文請呼叫端自行用 Readability/cheerio 等
 2. **不偵測 captcha 內容**：HTML 含 captcha 頁但 HTTP 200 時，`status: "success"` 仍會回傳；呼叫端須自行檢查 HTML 內容
 3. **不處理 JS 渲染**：純 HTTP 抓取，不執行 JavaScript；SPA 無法取得實際內容
-4. **重試與超時**：最多重試 5 次，**含初始請求最多執行 6 次**；單次請求 15 秒超時；指數遞增退避上限 15 秒
+4. **重試與超時**：最多重試 5 次，**含初始請求最多執行 6 次**；單次請求 15 秒超時；線性遞增退避上限 15 秒

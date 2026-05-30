@@ -23,7 +23,7 @@ Claude、Codex、Gemini 三個 agent 平行執行，全部使用**最強模型 +
 
 | Agent | 最強模型 | 最強思考深度 | 自動核准旗標 |
 |-------|---------|-------------|-------------|
-| **Claude** | `claude-opus-4-7`（2026-04 新旗艦，1M context） | `--effort max`（絕對最深，無 token 上限） | `--dangerously-skip-permissions` |
+| **Claude** | `claude-opus-4-8`（最新旗艦，1M context） | `--effort max`（絕對最深，無 token 上限） | `--dangerously-skip-permissions` |
 | **Codex** | `gpt-5.5`（2026-04-23 OpenAI 最新旗艦，Codex 官方推薦首選） | `--config model_reasoning_effort='"xhigh"'`（**Codex 無 `max` 等級，`xhigh` 即最深**） | `--full-auto` |
 | **Gemini** | `gemini-3.1-pro-preview` | **CLI 目前無 thinking flag**（內部由 `DEFAULT_THINKING_MODE=8192` 控管，模型自行決定） | `--approval-mode=yolo` |
 
@@ -33,7 +33,7 @@ Claude、Codex、Gemini 三個 agent 平行執行，全部使用**最強模型 +
 > - **Gemini**：無公開的深度控制選項
 >
 > **Fallback 規則**：若模型不可用（429 / 無權限 / 帳戶未開通），退回：
-> - Claude：`claude-opus-4-7` → `claude-opus-4-6`（Opus 4.6 仍支援 `--effort max`）
+> - Claude：`claude-opus-4-8` → `claude-opus-4-7` → `claude-opus-4-6`（Opus 4.6 仍支援 `--effort max`）
 > - Codex：`gpt-5.5` → `gpt-5.4` → `gpt-5.3-codex` / `gpt-5.2`（皆支援 `xhigh`）
 >   - ⚠️ `gpt-5.5` 目前**僅 ChatGPT 登入**可用，API key 認證環境請改用 `gpt-5.4`
 > - Gemini：`gemini-3.1-pro-preview` → `gemini-2.5-pro`
@@ -66,13 +66,19 @@ Claude、Codex、Gemini 三個 agent 平行執行，全部使用**最強模型 +
 1. 使用者的原始問題/任務（完整轉述）
 2. 明確的輸出路徑指示
 
+> ⚠ **跨 shell 環境變數寫法**：下方三個 agent 範例皆以 `CLI_TIMEOUT_MS=3600000 CLI_CWD="..." CLI_MAX_RETRIES=1 node ...`（在命令前以 `VAR=value` 設定環境變數的前綴寫法）書寫，為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫（含 `CLI_CWD`）：
+> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=3600000 CLI_CWD="..." CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='3600000'; $env:CLI_CWD='C:\path\to\project'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=3600000 && set CLI_CWD=C:\path\to\project && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **程式化呼叫不受影響**：改用下方「模組匯入（程式化調用）」段的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 3_600_000, maxRetries: 1, cwd: '...' }`）時，不經 shell、無此差異。
+
 ### Claude Agent
 
 ```bash
 CLI_TIMEOUT_MS=3600000 CLI_MAX_RETRIES=1 \
   node dispatch-cli/scripts/run_cli.mjs \
   claude -p --dangerously-skip-permissions \
-  --model claude-opus-4-7 --effort max \
+  --model claude-opus-4-8 --effort max \
   "【任務】{使用者的任務描述}
 
 請將完整結果寫入檔案: {輸出目錄}/result_claude.txt"
@@ -165,7 +171,7 @@ const outDir = 'd:/tmp/agents';
 const [claude, codex, gemini] = await Promise.all([
     runCli('claude', [
         '-p', '--dangerously-skip-permissions',
-        '--model', 'claude-opus-4-7', '--effort', 'max',
+        '--model', 'claude-opus-4-8', '--effort', 'max',
         `【任務】${task}\n\n請將完整結果寫入檔案: ${outDir}/result_claude.txt`,
     ], { timeoutMs: 3_600_000, maxRetries: 1 }),
 

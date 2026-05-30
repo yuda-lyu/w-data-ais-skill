@@ -43,6 +43,12 @@ CLI_TIMEOUT_MS=180000 CLI_CWD="/path/to/project" \
 ```
 
 > 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
+>
+> ⚠ **跨 shell 環境變數寫法**：上述 `CLI_CWD="..." CLI_TIMEOUT_MS=... node ...`（在命令前以 `VAR=value` 設定環境變數的前綴寫法）為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫（含 `CLI_CWD`）：
+> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=300000 CLI_MAX_RETRIES=1 CLI_CWD="/path/to/project" node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='300000'; $env:CLI_MAX_RETRIES='1'; $env:CLI_CWD='C:\path\to\project'; node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=300000 && set CLI_MAX_RETRIES=1 && set CLI_CWD=C:\path\to\project && node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **程式化呼叫不受影響**：改用下方「模組匯入」段的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 300_000, cwd: '...' }`）時，不經 shell、無此差異。
 
 > **重要：** Gemini CLI 以當前工作目錄作為專案路徑，無 `--workdir` 參數。
 > 使用 `CLI_CWD` 環境變數透過 dispatch-cli 設定，取代 `cd && gemini` 的 shell 串接方式。

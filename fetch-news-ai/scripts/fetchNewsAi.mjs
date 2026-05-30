@@ -89,12 +89,13 @@ export async function fetchNewsAi() {
   // 每支再加單支硬上限 45s race timeout，避免單支跑滿重試（最壞 225s）拖慢整批
   const PER_SOURCE_TIMEOUT_MS = 45000;
   function withTimeout(promise, ms, from) {
-    return Promise.race([
-      promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`${from} timeout ${ms}ms`)), ms)
-      ),
-    ]);
+    let t;
+    const timeout = new Promise((_, reject) => {
+      t = setTimeout(() => reject(new Error(`${from} timeout ${ms}ms`)), ms);
+    });
+    // race 一結束（來源 promise 勝出或逾時）即 clearTimeout；否則未清除的 45s timer 會釘住
+    // event loop，使資料早已就緒（實測 ~4.6s）的 process 仍空等到 ~45s 才退出（CLI 成功路徑無 process.exit）。
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
   }
 
   const tasks = [

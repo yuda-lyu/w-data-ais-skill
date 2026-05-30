@@ -625,9 +625,9 @@ CSS、HTML、JS、SVG 的能力遠超過多數人想像 —— **用它們讓使
 
 ### 框架專屬（內容對應 role-design-web-for-prototype 的 references）
 
-- [references/patterns-react.md](references/patterns-react.md) —— React 18 + Babel inline JSX：CDN 版本鎖定、三條硬規則、裝置外框、Tweaks 面板、`useTime` 動畫引擎、設計畫布、ThemeProvider
-- [references/patterns-vue3.md](references/patterns-vue3.md) —— Vue 3 global build + Composition API：CDN、`setup()` 寫法（不能用 `<script setup>`）、元件註冊、對應的裝置外框／Tweaks／`useTime`／`useTheme` composable
-- [references/patterns-vue2.md](references/patterns-vue2.md) —— Vue 2 + Options API：CDN、反應式陷阱（`data` 須為 function、`Vue.set`）、`Vue.component` 註冊、對應樣板
+- [references/patterns-react.md](references/patterns-react.md) —— React 18 + Babel inline JSX：CDN 版本鎖定、三條硬規則、裝置外框、Tweaks 面板、`useTime` 動畫引擎、設計畫布、三段式主題（light / dark / system）`useTheme` hook
+- [references/patterns-vue3.md](references/patterns-vue3.md) —— Vue 3 global build + Composition API：CDN、`setup()` 寫法（不能用 `<script setup>`）、元件註冊、對應的裝置外框／Tweaks／`useTime`／三段式主題（light / dark / system）`useTheme` composable
+- [references/patterns-vue2.md](references/patterns-vue2.md) —— Vue 2 + Options API：CDN、反應式陷阱（`data` 須為 function、`Vue.set`）、`Vue.component` 註冊、對應樣板（含三段式主題 `ThemeMixin`）
 
 ### 框架無關樣板（內容對應 role-design-web-for-prototype 的 references）
 

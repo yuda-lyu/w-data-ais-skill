@@ -20,6 +20,60 @@ function isRetryable(error) {
     return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
 }
 
+// TPEX 3insti_hedge 端點的 fields 為「裸欄名」——買進股數/賣出股數/買賣超股數各重複 7 次
+// （外資不含自營 / 外資自營 / 外資合計 / 投信 / 自營自行 / 自營避險 / 自營合計），群組標籤不在 JSON 內。
+// 因此唯一可靠解法是以「固定位置」對應語意欄名（不可用欄名當 key，否則同名後者覆蓋前者、7 組塌成 1 組）。
+// 明細欄名對齊 TWSE T86（外陸資.../投信.../自營商...），讓下游（tw-stock-research 主買方判定）
+// TWSE/TPEX 共用同一套 key；末欄保留「三大法人買賣超股數合計」（tw-stock-post-market 寫死讀此名，勿改）。
+const TPEX_FIELD_MAP = [
+    '代號',
+    '名稱',
+    '外陸資買進股數(不含外資自營商)',
+    '外陸資賣出股數(不含外資自營商)',
+    '外陸資買賣超股數(不含外資自營商)',
+    '外資自營商買進股數',
+    '外資自營商賣出股數',
+    '外資自營商買賣超股數',
+    '外資及陸資買進股數',
+    '外資及陸資賣出股數',
+    '外資及陸資買賣超股數',
+    '投信買進股數',
+    '投信賣出股數',
+    '投信買賣超股數',
+    '自營商買進股數(自行買賣)',
+    '自營商賣出股數(自行買賣)',
+    '自營商買賣超股數(自行買賣)',
+    '自營商買進股數(避險)',
+    '自營商賣出股數(避險)',
+    '自營商買賣超股數(避險)',
+    '自營商買進股數',
+    '自營商賣出股數',
+    '自營商買賣超股數',
+    '三大法人買賣超股數合計',
+];
+
+// 結構防呆（fail-loud）：驗證 TPEX 回傳 fields 仍為預期的「24 欄、買進/賣出/買賣超循環 ×7」結構。
+// 不符即 throw（非暫時性錯誤，isRetryable 回 false → 不重試、直接報錯），
+// 避免 API 改版後靜默把外資的數字貼到投信頭上（財務資料 silent corruption 是最糟失敗模式）。
+function assertTpexFieldShape(fields) {
+    if (fields.length !== TPEX_FIELD_MAP.length) {
+        throw new Error(`TPEX 3insti: 欄數異常，預期 ${TPEX_FIELD_MAP.length} 得 ${fields.length}（疑似 API 改版，請重新校準 TPEX_FIELD_MAP）`);
+    }
+    if (!String(fields[0]).includes('代號') || !String(fields[1]).includes('名稱')) {
+        throw new Error(`TPEX 3insti: 前兩欄非「代號/名稱」（得「${fields[0]}」「${fields[1]}」，疑似 API 改版）`);
+    }
+    if (!String(fields[fields.length - 1]).includes('合計')) {
+        throw new Error(`TPEX 3insti: 末欄非「合計」（得「${fields[fields.length - 1]}」，疑似 API 改版）`);
+    }
+    const cycle = ['買進股數', '賣出股數', '買賣超股數'];
+    for (let i = 2; i < fields.length - 1; i++) {
+        const expect = cycle[(i - 2) % 3];
+        if (String(fields[i]) !== expect) {
+            throw new Error(`TPEX 3insti: 第 ${i} 欄預期「${expect}」得「${fields[i]}」（疑似 API 改版，欄序已變）`);
+        }
+    }
+}
+
 export async function fetchTpex3insti(dateStr, stockCodes) {
     if (!/^\d{8}$/.test(dateStr)) {
         throw new Error(`dateStr must be YYYYMMDD, got: ${dateStr}`);
@@ -51,39 +105,36 @@ export async function fetchTpex3insti(dateStr, stockCodes) {
                 throw new Error('TPEX 3insti: tables not found in response. Possibly a holiday or no data.');
             }
 
-            // 比對策略：以 fields 含「代號」與三大法人欄位（含「外資」「投信」「自營」其一）雙重比對；
-            // 失敗退而取 tables[0]，避免未來新增其他資料表時誤抓
+            // 選表：此端點回 tables[0]=資料表、tables[1]=空 {}。取含「代號」「名稱」表頭的資料表，
+            // 退而取 tables[0]，避免未來新增其他資料表時誤抓。
             const tables = Array.isArray(data.tables) ? data.tables : [];
             const table = tables.find(t =>
                 Array.isArray(t.fields) &&
                 t.fields.some(f => String(f).includes('代號')) &&
-                t.fields.some(f => /外資|投信|自營/.test(String(f)))
+                t.fields.some(f => String(f).includes('名稱'))
             ) || tables[0];
 
-            const fields  = table.fields;
-            const rawData = table.data;
+            const fields  = table?.fields;
+            const rawData = table?.data;
 
-            if (!Array.isArray(fields) || !rawData) {
+            if (!Array.isArray(fields) || !Array.isArray(rawData)) {
                 throw new Error('TPEX 3insti: data/fields not found in table.');
             }
 
-            let processedData = rawData.map(row => {
-                const obj = {};
-                fields.forEach((field, index) => {
-                    let value = row[index];
-                    if (typeof value === 'string') value = value.trim();
-                    obj[field] = value;
-                });
-                return obj;
-            });
+            // 套位置對應前先驗結構（fields 為裸欄名，必須靠固定位置才能還原 7 組明細）
+            assertTpexFieldShape(fields);
 
-            if (targetCodes.length > 0) {
-                const codeField = fields.find(f => f === '代號') || fields.find(f => f === '證券代號') || fields.find(f => f.includes('代號'));
-                if (!codeField) {
-                    throw new Error('無法篩選個股：API 回應中找不到代號欄位');
-                }
-                processedData = processedData.filter(item => targetCodes.includes(item[codeField]));
-            }
+            const processedData = rawData
+                .map(row => {
+                    const obj = {};
+                    TPEX_FIELD_MAP.forEach((key, index) => {
+                        let value = row[index];
+                        if (typeof value === 'string') value = value.trim();
+                        obj[key] = value;
+                    });
+                    return obj;
+                })
+                .filter(item => targetCodes.length === 0 || targetCodes.includes(item['代號']));
 
             console.log(`Fetched ${processedData.length} records.`);
             return { source: 'tpex', date: dateStr, data: processedData };

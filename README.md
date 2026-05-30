@@ -3,20 +3,21 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（30 個）
+## 技能總覽（43 個）
 
 | 分類 | 技能數 |
 |------|:------:|
 | [開發工作流](#開發工作流類) | 1 |
 | [角色定位](#角色定位類) | 4 |
 | [綜合分析](#綜合分析類) | 2 |
-| [Multi-Agent 協作](#multi-agent-協作類) | 6 |
-| [網頁抓取](#網頁抓取類) | 1 |
+| [Multi-Agent 協作](#multi-agent-協作類) | 7 |
+| [網頁與媒體抓取](#網頁與媒體抓取類) | 9 |
 | [台股數據抓取](#台股數據抓取類) | 5 |
 | [台股新聞抓取](#台股新聞抓取類) | 4 |
 | [AI / 科技新聞](#ai--科技新聞類) | 4 |
 | [交易日檢查](#交易日檢查) | 1 |
 | [通知與儲存](#通知與儲存類) | 2 |
+| [檔案與工具](#檔案與工具類) | 4 |
 
 ---
 
@@ -103,29 +104,55 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 | `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | 需安裝 `@openai/codex`（位置由執行 agent 決定，詳見 SKILL.md） |
 | `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | 需安裝 `@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md） |
 | `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | 需安裝 `opencode-ai`（位置由執行 agent 決定，詳見 SKILL.md） |
+| `dispatch-antigravity` | 以 Antigravity CLI (`agy`) 作為獨立 agent 驅動 | 需安裝 `agy` CLI（位置由執行 agent 決定，詳見 SKILL.md） |
 | `dispatch-agents` | 同時派出 Claude / Codex / Gemini 三大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整三方結果 | 三者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`、`@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md） |
 
-- `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘 5 項技能透過它執行
+- `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘技能透過它執行
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
 - `dispatch-agents` 為多 agent 共識整合層，適用於高重要性任務需多方觀點交叉驗證
 
 ---
 
-## 網頁抓取類
+## 網頁與媒體抓取類
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
 | `fetch-web` | 通用網頁抓取，四階段自動升級：curl → Playwright 無頭 → Playwright 有頭 → Camofox 反偵測瀏覽器，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright`, `@askjo/camofox-browser` |
+| `fetch-web-by-curl` | 用系統 `curl` 抓原始 HTML，繞過層級 1-3 反爬（UA/Headers/TLS 指紋），零瀏覽器依賴、最輕量 | `fetch_web_by_curl.mjs`, `fetchWebByCurl.mjs` | 無（系統 `curl`） |
+| `fetch-web-by-playwright-headless` | Playwright 無頭抓原始 HTML，完整 JS 渲染 SPA，含 Shadow DOM 穿透 | `fetch_web_by_playwright_headless.mjs`, `fetchWebByPlaywrightHeadless.mjs` | `playwright` |
+| `fetch-web-by-playwright-head` | Playwright 有頭抓原始 HTML，自動點擊 Cloudflare Turnstile / hCaptcha 驗證 checkbox，含 Shadow DOM 穿透 | `fetch_web_by_playwright_head.mjs`, `fetchWebByPlaywrightHead.mjs` | `playwright` |
+| `fetch-web-by-camofox` | Camofox（修改版 Firefox）反偵測瀏覽器抓 HTML，繞過 Cloudflare Turnstile 等進階驗證 | `fetch_web_by_camofox.mjs`, `fetchWebByCamofox.mjs` | `@askjo/camofox-browser` |
+| `fetch-aisixiang` | 抓取愛思想（aisixiang.com）文章，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇轉 markdown（查詢字串需簡體） | `fetch_aisixiang.mjs`, `fetchAisixiang.mjs` | 無（委派 `fetch-web-by-curl`） |
+| `fetch-guancha` | 抓取觀察者網（guancha.cn）文章轉 markdown，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇（查詢字串需簡體） | `fetch_guancha.mjs`, `fetchGuancha.mjs` | 無（委派 `fetch-web-by-curl`） |
+| `fetch-youtube-transcript` | Playwright + 本機 Chrome 抓 YouTube 字幕，走「顯示轉錄稿」UI 流程繞過 POT 限制，雙路徑（DOM + 網路攔截） | `fetch_youtube_transcript.mjs`, `fetchYoutubeTranscript.mjs` | `playwright` |
+| `download-baidu-pdf` | Playwright + 本機 Chrome 抓百度網盤「免登入公開」分享 PDF（文件預覽）逐頁圖片併為本機 PDF；攔截帶簽章頁圖 URL，拋棄式 headless、零介入；臨時/輸出檔落於 `download-baidu-pdf/tmp` | `download_baidu_pdf.mjs`, `downloadBaiduPdf.mjs` | `playwright`, `pdfkit` |
 
 ### 參數格式
 
 ```bash
+# 通用抓取（自動階梯升級；可 --method 強制指定）
 node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwright|playwright-headed]
+
+# 單方法抓取（皆回原始 HTML，不做 Readability 解析）
+node fetch-web-by-curl/scripts/fetch_web_by_curl.mjs <url> [outputPath]
+node fetch-web-by-playwright-headless/scripts/fetch_web_by_playwright_headless.mjs <url> [outputPath]
+node fetch-web-by-playwright-head/scripts/fetch_web_by_playwright_head.mjs <url> [outputPath]
+node fetch-web-by-camofox/scripts/fetch_web_by_camofox.mjs <url> [outputPath]
+
+# 知識站抓取（查詢字串需為簡體中文）
+node fetch-aisixiang/scripts/fetch_aisixiang.mjs <mode> <query> [outputPath]
+node fetch-guancha/scripts/fetch_guancha.mjs <mode> <query> [outputPath]
+
+# YouTube 字幕
+node fetch-youtube-transcript/scripts/fetch_youtube_transcript.mjs <url-or-id> [outputPath] [--language=zh-TW]
+
+# 百度網盤「免登入公開」分享 PDF（輸出預設於 download-baidu-pdf/tmp）
+node download-baidu-pdf/scripts/download_baidu_pdf.mjs <百度分享網址> [輸出檔.pdf] [--out-dir <path>]
 ```
 
-- 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭 → Camofox 反偵測瀏覽器（修改版 Firefox，繞 Cloudflare Turnstile）
-- 可用 `--method` 強制指定方法，跳過階梯升級
-- Playwright 使用系統 Chrome（`channel: 'chrome'`），不需額外下載 Chromium
+- `fetch-web` 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭 → Camofox；底層四個 `fetch-web-by-*` 亦可單獨使用
+- Playwright 系列使用系統 Chrome（`channel: 'chrome'`），不需額外下載 Chromium
+- `fetch-aisixiang` / `fetch-guancha` 委派 `fetch-web-by-curl` 取 HTML，查詢字串需由呼叫端轉為簡體
 
 ---
 
@@ -224,6 +251,33 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 ---
 
+## 檔案與工具類
+
+| 技能 | 說明 | 主要腳本 | 依賴 |
+|------|------|----------|------|
+| `convert-chinese` | 繁簡中文互轉（opencc-js）：cn ↔ tw/twp ↔ hk ↔ jp ↔ t 任意方向，預設 cn→twp（簡轉繁台灣詞級） | `convert_chinese.mjs`, `convertChinese.mjs` | `opencc-js` |
+| `shorten-url` | 長網址轉短網址（da.gd 公開 API，免註冊、免 API key、無 preview 中間頁），支援自訂短碼 | `shorten_url.mjs`, `shortenUrl.mjs` | 無（Node 18+ 內建 `fetch`） |
+| `zip-files-or-folder` | 壓縮單檔／多檔／資料夾為 zip，各模式皆可設密碼（zip20 預設、aes256 可選） | `zip_files_or_folder.mjs`, `zipFilesOrFolder.mjs` | `w-zip`, `archiver`, `archiver-zip-encrypted` |
+| `share-file` | Playwright + 本機 Chrome 上傳檔案到 Wormhole.app，取一次性 24h 內過期分享連結（≤ 5GB） | `share_file.mjs`, `shareFile.mjs` | `playwright` |
+
+### 參數格式
+
+```bash
+# 繁簡轉換（預設 cn→twp；可指定來源/目標，或接受字串/檔案/stdin）
+node convert-chinese/scripts/convert_chinese.mjs <text|--file path> [--from cn] [--to twp]
+
+# 短網址
+node shorten-url/scripts/shorten_url.mjs <longUrl> [--shorten <自訂短碼>]
+
+# 壓縮（單檔/多檔/資料夾；--password 設密碼）
+node zip-files-or-folder/scripts/zip_files_or_folder.mjs <input...> [--output out.zip] [--password <pwd>]
+
+# 上傳取一次性連結
+node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiration <T>]
+```
+
+---
+
 ## Fetcher 通用特性
 
 所有數據與新聞抓取類技能共享以下特性：
@@ -231,6 +285,8 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 - **結果寫檔**：一律寫入檔案（`outputPath` 或自動產生），無論成功或錯誤均寫入後才 exit，請讀取檔案取得結果
 - **自動重試**：5xx 或網路錯誤自動等待重試，線性遞增退避（台股數據類最多重試 10 次 / 5s~30s，含初始請求最多執行 11 次；新聞與 GAS 類最多重試 5 次 / 3s~15s，含初始請求最多執行 6 次）
 - **執行位置**：由執行 agent 依自身環境決定，腳本不強制特定工作目錄
+
+> 程式化 API（camelCase）與 CLI（snake_case）雙檔慣例：每個技能的 `scripts/` 同時提供可程式化 import 的函式檔（回 `{ status, ... }` 結構）與 CLI 包裝檔。
 
 ---
 
@@ -241,20 +297,27 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ├── check-tw-trading-day/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── checkTwTradingDay.mjs
 │       └── check_tw_trading_day.mjs
-├── dispatch-cli/
+├── convert-chinese/
 │   ├── SKILL.md
 │   └── scripts/
-│       └── run_cli.mjs
-├── do-loop/
+│       ├── convertChinese.mjs
+│       └── convert_chinese.mjs
+├── dispatch-agents/
+│   └── SKILL.md
+├── dispatch-antigravity/
 │   ├── SKILL.md
 │   └── references/
-│       ├── roles.md
-│       └── state-example.jsonc
+│       └── agy-flags.md
 ├── dispatch-claude/
 │   ├── SKILL.md
 │   └── references/
 │       └── claude-flags.md
+├── dispatch-cli/
+│   ├── SKILL.md
+│   └── scripts/
+│       └── run_cli.mjs
 ├── dispatch-codex/
 │   ├── SKILL.md
 │   └── references/
@@ -267,90 +330,127 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │   ├── SKILL.md
 │   └── references/
 │       └── opencode-flags.md
-├── dispatch-agents/
-│   └── SKILL.md
+├── do-loop/
+│   ├── SKILL.md
+│   └── references/
+│       ├── roles.md
+│       └── state-example.jsonc
+├── download-baidu-pdf/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── downloadBaiduPdf.mjs
+│       └── download_baidu_pdf.mjs
 ├── fetch-ai-news-aggregator/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_ai_news_aggregator.mjs
-│       └── fetchAiNewsAggregator.mjs
+│       ├── fetchAiNewsAggregator.mjs
+│       └── fetch_ai_news_aggregator.mjs
+├── fetch-aisixiang/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetchAisixiang.mjs
+│       └── fetch_aisixiang.mjs
+├── fetch-guancha/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetchGuancha.mjs
+│       └── fetch_guancha.mjs
 ├── fetch-hacker-news/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_hacker_news.mjs
-│       └── fetchHackerNews.mjs
+│       ├── fetchHackerNews.mjs
+│       └── fetch_hacker_news.mjs
 ├── fetch-news-ai/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_news_ai.mjs
-│       └── fetchNewsAi.mjs
+│       ├── fetchNewsAi.mjs
+│       └── fetch_news_ai.mjs
 ├── fetch-rss/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_rss.mjs
-│       └── fetchRSS.mjs
-├── fetch-web/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── fetch_web.mjs
-│       └── fetchWeb.mjs
+│       ├── fetchRSS.mjs
+│       └── fetch_rss.mjs
 ├── fetch-tw-data-futures/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── fetchTaifex.mjs
 │       └── fetch_taifex.mjs
 ├── fetch-tw-data-holiday/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_tw_data_holiday.mjs
-│       └── fetchTwDataHoliday.mjs
+│       ├── fetchTwDataHoliday.mjs
+│       └── fetch_tw_data_holiday.mjs
 ├── fetch-tw-data-institutional/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_twse_t86.mjs
-│       └── fetch_tpex_3insti.mjs
+│       ├── fetchTpex3insti.mjs
+│       ├── fetchTwseT86.mjs
+│       ├── fetch_tpex_3insti.mjs
+│       └── fetch_twse_t86.mjs
 ├── fetch-tw-data-margin/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_twse_margin.mjs
-│       └── fetch_tpex_margin.mjs
+│       ├── fetchTpexMargin.mjs
+│       ├── fetchTwseMargin.mjs
+│       ├── fetch_tpex_margin.mjs
+│       └── fetch_twse_margin.mjs
 ├── fetch-tw-data-stock/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── fetch_twse_stock.mjs
-│       └── fetch_tpex_stock.mjs
+│       ├── fetchTpexStock.mjs
+│       ├── fetchTwseStock.mjs
+│       ├── fetch_tpex_stock.mjs
+│       └── fetch_twse_stock.mjs
 ├── fetch-tw-news-cnyes/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── fetchCnyes.mjs
 │       └── fetch_cnyes.mjs
 ├── fetch-tw-news-moneydj/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── fetchMoneydj.mjs
 │       └── fetch_moneydj.mjs
 ├── fetch-tw-news-mops/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── fetchMops.mjs
 │       └── fetch_mops.mjs
 ├── fetch-tw-news-statementdog/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── fetchStatementdog.mjs
 │       └── fetch_statementdog.mjs
-├── role-design-web-for-prototype/
+├── fetch-web/
 │   ├── SKILL.md
-│   └── references/
-│       ├── patterns-react.md
-│       ├── patterns-vue3.md
-│       ├── patterns-vue2.md
-│       └── patterns-advanced.md
-├── role-design-web-for-spec/
+│   └── scripts/
+│       ├── fetchWeb.mjs
+│       └── fetch_web.mjs
+├── fetch-web-by-camofox/
 │   ├── SKILL.md
-│   └── references/
-│       ├── patterns-react.md
-│       ├── patterns-vue3.md
-│       ├── patterns-vue2.md
-│       ├── patterns-advanced.md
-│       ├── research-lite.md
-│       ├── accessibility-wcag-aa.md
-│       └── metrics-validation.md
+│   └── scripts/
+│       ├── fetchWebByCamofox.mjs
+│       └── fetch_web_by_camofox.mjs
+├── fetch-web-by-curl/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetchWebByCurl.mjs
+│       └── fetch_web_by_curl.mjs
+├── fetch-web-by-playwright-head/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetchWebByPlaywrightHead.mjs
+│       └── fetch_web_by_playwright_head.mjs
+├── fetch-web-by-playwright-headless/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetchWebByPlaywrightHeadless.mjs
+│       └── fetch_web_by_playwright_headless.mjs
+├── fetch-youtube-transcript/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── fetchYoutubeTranscript.mjs
+│       └── fetch_youtube_transcript.mjs
 ├── role-design-web-for-magazine/
 │   ├── SKILL.md
 │   └── references/
@@ -360,8 +460,25 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 │       ├── L4骨架原則.md
 │       ├── L5必要原則.md
 │       ├── patterns-react.md
+│       ├── patterns-vue2.md
+│       └── patterns-vue3.md
+├── role-design-web-for-prototype/
+│   ├── SKILL.md
+│   └── references/
+│       ├── patterns-advanced.md
+│       ├── patterns-react.md
+│       ├── patterns-vue2.md
+│       └── patterns-vue3.md
+├── role-design-web-for-spec/
+│   ├── SKILL.md
+│   └── references/
+│       ├── accessibility-wcag-aa.md
+│       ├── metrics-validation.md
+│       ├── patterns-advanced.md
+│       ├── patterns-react.md
+│       ├── patterns-vue2.md
 │       ├── patterns-vue3.md
-│       └── patterns-vue2.md
+│       └── research-lite.md
 ├── role-writer-report/
 │   ├── SKILL.md
 │   └── references/
@@ -371,21 +488,38 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 ├── save-news-to-sheet/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── saveNewsToSheet.mjs
 │       └── save_news_to_sheet.mjs
 ├── send-email/
 │   ├── SKILL.md
 │   └── scripts/
+│       ├── sendEmail.mjs
 │       └── send_email.mjs
+├── share-file/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── shareFile.mjs
+│       └── share_file.mjs
+├── shorten-url/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── shortenUrl.mjs
+│       └── shorten_url.mjs
 ├── tw-stock-post-market/
 │   ├── SKILL.md
 │   └── scripts/
-│       ├── run_post_market.mjs
-│       └── generate_report.mjs
-└── tw-stock-research/
+│       ├── generate_report.mjs
+│       └── run_post_market.mjs
+├── tw-stock-research/
+│   ├── SKILL.md
+│   └── scripts/
+│       ├── generate_report.mjs
+│       └── run_research.mjs
+└── zip-files-or-folder/
     ├── SKILL.md
     └── scripts/
-        ├── run_research.mjs
-        └── generate_report.mjs
+        ├── zipFilesOrFolder.mjs
+        └── zip_files_or_folder.mjs
 ```
 
 ## 依賴安裝
@@ -394,8 +528,12 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 # 台股研究全套（盤前調研 + 盤後總結 + 新聞抓取）
 npm install axios cheerio playwright
 
-# 網頁抓取（fetch-web）
+# 網頁與媒體抓取（fetch-web 全套）
 npm install @mozilla/readability jsdom playwright @askjo/camofox-browser
+# 其中 fetch-web-by-curl 零依賴；fetch-youtube-transcript 僅需 playwright
+
+# 百度網盤 PDF（download-baidu-pdf）
+npm install playwright pdfkit
 
 # AI / 科技新聞
 npm install axios rss-parser
@@ -405,6 +543,12 @@ npm install axios
 
 # 通知與儲存（send-email / save-news-to-sheet）
 npm install axios
+
+# 檔案與工具
+npm install opencc-js               # convert-chinese
+npm install w-zip archiver archiver-zip-encrypted   # zip-files-or-folder
+npm install playwright              # share-file
+# shorten-url 零依賴（Node 18+ 內建 fetch）
 ```
 
 > 各技能 SKILL.md 內皆有獨立的安裝指引與驗證指令，詳見各技能說明。

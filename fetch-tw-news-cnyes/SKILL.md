@@ -86,6 +86,8 @@ node fetch-tw-news-cnyes/scripts/fetch_cnyes.mjs
 }
 ```
 
+> 註：單筆新聞時間欄位異常（來源 `publishAt` 缺漏或格式錯誤）時，該筆 `time` 退回空字串 `""`，並保留 `title`、`link`；其餘正常新聞不受影響，仍正常回傳。
+
 ## 篩選標準
 
 ### 要抓（會影響股價）

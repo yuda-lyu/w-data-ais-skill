@@ -66,6 +66,7 @@ node fetch-tw-news-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/2
 - 啟動 Headless Chrome。
 - 前往 MOPS 頁面取得 Session/Referer（導航失敗自動重試，最多重試 10 次，含初始請求最多執行 11 次）。
 - 使用 `page.evaluate` 於瀏覽器環境內發送 API 請求（每次 API 呼叫均有重試機制，涵蓋 5xx / 403 / 429 / 網路錯誤）。
+- 驗證 MOPS application-level 狀態碼（HTTP 200 不代表查詢成功）：`code=200`（查詢成功）與 `code=406`（查無相符資料，屬正常空結果）視為成功；其餘 `code`（如 `500` 公司代號格式錯誤）視為 application-level 錯誤，整體 `status` 轉為 `"error"` 並於該市場 `error` 欄位帶回原始 `code` 與 `message` 供除錯。此類為非暫時性錯誤，不觸發重試。
 - 依序抓取上市、上櫃、興櫃、公開發行四類公告。
 - 輸出結構化 JSON。
 - **注意**：若任一市場類別抓取失敗（即使其餘成功），整體 `status` 仍為 `"error"`。呼叫端收到 `status: "error"` 時應一律視為有問題並回報，不區分全部失敗或部分失敗。
@@ -105,7 +106,7 @@ node fetch-tw-news-mops/scripts/fetch_mops.mjs ./w-data-news/tw-stock-research/2
 ```json
 {
   "status": "error",
-  "message": "錯誤：找不到 Chrome 或 Edge 瀏覽器。請確認已安裝。"
+  "message": "瀏覽器啟動失敗（已重試 10 次）: <錯誤原因>"
 }
 ```
 
@@ -161,11 +162,11 @@ npm install playwright
 ### 3. 瀏覽器未找到
 
 **症狀**：
-- 腳本輸出 `錯誤：找不到 Chrome 或 Edge 瀏覽器`
+- 腳本輸出 `瀏覽器啟動失敗（已重試 10 次）: <錯誤原因>`
 
 **解決方法**：
 - 確認系統已安裝 Google Chrome（腳本使用 Playwright `channel: 'chrome'` 啟動）。
-- 若 Chrome 安裝在非預設路徑，可在環境變數中設定 `CHROME_PATH` 或修改腳本中的 `channel` 設定。
+- 若 Chrome 安裝在非預設路徑，可在環境變數中設定 `CHROME_PATH` 指向 Chrome 執行檔，腳本會以該路徑啟動瀏覽器（未設定時走 `channel: 'chrome'` 自動偵測）。
 
 ## 快速執行
 

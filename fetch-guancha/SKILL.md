@@ -22,7 +22,8 @@ description: 抓取觀察者網（guancha.cn）的文章資料並轉成 markdown
 | 主題清單頁 | ❌ 無公開頁；僅內建約 28 個已知主題對照（見下表）|
 | 全文搜尋 | ❌ JSON API `s.guancha.cn/main/search-v2` 走 sojson.v4 簽名，純 curl 拿到 `code:4 验证错误` |
 | 內容語言 | 簡體中文 |
-| 反爬 | **目前無**（curl 即可抓所有非搜尋功能；先前看到的「302 跳首頁」是因為文章被下架的特殊行為，不是反爬） |
+| 反爬 | **目前無**（curl 即可抓所有非搜尋功能；先前看到的「302 跳首頁」是因為文章被下架／slug 不存在的特殊行為，不是反爬） |
+| 不存在 slug / 下架文章 | 站方一律 **302 導向首頁**（curl `-L` 跟隨後 httpCode 仍為 200）；list 模式靠「抓回頁面含 A-Z 作者索引 `<dt>X</dt>` 區塊」偵測，命中即回 `status: "error", reason: "redirected-to-homepage"`，避免把首頁文章誤判為查詢結果 |
 
 ## 安裝指引
 
@@ -59,7 +60,9 @@ node fetch-guancha/scripts/fetch_guancha.mjs list-author --slug ZhangWeiWei
 
 stateless 兩跳：(1) GET `https://www.guancha.cn/` 解析底部 A-Z 索引（`<dl><dt>X</dt><dd>...`）成中文名→slug 對照；(2) 用 slug 拼 `/<slug>/list_<N>.shtml` 翻頁全抓（每頁 60 篇，安全上限 50 頁）。
 
-**找不到時**：回 `status: "success", count: 0` 並附訊息「尚無此作者文章」（按全庫 binary contract）。
+**找不到時（`--name` 不在 A-Z 索引中）**：回 `status: "success", count: 0` 並附訊息「尚無此作者文章」（按全庫 binary contract）。
+
+**slug 不存在時（`--slug` 直接傳入但站上無此欄頁）**：觀察者網會把該 list 請求 302 導向首頁；本技能偵測後回 `status: "error", reason: "redirected-to-homepage"` 並附訊息「slug "…" 不存在」，**不會**把首頁文章誤當成該作者文章回傳（避免靜默錯誤資料）。
 
 ### `list-keyword` / `list-title` — 關鍵字／標題搜尋（**目前不可用**）
 
@@ -87,16 +90,18 @@ node fetch-guancha/scripts/fetch_guancha.mjs list-topic --name 财经 \
 node fetch-guancha/scripts/fetch_guancha.mjs list-topic --slug economy
 ```
 
-**fail-fast 行為**：主題不在 KNOWN_TOPICS 對照表中時，回 `status: "error"` 並訊息建議改用 list-keyword（雖 list-keyword 目前不可用，呼叫端 agent 自行處理）。
+**fail-fast 行為（`--name` 不在對照表）**：主題不在 KNOWN_TOPICS 對照表中時，回 `status: "error"` 並訊息建議改用 list-keyword（雖 list-keyword 目前不可用，呼叫端 agent 自行處理）。
+
+**slug 不存在時（`--slug` 直接傳入但站上無此欄頁）**：與 list-author 相同——觀察者網把 list 請求 302 導向首頁，本技能偵測後回 `status: "error", reason: "redirected-to-homepage"`，**不會**把首頁文章誤當成該主題文章回傳。
 
 #### 內建 KNOWN_TOPICS 對照表
 
 | slug | 中文名 |
 |---|---|
-| `economy` | 财经 |
-| `internation` | 国际 |
-| `military-affairs` | 军事 |
-| `JunShi` | 军事（替代 slug）|
+| `CaiJing` | 财经 |
+| `economy` | 财经-大頻道 |
+| `JunShi` | 军事 |
+| `military-affairs` | 军事-大頻道 |
 | `ZhengZhi` | 政治 |
 | `WenHua` | 文化 |
 | `chanjing` | 产经 |
@@ -105,7 +110,6 @@ node fetch-guancha/scripts/fetch_guancha.mjs list-topic --slug economy
 | `ChengShi` | 城事 |
 | `GuanJinRong` | 观金融 |
 | `XinShiDai` | 新时代 |
-| `CaiJing` | 财经（替代 slug）|
 | `ChaoJiGongCheng` | 超级工程 |
 | `NengYuanZhanLue` | 能源战略 |
 | `RenGongZhiNeng` | 人工智能 |
@@ -144,7 +148,7 @@ node fetch-guancha/scripts/fetch_guancha.mjs fetch \
 |---|---|---|
 | `success` | > 0 | 抓到文章（list 模式）或文章存在（fetch 模式）|
 | `success` | 0 | 查清楚但確實無結果（如作者不在索引中、欄目無近期文章）|
-| `error` | — | 技術錯誤（網路、HTTP 失敗、文章下架、本技能不支援該功能等）|
+| `error` | — | 技術錯誤（網路、HTTP 失敗、文章下架、slug 不存在被導向首頁 `reason: "redirected-to-homepage"`、本技能不支援該功能等）|
 
 > Agent 看 `status === "error"` 即決定 fallback；看 `status === "success" && count === 0` 不必 fallback（已查清楚）。
 

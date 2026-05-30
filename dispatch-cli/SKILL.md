@@ -77,6 +77,12 @@ CLI_INPUT_FILE=prompt.txt CLI_TIMEOUT_MS=180000 \
   node dispatch-cli/scripts/run_cli.mjs claude -p
 ```
 
+> ⚠ **跨 shell 環境變數寫法**：上述 `CLI_TIMEOUT_MS=60000 ... node ...`（在命令前以 `VAR=value` 設定環境變數的前綴寫法）為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫：
+> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=60000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='60000'; $env:CLI_VALIDATE='json'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=60000 && set CLI_VALIDATE=json && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。
+> - **程式化呼叫不受影響**：改用「方式二：作為模組匯入」的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 60_000 }`）時，不經 shell、無此差異。
+
 ### 方式二：作為模組匯入
 
 ```javascript
@@ -134,6 +140,12 @@ const result2 = await runCli('claude', ['-p', '長程任務'], {
 | 4 | 回傳非預期格式 | validate 失敗 | `ok: false`, `error: "OUTPUT_VALIDATION_FAILED"` |
 | 5 | 進程異常 crash | `result.error`（ENOENT 等） | `ok: false`, `error: "ENOENT: ..."` |
 | 6 | 殭屍進程殘留 | 進程樹追蹤 | 超時或異常時自動遞迴清理子孫進程 |
+
+> **不可重試的錯誤（即使設了 `CLI_MAX_RETRIES > 0` 也不會重試）**：`run_cli.mjs` 的 `runCli()` 重試迴圈遇到下列兩種情況會**立即停止重試**、直接回傳失敗結果（見 `scripts/run_cli.mjs` 重試迴圈內 `if (lastResult.error.includes('ENOENT')) break;` 與 `if (lastResult.code === 2) break;`）：
+> - **`ENOENT`**：找不到執行檔（命令不存在 / PATH 錯），重試也無意義。
+> - **退出碼 2**：本庫慣例以 **exit code 2 表「不可重試的最終錯誤」**（如 `check-tw-trading-day`、`tw-stock-research`、`tw-stock-post-market` 等技能在「重試耗盡後仍失敗」「報告產出失敗」時皆 `process.exit(2)`）。`run_cli.mjs` 據此把子進程的 exit 2 視為不應再重試的硬失敗，避免對已知無望的呼叫浪費重試次數。
+>
+> 因此若被調用的 CLI 以 exit 2 表「暫時性、可重試」的錯誤（與本庫慣例不同），`CLI_MAX_RETRIES` 對它不會生效——此時應改以其他退出碼表達可重試錯誤，或在調用端自行處理重試。
 
 ## 搭配各 AI CLI 的範例
 

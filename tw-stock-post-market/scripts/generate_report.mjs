@@ -87,9 +87,16 @@ const getPreMarketPredictions = () => {
     const content = fs.readFileSync(preReportPath, 'utf8');
 
     const parseSection = (headerKeyword, impactLabel) => {
+        // 盤前報告的「### ⬆️ 利多 / ### ⬇️ 利空」區段底下含 #### 🅰️A 級 / 🅱️B 級 / ℹ️C 級 三張子表，
+        // 需把三張子表的所有資料列一併擷取。
+        // 邊界 lookahead 必須要求標題井號後接「空白」(`### ` / `## ` / `# `)，
+        // 否則 `\n###` 會誤匹配 `\n####`（### 是 #### 的前綴）→ 懶惰量詞在第一個「#### B 級」前就停 →
+        // 只抓到 A 級表的列、B/C 級被靜默丟棄。
+        // 要求井號後接空白後，#### 子表標題不再構成邊界，會繼續吃完 A/B/C 三張表；
+        // 真正的區段邊界（下一個 ### 利空 / ### 二次審計 / ## 主區段）才會中止擷取，不致越界。
         const re = new RegExp(
             `###[^\n]*${headerKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^\n]*\n` +
-            `[\\s\\S]*?\\| 代碼[\\s\\S]*?(?=\\n###|\\n##|$)`
+            `[\\s\\S]*?\\| 代碼[\\s\\S]*?(?=\\n### |\\n## |\\n# |$)`
         );
         const match = content.match(re);
         if (!match) {
