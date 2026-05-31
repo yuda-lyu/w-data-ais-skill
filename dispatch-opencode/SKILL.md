@@ -183,7 +183,7 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 
 - 每個 agent 寫入**不同檔案**，避免衝突
 - 命名慣例：`{agent_type}_result.txt`（例：`dispatcher_result.txt`、`opencode_result.txt`）
-- 任務描述中明確指定絕對路徑，例如 `d:/tmp/opencode_result.txt`
+- 任務描述中明確指定**專案目錄內**的相對路徑，例如 `./output/opencode_result.txt`（`build` agent 的 `external_directory` 權限預設為 `ask`，寫入專案外目錄會被攔截；寫專案目錄內可直接放行，且跨平台通用）
 
 ## 安裝指引
 

@@ -386,7 +386,7 @@ export async function fetchAuthorArticles({ name, slug } = {}) {
   const html = await fetchHtml(resolved.url);
   const items = parseAuthorColumnPage(html);
 
-  return {
+  const payload = {
     status: 'success',
     site: 'aisixiang',
     mode: 'author',
@@ -396,6 +396,14 @@ export async function fetchAuthorArticles({ name, slug } = {}) {
     count: items.length,
     items,
   };
+  // 命中作者欄頁（含 --slug 捷徑）但該欄頁實際 0 篇文章：success 但 count:0。
+  // 加 message 讓呼叫端能區分「真的查清楚、就是 0 篇」與「抓取失敗（status:error）」。
+  if (items.length === 0) {
+    payload.message =
+      `已命中愛思想作者欄頁（${resolved.url}）但該欄頁目前 0 篇文章。` +
+      `此為查詢成功的真實結果（非抓取失敗）；若 --slug 為手動指定，請確認 slug 是否正確。`;
+  }
+  return payload;
 }
 
 // list-keyword：keyword tag 搜尋；0 筆 → no_results
@@ -510,7 +518,7 @@ export async function fetchTopicArticles({ keyword, id } = {}) {
   const { items, total_pages, pages_fetched } =
     await fetchAllSearchPages(buildUrl, parseZhuantiArticles);
 
-  return {
+  const payload = {
     status: 'success',
     site: 'aisixiang',
     mode: 'topic',
@@ -520,6 +528,14 @@ export async function fetchTopicArticles({ keyword, id } = {}) {
     count: items.length,
     items,
   };
+  // 命中主題（含 --id 捷徑）但該主題頁實際 0 篇文章：success 但 count:0。
+  // 加 message 讓呼叫端能區分「真的查清楚、就是 0 篇」與「抓取失敗（status:error）」。
+  if (items.length === 0) {
+    payload.message =
+      `已命中愛思想策展主題（${resolved.url}）但該主題頁目前 0 篇文章。` +
+      `此為查詢成功的真實結果（非抓取失敗）；若需更多結果可改用 list-keyword 查 keyword tag。`;
+  }
+  return payload;
 }
 
 // fetch：抓單篇文章，回 markdown 字串（含 frontmatter）。不寫檔。

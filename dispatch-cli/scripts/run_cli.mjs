@@ -28,6 +28,7 @@ import { spawn, execSync, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { StringDecoder } from 'node:string_decoder';
 
 // ── Windows .cmd/.bat 支援 ──
 // npm 全域安裝的命令在 Windows 上是 .cmd 批次檔，Node.js spawn 無法直接執行
@@ -82,13 +83,16 @@ function _escapeWinCmd(cmd) {
 /**
  * 從 .cmd shim 中解析出實際的 JS 入口檔案路徑。
  * npm 全域安裝的 .cmd 格式固定，末行為：
- *   ... "%_prog%"  "%dp0%\node_modules\...\entry.js" %*
+ *   ... "%_prog%"  "%dp0%\node_modules\...\entry" %*
+ * 入口可能為 .js / .cjs / .mjs / 無副檔名（如 opencode 的 bin/opencode）；
+ * 故一律抓引號內 node_modules 後的相對路徑、再以 existsSync 驗證實體檔存在
+ * （只匹配 .js 會讓 opencode 等無副檔名入口落入 cmd.exe fallback、破壞多行 prompt）。
  */
 function _parseJsEntryFromCmd(cmdPath) {
     try {
         const content = fs.readFileSync(cmdPath, 'utf8');
-        // 匹配 "%dp0%\..." 中的 node_modules 路徑
-        const m = content.match(/%dp0%\\(node_modules\\[^"]+\.js)/i);
+        // 匹配 "%dp0%\node_modules\...\entry"：捕捉到結尾引號前，含任何副檔名或無副檔名
+        const m = content.match(/%dp0%\\(node_modules\\[^"]+)"/i);
         if (!m) return null;
         const dir = path.dirname(cmdPath);
         const jsPath = path.join(dir, m[1]);
@@ -245,19 +249,24 @@ function _runCliOnce(command, args = [], options = {}) {
 
         let stdout = '';
         let stderr = '';
+        // StringDecoder：跨 chunk 邊界正確解碼 UTF-8，避免多位元組中文字元被切成亂碼（U+FFFD）
+        const stdoutDecoder = new StringDecoder('utf8');
+        const stderrDecoder = new StringDecoder('utf8');
         let settled = false;
         let timedOut = false;
 
-        // ── stdout 收集 ──
+        // ── stdout 收集（經 StringDecoder 跨 chunk 解碼）──
         proc.stdout.on('data', (chunk) => {
-            const str = chunk.toString('utf8');
+            const str = stdoutDecoder.write(chunk);
+            if (!str) return;
             if (onStdout) onStdout(str);
             if (stdout.length < maxBuffer) stdout += str;
         });
 
-        // ── stderr 收集 ──
+        // ── stderr 收集（經 StringDecoder 跨 chunk 解碼）──
         proc.stderr.on('data', (chunk) => {
-            const str = chunk.toString('utf8');
+            const str = stderrDecoder.write(chunk);
+            if (!str) return;
             if (onStderr) onStderr(str);
             if (stderr.length < maxBuffer) stderr += str;
         });
@@ -296,6 +305,9 @@ function _runCliOnce(command, args = [], options = {}) {
             if (settled) return;
             settled = true;
             clearTimeout(timer);
+            // flush decoder 殘餘（valid UTF-8 結尾通常為空，保險起見仍 flush）
+            const _fOut = stdoutDecoder.end(); if (_fOut && stdout.length < maxBuffer) stdout += _fOut;
+            const _fErr = stderrDecoder.end(); if (_fErr && stderr.length < maxBuffer) stderr += _fErr;
             const durationMs = Date.now() - startTime;
 
             if (timedOut) {

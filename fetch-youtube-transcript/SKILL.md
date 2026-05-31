@@ -134,6 +134,10 @@ await fetchYoutubeTranscript(url, {
   "language": "zh-TW",
   "languageName": "中文（台灣）",
   "kind": "manual",
+  "languageVerified": true,
+  "requestedLanguage": "zh-TW",
+  "requestedLanguageName": "中文（台灣）",
+  "requestedKind": "manual",
   "availableTracks": [
     { "languageCode": "zh-TW", "name": "中文（台灣）", "kind": "manual" }
   ],
@@ -192,6 +196,19 @@ await fetchYoutubeTranscript(url, {
 指定 `language` 時：
 - 精確比對 `languageCode`，含前綴匹配（如 `language: 'zh'` 命中 `zh-TW`、`zh-CN` 等）
 - 找不到則 fallback 到預設偏好序
+
+### 重要：挑選只是「偏好」，UI 不會切換字幕語言
+
+本流程點「顯示轉錄稿」後，載入的是 **YouTube 為本影片決定的「預設」字幕語言**——本技能**並未實際切換** UI 字幕語言到挑選到的 track。因此：
+
+- **單一字幕軌**（`availableTracks.length === 1`）：載入內容必然等於挑選結果，`languageVerified: true`，`language` / `languageName` / `kind` 反映實際載入內容。
+- **多字幕軌**：無法保證載入的 segments 與挑選到的 track 同語言，`languageVerified: false`，此時 `language` / `languageName` / `kind` 一律為 `null`（避免 metadata 與實際內容不符）。挑選到的 track 改記錄在 `requestedLanguage` / `requestedLanguageName` / `requestedKind` 供參考，但**不保證等於實際載入語言**。
+
+輸出欄位：
+
+- `language` / `languageName` / `kind` — 僅 `languageVerified === true` 時可信；否則 `null`
+- `languageVerified` — `true` 表示字幕軌唯一、上述語言標籤可信
+- `requestedLanguage` / `requestedLanguageName` / `requestedKind` — 偏好挑選到的 track（永遠存在，供參考）
 
 ## 重試與超時
 

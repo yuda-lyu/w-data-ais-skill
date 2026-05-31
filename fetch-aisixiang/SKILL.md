@@ -167,13 +167,16 @@ node scripts/fetch_aisixiang.mjs fetch \
 
 | status | 觸發條件 | items 是否填充 | message 是否填充 |
 |---|---|---|---|
-| `success` | 查到結果 | ✓ | — |
+| `success` | 查到結果（`count >= 1`） | ✓ | — |
+| `success` | list-author / list-topic **命中作者欄頁或策展主題（含 `--slug` / `--id` 捷徑）但該頁實際 0 篇文章** | `[]`（`count: 0`） | ✓（標明「命中但 0 篇」，屬查詢成功的真實結果，非抓取失敗） |
 | `not_found` | list-author 找不到該作者（不在 /thinktank/） | ✗ | ✓ |
 | `not_a_topic` | list-topic 找不到該主題（不在 /zhuanti/） | ✗ | ✓（建議改 list-keyword） |
 | `no_results` | list-keyword / list-title 搜尋 0 筆 | `[]` | ✓ |
 | `error` | HTTP 失敗、解析失敗 | ✗ | ✓（error 訊息） |
 
-agent 看 `status` 即可決定下一步，不必再判斷 `count` 是否為 0。
+**`success` + `count: 0` 與「抓取失敗」如何區分**：list-author / list-topic 在「命中作者/主題（含捷徑）但該頁 0 篇」時，回 `status: "success"` + `count: 0` + `message`（明確標示「命中但 0 篇、為查詢成功的真實結果」）；抓取失敗則一律走 `status: "error"`。因此呼叫端可靠 `status` 區分二者：`success` 表示「真的查清楚了」（即使 0 篇），`error` 才是「沒查成功」。
+
+agent 看 `status` 即可決定「查得成不成功」；其中 `success` 仍可能 `count: 0`（命中但 0 篇，見上表第二列，此時有 `message` 說明），需要文章內容時再看 `count` / `items`。
 
 ## 輸出格式
 

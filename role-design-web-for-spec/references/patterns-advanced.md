@@ -133,9 +133,11 @@
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script>
   // 初始化，第二參數為主題：'default' | 'dark' | 自訂 theme 名稱
-  const chart = echarts.init(document.getElementById('chart'), 'default');
+  // chart 用 let（切換主題時 dispose 後需重新指派，見下方 Dark Mode 切換）
+  let chart = echarts.init(document.getElementById('chart'), 'default');
 
-  chart.setOption({
+  // option 抽成變數，供初始化與切換主題時共用
+  const option = {
     tooltip: { trigger: 'axis' },
     legend: { show: false },
     grid: { left: 40, right: 20, top: 20, bottom: 30 },
@@ -168,7 +170,8 @@
         }
       }
     }]
-  });
+  };
+  chart.setOption(option);
 
   // 響應式：容器尺寸變動時重繪
   new ResizeObserver(() => chart.resize())
@@ -181,12 +184,11 @@
 ```js
 function applyTheme(isDark) {
   chart.dispose();                         // ECharts 切主題需重建實例
-  const newChart = echarts.init(
+  chart = echarts.init(                    // 重新指派外層 chart，後續 dispose/resize 才指向新實例
     document.getElementById('chart'),
     isDark ? 'dark' : 'default'
   );
-  newChart.setOption(option);              // 把上面的 option 抽成變數重用
-  return newChart;
+  chart.setOption(option);                 // 重用上面抽出的 option 變數
 }
 
 // 跟隨系統

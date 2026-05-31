@@ -77,7 +77,10 @@ function _parseArgs(argv) {
             fs.writeFileSync(opts.output, payload, 'utf-8')
         } catch (err) {
             process.stderr.write(`寫檔失敗：${err.message}\n`)
-            process.exit(1)
+            // 不用 process.exit()，避免 Windows + Node fetch handle 來不及清理觸發 libuv assertion；
+            // 比照結束路徑設 exitCode 並 return，讓 event loop 自然 drain
+            process.exitCode = 1
+            return
         }
     }
 

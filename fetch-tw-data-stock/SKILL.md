@@ -58,7 +58,7 @@ npm install axios
 1. **執行腳本**：`node fetch-tw-data-stock/scripts/fetch_twse_stock.mjs [stockCode|all] [date] [outputPath]`
    - `stockCode`: 股票代碼 (單檔) 或 `all`（全市場）
    - `date`: YYYYMMDD（例如 20260210）；可省略，預設為今日。
-   > ⚠️ **注意**：個股查詢（STOCK_DAY）回傳的是該月份**整月**資料而非單日；全市場查詢（MI_INDEX）則為單日資料
+   > ⚠️ **注意**：個股查詢腳本底層雖呼叫 STOCK_DAY（API 本身回整月），但會自動過濾為**指定日期的該日單筆**資料後回傳（非整月）；若指定日期無交易（假日、停盤、未開市），則以 `status: "error"` 回傳。全市場查詢（MI_INDEX）本即為單日資料
    - `outputPath`: 輸出 JSON 檔案路徑
 2. **解析輸出**：腳本執行完畢後，結果**一律寫入檔案**（若指定 outputPath 則使用該路徑，否則自動產生 `twse_STOCKCODE_YYYYMMDD.json`）。API 執行階段的成功或錯誤均寫入後才 exit（參數驗證錯誤例外，會直接 exit 1 不寫檔）。請讀取輸出檔取得資料，勿依賴 stdout。
 
@@ -178,7 +178,7 @@ curl -s "https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=YYYY
 }
 ```
 
-> 注意：個股查詢（STOCK_DAY）回傳的是該月份整月資料。若指定 `date` 屬於該月有資料的範圍但該日無交易（例如假日、停盤、未開市），腳本會以 `status: "error"` 回傳，message 形如「TWSE 個股 XXXX 於 YYYYMMDD 無交易資料（可能為假日或停盤）」。呼叫端需以此區分「整月查無資料」與「該日無交易」。
+> 注意：底層 STOCK_DAY API 回傳的是該月份整月資料，但腳本會自動過濾為指定 `date` 的該日單筆後回傳（上方 `data` 範例即為過濾後的單日資料）。若指定 `date` 屬於該月有資料的範圍但該日無交易（例如假日、停盤、未開市），腳本會以 `status: "error"` 回傳，message 形如「TWSE 個股 XXXX 於 YYYYMMDD 無交易資料（可能為假日或停盤）」。呼叫端需以此區分「整月查無資料」與「該日無交易」。
 
 ---
 

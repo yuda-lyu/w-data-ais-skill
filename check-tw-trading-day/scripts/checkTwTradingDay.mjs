@@ -4,7 +4,6 @@
 // 輸出：{ date, tradingDay, presumed?, reason? }
 
 import https from 'https';
-import { fetchTwDataHoliday } from '../../fetch-tw-data-holiday/scripts/fetchTwDataHoliday.mjs';
 
 // ---------- 常數 ----------
 const MAX_RETRIES = 10;
@@ -34,7 +33,9 @@ function httpGet(urlStr) {
         });
         req.on('error', reject);
         req.setTimeout(30000, () => {
-            req.destroy(new Error('Request timeout after 30s'));
+            const err = new Error('Request timeout after 30s');
+            err.code = 'ETIMEDOUT';
+            req.destroy(err);
         });
     });
 }
@@ -68,8 +69,10 @@ export async function checkTwTradingDay(dateStr) {
         return { date: dateStr, tradingDay: false, reason: `星期${getDayName(dateStr)}，非交易日` };
     }
 
-    // 2. 台灣假日前置檢查（引用 fetch-tw-data-holiday 技能）
+    // 2. 台灣假日前置檢查（動態引用同技能庫的 fetch-tw-data-holiday；
+    //    動態 import 使缺檔不在 load 階段崩潰，缺檔則落入下方 catch 略過此前置檢查）
     try {
+        const { fetchTwDataHoliday } = await import('../../fetch-tw-data-holiday/scripts/fetchTwDataHoliday.mjs');
         const holidayResult = await fetchTwDataHoliday(dateStr);
         if (holidayResult.isHoliday) {
             return { date: dateStr, tradingDay: false, reason: `台灣假日：${holidayResult.holidayName}` };

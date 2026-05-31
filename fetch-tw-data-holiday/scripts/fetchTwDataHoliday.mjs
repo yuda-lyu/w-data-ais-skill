@@ -33,7 +33,10 @@ function httpGet(urlStr) {
         });
         req.on('error', reject);
         req.setTimeout(30000, () => {
-            req.destroy(new Error('Request timeout after 30s'));
+            // 設 .code='ETIMEDOUT' 使逾時錯誤落入 isRetryable 的 ETIMEDOUT 分支，與其他網路錯誤一致
+            const err = new Error('Request timeout after 30s');
+            err.code = 'ETIMEDOUT';
+            req.destroy(err);
         });
     });
 }

@@ -81,18 +81,22 @@ async function _readStdin() {
         process.exit(1)
     }
 
+    const from = opts.from ?? 'cn'
+    const to = opts.to ?? 'twp'
+
     let input = ''
     try {
         if (opts.text != null) input = opts.text
         else if (opts.input) input = fs.readFileSync(opts.input, 'utf-8')
         else if (opts.stdin) input = await _readStdin()
     } catch (err) {
-        process.stderr.write(`讀取輸入失敗：${err.message}\n`)
+        if (opts.json) {
+            process.stdout.write(JSON.stringify({ status: 'error', from, to, message: `讀取輸入失敗：${err.message}` }) + '\n')
+        } else {
+            process.stderr.write(`讀取輸入失敗：${err.message}\n`)
+        }
         process.exit(1)
     }
-
-    const from = opts.from ?? 'cn'
-    const to = opts.to ?? 'twp'
 
     let converted
     try {
@@ -128,7 +132,11 @@ async function _readStdin() {
                 process.stdout.write(`寫入 ${opts.output} (${converted.length} 字)\n`)
             }
         } catch (err) {
-            process.stderr.write(`寫檔失敗：${err.message}\n`)
+            if (opts.json) {
+                process.stdout.write(JSON.stringify({ status: 'error', from, to, message: `寫檔失敗：${err.message}` }) + '\n')
+            } else {
+                process.stderr.write(`寫檔失敗：${err.message}\n`)
+            }
             process.exit(1)
         }
     } else {

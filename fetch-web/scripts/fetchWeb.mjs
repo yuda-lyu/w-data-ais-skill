@@ -279,8 +279,15 @@ function parseArticle(html, url) {
     return customParser(html, url);
   }
 
-  const doc = new JSDOM(html, { url });
-  const article = new Readability(doc.window.document).parse();
+  let article;
+  try {
+    const doc = new JSDOM(html, { url });
+    article = new Readability(doc.window.document).parse();
+  } catch (err) {
+    // JSDOM/Readability 對畸形 HTML / 異常輸入可能 throw；攔下改回傳解析失敗，
+    // 讓上層走「視為 empty 繼續升級 / 回 error JSON」，不讓 CLI 整個 crash。
+    return { success: false, reason: "parse-error", message: "parse error: " + (err?.message || String(err)) };
+  }
   const content = article?.textContent?.trim() || "";
   const title = article?.title?.trim() || "";
 
@@ -341,8 +348,14 @@ export async function fetchWeb(url, options = {}) {
         [{ method: spec.name, status: "blocked", type: inspection.type, message: inspection.message }]);
     }
 
-    return finalize(url, applyParse(r, url, parse),
-      [{ method: spec.name, status: "success", contentLength: r.html.length }]);
+    // 解析結果決定 attempt 狀態：解析失敗時 attempt 應記 blocked（與頂層 status:error 一致），
+    // 不可無條件記 success，否則會出現「頂層 status:error 但 attempts[0].status:success」自相矛盾。
+    const parsed = applyParse(r, url, parse);
+    if (parsed.success) {
+      return finalize(url, parsed, [{ method: spec.name, status: "success", contentLength: r.html.length }]);
+    }
+    return finalize(url, { success: false, reason: parsed.reason || "parse-failed", message: parsed.message || "content extraction failed" },
+      [{ method: spec.name, status: "blocked", type: DETECT_EMPTY, message: parsed.message || "parse failed" }]);
   }
 
   // --- auto 模式 ---

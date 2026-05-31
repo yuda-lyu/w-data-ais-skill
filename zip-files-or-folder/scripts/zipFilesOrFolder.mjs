@@ -168,6 +168,20 @@ export async function zipFilesOrFolder(inputs, output, options = {}) {
 
     const kinds = inputs.map(_classifyInput)
 
+    // 多輸入：各輸入以其 basename 放到 zip 根層級，basename 重複會碰撞
+    // （@zip.js 的 ZipWriter 不允許同名 entry，會拋難懂的 "File already exists"）。
+    // 提前檢出並回明確中文錯誤，而非讓底層拋。
+    if (inputs.length > 1) {
+        const seen = new Map()
+        for (const p of inputs) {
+            const b = path.basename(p)
+            if (seen.has(b)) {
+                throw new Error(`多個輸入有相同名稱「${b}」（${seen.get(b)} 與 ${p}），無法並列於同一 zip 根層級；請改用單一資料夾模式，或先將其中一個重新命名`)
+            }
+            seen.set(b, p)
+        }
+    }
+
     const outDir = path.dirname(output)
     if (outDir && outDir !== '.') fs.mkdirSync(outDir, { recursive: true })
 

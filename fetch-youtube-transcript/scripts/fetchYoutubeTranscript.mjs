@@ -165,7 +165,10 @@ function _domTimestampToMs(t) {
  * @param {number} [options.navigationTimeoutMs=30000]
  * @param {number} [options.captionsWaitMs=30000] - 等 ytInitialPlayerResponse 的 timeout
  * @param {number} [options.transcriptWaitMs=30000] - 等 transcript 載入的 timeout
- * @returns {Promise<object>} {status, url, videoId, language, kind, segments, plainText, timestampedText, source, fetchedAt, attempts, ...}
+ * @returns {Promise<object>} {status, url, videoId, language, languageName, kind, languageVerified, requestedLanguage, requestedLanguageName, requestedKind, segments, plainText, timestampedText, source, fetchedAt, attempts, ...}
+ *   注意：點「顯示轉錄稿」載入的是 YouTube 為本影片決定的「預設」字幕語言，本流程不切換 UI 字幕語言。
+ *   故 language/languageName/kind 僅在 languageVerified（字幕軌唯一）時反映實際載入內容；多軌時為 null。
+ *   requestedLanguage* 永遠記錄偏好挑選到的 track，供參考但不保證等於實際載入語言。
  */
 export async function fetchYoutubeTranscript(url, options = {}) {
     const fetchedAt = ts()
@@ -243,6 +246,12 @@ export async function fetchYoutubeTranscript(url, options = {}) {
                 }))
             })
             const picked = _pickTrack(tracks, options.language)
+
+            // 注意：點「顯示轉錄稿」只會載入 YouTube 為本影片決定的「預設」字幕語言，
+            // 本流程並未實際切換 UI 字幕語言到 picked。因此只有在「字幕軌唯一」時，
+            // 載入內容才必然等於 picked；多軌時無法保證 segments 與 picked 同語言，
+            // 此時不可把 picked 的語言碼當成實際內容的語言標籤（會 metadata 與內容不符）。
+            const languageVerified = tracks.length === 1
 
             // 滾到 description 區，讓「顯示轉錄稿」按鈕渲染
             await page.evaluate(() => window.scrollTo(0, 500))
@@ -324,9 +333,15 @@ export async function fetchYoutubeTranscript(url, options = {}) {
                 status: 'success',
                 url: watchUrl,
                 videoId,
-                language: picked?.languageCode || null,
-                languageName: picked?.name || null,
-                kind: picked?.kind || null,
+                // language/languageName/kind 只在「字幕軌唯一」(languageVerified) 時反映實際載入內容；
+                // 多軌時無法確認載入語言，設 null 避免誤標。requestedLanguage* 永遠記錄「想要的」track 供參考。
+                language: languageVerified ? (picked?.languageCode || null) : null,
+                languageName: languageVerified ? (picked?.name || null) : null,
+                kind: languageVerified ? (picked?.kind || null) : null,
+                languageVerified,
+                requestedLanguage: picked?.languageCode || null,
+                requestedLanguageName: picked?.name || null,
+                requestedKind: picked?.kind || null,
                 availableTracks: tracks,
                 segments,
                 segmentsCount: segments.length,

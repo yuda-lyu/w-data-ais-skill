@@ -14,7 +14,7 @@ description: 檢查指定日期（或今日）是否為台股交易日。透過 
 | MI_INDEX API | https://www.twse.com.tw/exchangeReport/MI_INDEX |
 | 假日排程 API | https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule |
 | 查詢方式 | 先比對假日排程攔截國定假日，再以 MI_INDEX 是否有當日收盤資料判斷 |
-| 依賴 | 無（使用 Node.js 內建 `https` 模組） |
+| 依賴 | 無 npm 套件依賴；但會引用同技能庫的 fetch-tw-data-holiday（跨技能檔案相依） |
 
 ## 安裝指引
 
