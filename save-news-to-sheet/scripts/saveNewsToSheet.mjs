@@ -47,7 +47,7 @@ export async function saveNewsToSheet(payload) {
   }
 
   // validate each item has url
-  const invalid = itemsNew.filter((item) => !item.url);
+  const invalid = itemsNew.filter((item) => !item || !item.url);
   if (invalid.length > 0) {
     return {
       status: "error",

@@ -10,8 +10,7 @@
   // "halted"      — 中止（技術阻塞 / 修正上限 / 迴圈上限 / 使用者中斷）
   "status": "in_progress",
 
-  // 當前階段
-  // "PLAN"    — 規劃中
+  // 當前階段（state.json 建立時即為 EXECUTE；PLAN 階段在 state.json 建立之前，不會持久化為此值）
   // "EXECUTE" — 執行中
   // "AUDIT"   — 審計中
   // "FIX"     — 修正中（從審計返回）

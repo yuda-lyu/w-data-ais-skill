@@ -148,6 +148,6 @@ const Page = {
 
 ## 其他注意事項
 
-- **根元件與元件的 `data`**：根元件的 `data` 可以是 object，但**元件的 `data` 必須是 function 回傳 object**（避免多實例共用狀態）。若用 Composition API 的 `setup()` 則無此問題。
+- **`data` 一律用 function**：Vue3（含根元件）的 `data` **都必須是 function 回傳 object**——Vue3 已移除 object 形式，傳 object 會觸發警告且不生效；元件更須如此以避免多實例共用狀態。若用 Composition API 的 `setup()` 則無此問題。
 - **template 字串可以用 ES template literal**：`template: \`<div>\${foo}</div>\`` —— 但**不要用 JS 字串插值做動態內容**，改用 Vue 的 `{{ }}` 與 `v-bind`，否則失去反應性。
 - **避免命名衝突**：不要用 `styles` 當變數／屬性名（同 SKILL.md 主檔通用規則）。

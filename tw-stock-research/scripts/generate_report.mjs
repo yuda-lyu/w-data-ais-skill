@@ -1137,12 +1137,14 @@ function buildVolumeMap(twsePrices, tpexPrices) {
         }
     }
 
-    // TPEX: data[i][8] is 成交股數
+    // TPEX: data[i] = [代號, 名稱, 收盤, 漲跌, 開盤, 最高, 最低, 成交股數(7), ...]
+    // 成交股數 在 index 7（與上方 buildPriceMap 欄序註解、fetch-tw-data-stock SKILL.md:226 一致）；
+    // 舊碼誤用 row[8]（成交股數的下一欄，並非成交股數本身）→ TPEX 個股「成交量」會抓到錯誤欄位。
     if (tpexPrices && tpexPrices.data) {
         tpexPrices.data.forEach(row => {
             const code = String(row[0] || '').trim();
             if (!isStockCode(code)) return;
-            map.set(code, pn(row[8]));
+            map.set(code, pn(row[7]));
         });
     }
 

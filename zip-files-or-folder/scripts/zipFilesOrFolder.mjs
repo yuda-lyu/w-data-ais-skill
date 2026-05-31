@@ -5,9 +5,13 @@
 //
 // 引擎（w-zip 1.0.23 起 mZip 改用 @zip.js/zip.js、不再帶 archiver；本技能同步改用 @zip.js/zip.js）：
 //   無密碼 + 單一檔案                   → 委派 w-zip 的 mZip.zipFile（其底層即 @zip.js/zip.js）
-//   無密碼 + 單一資料夾                 → 委派 w-zip 的 mZip.zipFolder
+//   無密碼 + 單一資料夾                 → 直接用 @zip.js/zip.js（與多檔/密碼路徑共用同一套走訪邏輯）
 //   無密碼 + 兩個以上輸入（或混合）     → 直接用 @zip.js/zip.js（各檔案/資料夾於 zip 根層級）
 //   有密碼（任一模式）                  → 直接用 @zip.js/zip.js（zip20=ZipCrypto / aes256=encryptionStrength:3）
+//
+// 符號連結（symlink）：頂層 symlink 一律由 _classifyInput 以 lstatSync 拒絕；資料夾「內層」的
+//   symlink 一律跳過不打包（readdirSync withFileTypes 對 symlink 的 isFile/isDirectory 皆 false）。
+//   所有「資料夾」路徑（含/不含密碼）統一走 @zip.js，故 symlink 處理一致、不會隨密碼與否而異。
 
 import fs from 'node:fs'
 import path from 'node:path'
@@ -61,24 +65,6 @@ async function _zipSingleFileWZ(input, output, opts) {
     const zipOpts = { level: opts.level ?? 1 }
     await wz.mZip.zipFile(input, output, zipOpts)
     return { mode: 'single-file', entryCount: 1 }
-}
-
-async function _zipSingleFolderWZ(input, output, opts) {
-    const wz = await _loadWZip()
-    // 預設 level 1（最快速）；不帶 level 時 w-zip 內建會吃成 9（最慢），故補預設對齊文件
-    const zipOpts = { level: opts.level ?? 1 }
-    await wz.mZip.zipFolder(input, output, zipOpts)
-    // entryCount 語意：壓縮包內的「檔案數」（不含目錄項），與 @zip.js 路徑一致
-    let count = 0
-    function walk(dir) {
-        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-            const p = path.join(dir, e.name)
-            if (e.isFile()) count++
-            else if (e.isDirectory()) walk(p)
-        }
-    }
-    walk(input)
-    return { mode: 'single-folder', entryCount: count }
 }
 
 // 用 @zip.js/zip.js 直接組合：支援多輸入（各檔案/資料夾於 zip 根層級）與密碼（zip20 / aes256）。
@@ -195,7 +181,9 @@ export async function zipFilesOrFolder(inputs, output, options = {}) {
     } else if (inputs.length === 1 && kinds[0] === 'file') {
         result = await _zipSingleFileWZ(inputs[0], output, options)
     } else if (inputs.length === 1 && kinds[0] === 'directory') {
-        result = await _zipSingleFolderWZ(inputs[0], output, options)
+        // 無密碼單資料夾也走 @zip.js（不再用 w-zip mZip.zipFolder），與多檔/密碼路徑共用同一套
+        // 走訪邏輯，確保資料夾內層 symlink 的處理一致（統一跳過）。
+        result = await _zipWithZipJs(inputs, kinds, output, options, 'single-folder')
     } else {
         result = await _zipWithZipJs(inputs, kinds, output, options, 'multi')
     }

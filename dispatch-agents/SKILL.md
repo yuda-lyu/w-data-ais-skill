@@ -66,7 +66,7 @@ Claude、Codex、Gemini 三個 agent 平行執行，全部使用**最強模型 +
 1. 使用者的原始問題/任務（完整轉述）
 2. 明確的輸出路徑指示
 
-> ⚠ **跨 shell 環境變數寫法**：下方三個 agent 範例皆以 `CLI_TIMEOUT_MS=3600000 CLI_CWD="..." CLI_MAX_RETRIES=1 node ...`（在命令前以 `VAR=value` 設定環境變數的前綴寫法）書寫，為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫（含 `CLI_CWD`）：
+> ⚠ **跨 shell 環境變數寫法**：下方三個 agent 範例皆以「在命令前 `VAR=value` 設定環境變數」的前綴寫法書寫（皆含 `CLI_TIMEOUT_MS`、`CLI_MAX_RETRIES`；Codex／Gemini 範例另含 `CLI_CWD`，Claude 範例則無），為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫（下列一併示範含 `CLI_CWD` 的情形）：
 > - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=3600000 CLI_CWD="..." CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
 > - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='3600000'; $env:CLI_CWD='C:\path\to\project'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
 > - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=3600000 && set CLI_CWD=C:\path\to\project && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。

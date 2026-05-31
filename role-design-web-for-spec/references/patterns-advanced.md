@@ -305,7 +305,7 @@ window.matchMedia('(prefers-color-scheme: dark)')
 
 | 風格 | 主色（oklch） | 字體搭配 | 適用情境 |
 |---|---|---|---|
-| 現代科技 | `oklch(0.55 0.25 250)` 藍紫色 | Space Grotesk + Inter | SaaS、開發者工具、AI 產品 |
+| 現代科技 | `oklch(0.55 0.25 250)` 藍紫色 | Space Grotesk + Outfit | SaaS、開發者工具、AI 產品 |
 | 優雅編輯 | `oklch(0.35 0.10 30)` 暖棕色 | Newsreader + Outfit | 內容平台、部落格、編輯類 |
 | 高端品牌 | `oklch(0.20 0.02 250)` 近黑 | Sora + Plus Jakarta Sans | 精品、顧問、金融 |
 | 活潑消費 | `oklch(0.70 0.20 30)` 珊瑚色 | Plus Jakarta Sans + Outfit | 電商、生活風格、社群 |

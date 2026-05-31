@@ -1,6 +1,6 @@
 ---
 name: fetch-aisixiang
-description: 抓取愛思想（aisixiang.com）的文章資料。支援五種模式：(1) list-author 列出某作者全部文章（即時抓 /thinktank/ 全站作者列表 → 中文名→URL slug → 抓該作者欄頁，無專欄者自動 fallback 到搜尋）；(2) list-keyword 按 keyword tag 搜尋；(3) list-title 按標題模糊搜；(4) list-topic 按策展主題抓（即時抓 /zhuanti/ 主題清單 → 主題名→ID → 抓該主題頁，主題不存在時 fail-fast 不轉向）；(5) fetch 抓單篇文章轉 markdown。stateless 設計，不寫快取檔。**所有查詢字串需為簡體中文**——呼叫端負責轉換；技能不做 silent transformation。
+description: 抓取愛思想（aisixiang.com）的文章資料。支援五種模式：(1) list-author 列出某作者全部文章（即時抓 /thinktank/ 全站作者列表 → 中文名→URL slug → 抓該作者欄頁；不在站方專欄作者清單者回 not_found，不轉向搜尋）；(2) list-keyword 按 keyword tag 搜尋；(3) list-title 按標題模糊搜；(4) list-topic 按策展主題抓（即時抓 /zhuanti/ 主題清單 → 主題名→ID → 抓該主題頁，主題不存在時 fail-fast 不轉向）；(5) fetch 抓單篇文章轉 markdown。stateless 設計，不寫快取檔。**所有查詢字串需為簡體中文**——呼叫端負責轉換；技能不做 silent transformation。
 ---
 
 # fetch-aisixiang — 愛思想文章抓取

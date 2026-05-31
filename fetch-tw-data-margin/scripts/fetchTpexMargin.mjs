@@ -83,6 +83,17 @@ export async function fetchTpexMargin(dateStr, stockCodes) {
 
             let rows = marginTable.data;
 
+            // shape guard：固定 index 解析前先驗證選中表的欄位佈局符合預期。
+            // 主比對（fields 同含「資餘額」「券餘額」）失敗時會 fallback 取「第一張有資料表」，
+            // 若該表結構不同，下方固定 index（2~19）會靜默解析錯欄位。此處鎖定解析所依賴的
+            // 兩個錨點欄位（index 6=資餘額、index 14=券餘額），不符即 fail-loud，避免產生錯誤資料。
+            {
+                const _f = Array.isArray(marginTable.fields) ? marginTable.fields : [];
+                if (!String(_f[6] || '').includes('資餘額') || !String(_f[14] || '').includes('券餘額')) {
+                    throw new Error(`TPEX 融資融券資料欄位佈局與預期不符（index6 應含「資餘額」實為「${_f[6] ?? ''}」、index14 應含「券餘額」實為「${_f[14] ?? ''}」）；可能 API 格式變更，停止解析以免產生錯誤資料`);
+                }
+            }
+
             // Filter by stock codes if specified
             if (targetCodes.length > 0) {
                 rows = rows.filter(row => targetCodes.includes(row[0]?.trim()));
