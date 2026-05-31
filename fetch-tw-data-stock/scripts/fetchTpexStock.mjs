@@ -61,6 +61,12 @@ export async function fetchTpexStock(dateStr, stockCodes) {
                 throw new Error('TPEX API returned no data. Possibly a holiday or data not yet available.');
             }
 
+            // shape sanity：下游依固定欄序讀取（index 0 代號、2 收盤、4-6 開高低、7 成交股數），
+            // 驗證選中表欄數符合預期，避免 API 改版後靜默讀錯欄（門檻 8 遠低於實際 ~17 欄，不誤擋）
+            if (!Array.isArray(rows[0]) || rows[0].length < 8) {
+                throw new Error(`TPEX 行情資料欄數不符預期（首列 ${Array.isArray(rows[0]) ? rows[0].length : 'N/A'} 欄，應 >= 8），可能 API 格式變更`);
+            }
+
             let resultData = rows;
             if (targetCodes.length > 0) {
                 resultData = resultData.filter(row => targetCodes.includes(row[0]));

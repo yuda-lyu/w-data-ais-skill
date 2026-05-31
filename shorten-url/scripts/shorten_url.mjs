@@ -21,7 +21,7 @@ function _usage() {
         '  node shorten_url.mjs <URL> [options]',
         '',
         'Options:',
-        '  --alias <custom>   自訂短碼（4+ 字元，[A-Za-z0-9_-]，需全域唯一）',
+        '  --alias <custom>   自訂短碼（4-10 字元，[A-Za-z0-9_-]，需全域唯一）',
         '  --json             以 JSON 結構輸出至 stdout',
         '  --output <path>    將 JSON 結果寫入指定檔案',
         '  --help / -h        顯示此說明',

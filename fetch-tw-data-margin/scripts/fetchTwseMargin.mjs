@@ -82,6 +82,12 @@ export async function fetchTwseMargin(dateStr, stockCodes) {
                 throw new Error('TWSE MI_MARGN: 找不到融資融券彙總資料表');
             }
 
+            // shape sanity：固定 index 解析讀至 row[15]，依賴 16 欄佈局；驗證欄數避免 fallback
+            // 抓到結構不同的表後靜默解析錯欄（門檻 16 為文件化欄數，不誤擋正常資料）
+            if (!Array.isArray(detailTable.fields) || detailTable.fields.length < 16) {
+                throw new Error(`TWSE 融資融券資料欄數不符預期（fields ${detailTable.fields?.length ?? 'N/A'} 欄，應 >= 16），可能 API 格式變更`);
+            }
+
             let rows = detailTable.data;
 
             // Filter by stock codes if specified

@@ -75,10 +75,13 @@ export async function fetchHackerNews(limit = DEFAULT_LIMIT) {
   const items = [];
   for (let i = 0; i < selected.length; i += CONCURRENCY) {
     const batch = selected.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(
+    // allSettled：單一 item 重試耗盡而 reject 時，不丟失整批其他已成功的文章
+    const results = await Promise.allSettled(
       batch.map((id) => fetchWithRetry(`${API_BASE}/item/${id}.json`))
     );
-    items.push(...results);
+    for (const r of results) {
+      if (r.status === 'fulfilled') items.push(r.value);
+    }
   }
 
   // 3. 轉換為統一格式

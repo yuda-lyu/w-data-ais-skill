@@ -257,17 +257,17 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 |------|------|----------|------|
 | `convert-chinese` | 繁簡中文互轉（opencc-js）：cn ↔ tw/twp ↔ hk ↔ jp ↔ t 任意方向，預設 cn→twp（簡轉繁台灣詞級） | `convert_chinese.mjs`, `convertChinese.mjs` | `opencc-js` |
 | `shorten-url` | 長網址轉短網址（da.gd 公開 API，免註冊、免 API key、無 preview 中間頁），支援自訂短碼 | `shorten_url.mjs`, `shortenUrl.mjs` | 無（Node 18+ 內建 `fetch`） |
-| `zip-files-or-folder` | 壓縮單檔／多檔／資料夾為 zip，各模式皆可設密碼（zip20 預設、aes256 可選） | `zip_files_or_folder.mjs`, `zipFilesOrFolder.mjs` | `w-zip`, `archiver`, `archiver-zip-encrypted` |
+| `zip-files-or-folder` | 壓縮單檔／多檔／資料夾為 zip，各模式皆可設密碼（zip20 預設、aes256 可選） | `zip_files_or_folder.mjs`, `zipFilesOrFolder.mjs` | `w-zip`, `@zip.js/zip.js` |
 | `share-file` | Playwright + 本機 Chrome 上傳檔案到 Wormhole.app，取一次性 24h 內過期分享連結（≤ 5GB） | `share_file.mjs`, `shareFile.mjs` | `playwright` |
 
 ### 參數格式
 
 ```bash
 # 繁簡轉換（預設 cn→twp；可指定來源/目標，或接受字串/檔案/stdin）
-node convert-chinese/scripts/convert_chinese.mjs <text|--file path> [--from cn] [--to twp]
+node convert-chinese/scripts/convert_chinese.mjs (--text "..." | --input <path> | --stdin) [--from cn] [--to twp]
 
 # 短網址
-node shorten-url/scripts/shorten_url.mjs <longUrl> [--shorten <自訂短碼>]
+node shorten-url/scripts/shorten_url.mjs <longUrl> [--alias <自訂短碼>]
 
 # 壓縮（單檔/多檔/資料夾；--password 設密碼）
 node zip-files-or-folder/scripts/zip_files_or_folder.mjs <input...> [--output out.zip] [--password <pwd>]
@@ -283,7 +283,7 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 所有數據與新聞抓取類技能共享以下特性：
 
 - **結果寫檔**：一律寫入檔案（`outputPath` 或自動產生），無論成功或錯誤均寫入後才 exit，請讀取檔案取得結果
-- **自動重試**：5xx 或網路錯誤自動等待重試，線性遞增退避（台股數據類最多重試 10 次 / 5s~30s，含初始請求最多執行 11 次；新聞與 GAS 類最多重試 5 次 / 3s~15s，含初始請求最多執行 6 次）
+- **自動重試**：5xx 或網路錯誤自動等待重試，線性遞增退避（台股數據／台股新聞／交易日檢查類最多重試 10 次 / 5s~30s，含初始請求最多執行 11 次；AI 科技新聞與 GAS〔send-email／save-news-to-sheet〕類最多重試 5 次 / 3s~15s，含初始請求最多執行 6 次）
 - **執行位置**：由執行 agent 依自身環境決定，腳本不強制特定工作目錄
 
 > 程式化 API（camelCase）與 CLI（snake_case）雙檔慣例：每個技能的 `scripts/` 同時提供可程式化 import 的函式檔（回 `{ status, ... }` 結構）與 CLI 包裝檔。
@@ -546,7 +546,7 @@ npm install axios
 
 # 檔案與工具
 npm install opencc-js               # convert-chinese
-npm install w-zip archiver archiver-zip-encrypted   # zip-files-or-folder
+npm install w-zip @zip.js/zip.js   # zip-files-or-folder
 npm install playwright              # share-file
 # shorten-url 零依賴（Node 18+ 內建 fetch）
 ```

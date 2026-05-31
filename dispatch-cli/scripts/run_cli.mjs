@@ -170,6 +170,7 @@ function buildValidator(rule) {
                 try { JSON.parse(stdout); } catch { return false; }
             } else if (check.startsWith('min:')) {
                 const min = parseInt(check.slice(4), 10);
+                if (Number.isNaN(min)) return false;   // 規則本身無效（如 min:abc）→ 視為驗證失敗，不靜默跳過
                 if (!stdout || stdout.length < min) return false;
             }
         }
@@ -284,6 +285,19 @@ function _runCliOnce(command, args = [], options = {}) {
             if (settled) return;
             timedOut = true;
             killProcessTree(proc.pid);
+            // 保險：kill 後若 close 事件遲未觸發（kill 被忽略/權限不足），3s 後強制 resolve 避免永久 hang。
+            // unref 確保正常情況（close 立即觸發）不會因此延後 process 結束。
+            setTimeout(() => {
+                if (settled) return;
+                settled = true;
+                resolve({
+                    ok: false,
+                    stdout: truncate(stdout, 500),
+                    stderr: truncate(stderr, 500),
+                    code: null, error: `TIMEOUT after ${timeoutMs / 1000}s（子進程未能結束）`,
+                    durationMs: Date.now() - startTime, pid: proc.pid,
+                });
+            }, 3000).unref();
         }, timeoutMs);
 
         // ── 進程 error（ENOENT 等）──

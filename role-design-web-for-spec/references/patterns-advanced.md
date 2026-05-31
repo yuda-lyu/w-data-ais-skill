@@ -118,7 +118,7 @@
 
 | 情境 | 推薦 | 理由 |
 |---|---|---|
-| 儀表板、複雜互動、大資料集 | **ECharts**（預設） | 2000+ 圖表類型、內建 zoom/pan/tooltip/legend、支援百萬級資料點、官方 dark theme |
+| 儀表板、複雜互動、大資料集 | **ECharts**（預設） | 涵蓋折線/長條/圓餅/散點/熱力/關係圖等數十種圖表類型、內建 zoom/pan/tooltip/legend、支援百萬級資料點、官方 dark theme |
 | 小規模、快速拋棄式原型、簡單需求 | **Chart.js** | 輕量、API 最簡單、適合 Landing page 與單一 KPI 卡 |
 | 完全客製視覺、藝術向資料藝術 | **D3.js**（見主檔 SKILL.md 常用 CDN 一節） | 最底層，學習曲線陡，但表現力最強 |
 

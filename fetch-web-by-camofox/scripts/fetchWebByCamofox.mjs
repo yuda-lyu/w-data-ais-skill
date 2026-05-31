@@ -219,6 +219,7 @@ export async function fetchWebByCamofox(url, options = {}) {
         cwd: camofoxDir,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env, CAMOFOX_PORT: String(port) },
+        windowsHide: true,
       });
       serverProc.stderr.on('data', () => {});
       serverProc.stdout.on('data', () => {});

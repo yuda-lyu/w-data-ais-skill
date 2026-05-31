@@ -85,7 +85,13 @@ export async function fetchTwDataHoliday(checkDate) {
         }
     }
 
-    const raw = JSON.parse(body);
+    let raw;
+    try {
+        raw = JSON.parse(body);
+    } catch (e) {
+        // API 維護時可能回 HTTP 200 + HTML（非 JSON）→ 產生文件記載之友善訊息，而非裸 SyntaxError
+        throw new Error('API 回傳非 JSON 格式（可能為維護頁面或網路中介），請稍後再試');
+    }
     if (!Array.isArray(raw) || raw.length === 0) {
         throw new Error('API 回傳空陣列或格式異常');
     }

@@ -98,6 +98,8 @@ function sanitizeFilename(name) {
     }
     s = s.replace(/[\\/:*?"<>|]/g, (c) => map[c] || '_').trim()
     if (!s) s = 'baidu-doc'
+    // Windows 保留裝置名（con/nul/prn/aux/comN/lptN）即使帶副檔名仍解析到裝置，偵測到加前綴避免產生無法刪除檔
+    if (/^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i.test(s)) s = '_' + s
     if (!/\.pdf$/i.test(s)) s += '.pdf'
     return s
 }
