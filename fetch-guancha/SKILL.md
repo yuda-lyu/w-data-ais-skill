@@ -29,13 +29,13 @@ description: 抓取觀察者網（guancha.cn）的文章資料並轉成 markdown
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-需安裝 npm 套件（`wsemi`，用於入口參數型別驗證）：
+需安裝 npm 套件（`wsemi`，用於入口參數型別驗證；`lodash-es` 為委派之 fetch-web-by-curl 的傳遞依賴）：
 
 ```bash
-npm install wsemi
+npm install wsemi lodash-es
 ```
 
-抓取層委派給同層 sibling 技能 `fetch-web-by-curl`（其本身亦零 npm 依賴，僅需系統 curl）。
+抓取層委派給同層 sibling 技能 `fetch-web-by-curl`（另需 wsemi、lodash-es，見其安裝指引；系統需 curl）。
 
 執行前驗證：
 ```bash

@@ -37,13 +37,12 @@ const [url, outputPath] = args;
       fs.writeFileSync(outputPath, payload, 'utf-8');
       const { html, ...meta } = result;
       console.log(JSON.stringify({ ...meta, output_path: outputPath }, null, 2));
+      process.exit(result.status === 'success' ? 0 : 1);
     } catch (err) {
       process.stderr.write(`寫檔失敗：${err.message}\n`);
       process.exit(1);
     }
   } else {
-    process.stdout.write(payload + '\n');
+    process.stdout.write(payload + '\n', () => process.exit(result.status === 'success' ? 0 : 1));
   }
-
-  process.exit(result.status === 'success' ? 0 : 1);
 })();

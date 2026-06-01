@@ -222,6 +222,8 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
+> 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
+
 ```bash
 claude --version   # 確認 claude code 已安裝
 claude auth        # 確認認證狀態

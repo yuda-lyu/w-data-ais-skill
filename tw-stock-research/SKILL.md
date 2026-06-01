@@ -11,17 +11,17 @@ description: 台股盤前調研技能。從 8 個來源（MOPS、鉅亨網、財
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`、`cheerio`、`playwright`、`wsemi`
+所需套件：`axios`、`cheerio`、`playwright`、`wsemi`、`lodash-es`
 額外需求：環境需安裝 Chrome 或 Chromium（Playwright 透過 `channel: 'chrome'` 自動偵測）
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "import('axios').then(() => import('cheerio')).then(() => import('playwright')).then(() => console.log('deps OK'))"
+node -e "import('axios').then(() => import('cheerio')).then(() => import('playwright')).then(() => import('wsemi')).then(() => import('lodash-es')).then(() => console.log('deps OK'))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios cheerio playwright wsemi
+npm install axios cheerio playwright wsemi lodash-es
 ```
 
 ## 🚦 交易日檢查（必要）
@@ -348,7 +348,7 @@ w-data-news/tw-stock-research/
 **解決方法**：
 確保在工作區執行了所有依賴安裝：
 ```bash
-npm install axios cheerio playwright wsemi
+npm install axios cheerio playwright wsemi lodash-es
 ```
 
 ### 2. 瀏覽器未找到
@@ -366,7 +366,7 @@ npm install axios cheerio playwright wsemi
 
 ```bash
 # 外部 agent 可從任意工作目錄執行；請顯式傳入 skillsDir 與 baseOutputDir
-npm install axios cheerio playwright wsemi
+npm install axios cheerio playwright wsemi lodash-es
 node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 範例
@@ -383,7 +383,7 @@ mkdir -p ./w-data-news/tw-stock-research/YYYYMMDD/raw   # Unix/Git Bash；PowerS
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-news/tw-stock-research/YYYYMMDD/raw/trading_day.json
 
 # 2. 安裝依賴
-npm install axios cheerio playwright wsemi
+npm install axios cheerio playwright wsemi lodash-es
 
 # 3. 依序抓取（outputPath 必須為完整相對路徑）
 node fetch-tw-news-mops/scripts/fetch_mops.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json

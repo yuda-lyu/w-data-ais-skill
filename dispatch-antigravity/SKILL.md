@@ -166,6 +166,8 @@ command: CLI_TIMEOUT_MS=600000 CLI_CWD=/path/to/project \
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
+> 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
+
 ```bash
 agy --version   # 確認 agy 已安裝
 ```

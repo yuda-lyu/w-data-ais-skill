@@ -222,11 +222,13 @@ for (const [name, r] of Object.entries(results)) {
 |----------|--------|------|
 | `CLI_TIMEOUT_MS` | `3600000` | 最強模型 + 最深思考，統一給 1 小時，確保複雜任務不會中斷 |
 | `CLI_MAX_RETRIES` | `1` | 暫時性錯誤可重試一次（含初始請求最多執行 2 次） |
-| `CLI_VALIDATE` | `nonempty` | 確保有實際輸出 |
+| `CLI_VALIDATE` | （不設） | 結果寫入 `result_*.txt`，不要用 `CLI_VALIDATE=nonempty` 驗 stdout（stdout 可能為空）；如需驗證請由技能層自行確認 `result_*.txt` 是否存在/非空 |
 
 ## 安裝指引
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
+
+> 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
 
 三個 CLI 皆須已安裝：
 

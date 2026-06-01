@@ -88,9 +88,10 @@ Chrome DevTools → Lighthouse → Analyze page load。
 ```markdown
 | 前景 | 背景 | 對比值 | 通過 AA? |
 |---|---|---|---|
-| --fg (#1a1a1a) | --bg (#fafafa) | 16.1:1 | ✅ |
-| --muted (#666) | --bg (#fafafa) | 5.7:1 | ✅ |
-| --muted (#666) | --surface (#f0f0f0) | 4.3:1 | ❌ 正文不過 |
+| --fg (#1a1a1a) | --bg (#fafafa) | 16.7:1 | ✅ |
+| --muted (#666) | --bg (#fafafa) | 5.5:1 | ✅ |
+| --muted (#666) | --surface (#f0f0f0) | 5.0:1 | ✅ 正文過 |
+| #999 | --surface (#f0f0f0) | 2.5:1 | ❌ 正文不過 |
 ```
 
 ### Console 錯誤

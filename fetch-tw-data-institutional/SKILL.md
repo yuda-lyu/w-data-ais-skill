@@ -79,7 +79,7 @@ node fetch-tw-data-institutional/scripts/fetch_tpex_3insti.mjs 6499,6610 2026021
 - 預設：`twse_t86_YYYYMMDD.json`（指定個股時為 `twse_t86_CODE_YYYYMMDD.json`，多檔時為 `twse_t86_CODE1_CODE2_YYYYMMDD.json`）
 - 預設：`tpex_3insti_YYYYMMDD.json`（指定個股時為 `tpex_3insti_CODE_YYYYMMDD.json`，多檔時為 `tpex_3insti_CODE1_CODE2_YYYYMMDD.json`）
 
-無論成功或錯誤均寫入後才 exit。
+執行期（資料抓取階段）無論成功或錯誤，均寫入檔案後才 exit。但若參數格式／日期無效（前置參數驗證未通過），則僅輸出 stderr 並 exit 1，不寫檔。
 
 ## 輸出格式
 

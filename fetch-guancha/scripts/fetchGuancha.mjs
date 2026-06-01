@@ -517,7 +517,7 @@ export async function fetchArticle({ url } = {}) {
     };
   }
 
-  const title = titleRaw.trim();
+  const title = titleRaw.replace(/[_\-\s|｜]*(?:观察者网|觀察者網)\s*$/u, '').trim();
   const author = extractAuthorFromContent(contentBlock) || '';
   const pubTime = extractPubTime(html) || '';
   const created = new Date().toISOString().slice(0, 10);

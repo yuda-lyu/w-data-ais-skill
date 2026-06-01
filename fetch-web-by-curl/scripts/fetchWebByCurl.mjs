@@ -87,7 +87,7 @@ export async function fetchWebByCurl(url, options = {}) {
           '-H', 'Referer: ' + referer,
           url,
         ],
-        { encoding: 'utf8', timeout: timeoutMs + 5000, maxBuffer: 10 * 1024 * 1024 }
+        { encoding: 'utf8', timeout: timeoutMs + 5000, maxBuffer: 10 * 1024 * 1024, windowsHide: true }
       );
 
       const lines = raw.trimEnd().split('\n');
