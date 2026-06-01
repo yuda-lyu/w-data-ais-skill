@@ -68,8 +68,8 @@
 
 | 技能 | 說明 | 主要腳本 | 依賴 | 執行時間 |
 |------|------|----------|------|----------|
-| `tw-stock-research` | 台股盤前調研：整合 MOPS、鉅亨網、財報狗、MoneyDJ、三大法人、收盤 OHLC、期貨、融資融券共 8 來源，產出盤前報告 | `run_research.mjs` | `axios` `cheerio` `playwright` | 3~8 分鐘 |
-| `tw-stock-post-market` | 台股盤後總結：抓取收盤價與法人資料，比對盤前研判準確度，累積調研經驗 | `run_post_market.mjs` | `axios` | 1~3 分鐘 |
+| `tw-stock-research` | 台股盤前調研：整合 MOPS、鉅亨網、財報狗、MoneyDJ、三大法人、收盤 OHLC、期貨、融資融券共 8 來源，產出盤前報告 | `run_research.mjs` | `axios`, `cheerio`, `playwright`, `wsemi`, `lodash-es` | 3~8 分鐘 |
+| `tw-stock-post-market` | 台股盤後總結：抓取收盤價與法人資料，比對盤前研判準確度，累積調研經驗 | `run_post_market.mjs` | `axios`, `wsemi` | 1~3 分鐘 |
 
 ### 主控腳本用法
 
@@ -99,13 +99,13 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
-| `dispatch-cli` | 通用 CLI 子進程執行器（核心層），提供超時控制、進程樹清理、輸出驗證、結構化錯誤回報與自動重試，供其他 dispatch 技能調用 | Node.js ≥ 18（無 npm 依賴） |
-| `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | 需安裝 `@anthropic-ai/claude-code`（位置由執行 agent 決定，詳見 SKILL.md） |
-| `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | 需安裝 `@openai/codex`（位置由執行 agent 決定，詳見 SKILL.md） |
-| `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | 需安裝 `@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md） |
-| `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | 需安裝 `opencode-ai`（位置由執行 agent 決定，詳見 SKILL.md） |
-| `dispatch-antigravity` | 以 Antigravity CLI (`agy`) 作為獨立 agent 驅動 | 需安裝 `agy` CLI（位置由執行 agent 決定，詳見 SKILL.md） |
-| `dispatch-agents` | 同時派出 Claude / Codex / Gemini 三大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整三方結果 | 三者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`、`@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md） |
+| `dispatch-cli` | 通用 CLI 子進程執行器（核心層），提供超時控制、進程樹清理、輸出驗證、結構化錯誤回報與自動重試，供其他 dispatch 技能調用 | Node.js ≥ 18，需 `wsemi`、`lodash-es` |
+| `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | 需安裝 `@anthropic-ai/claude-code`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
+| `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | 需安裝 `@openai/codex`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
+| `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | 需安裝 `@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
+| `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | 需安裝 `opencode-ai`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
+| `dispatch-antigravity` | 以 Antigravity CLI (`agy`) 作為獨立 agent 驅動 | 需安裝 `agy` CLI（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
+| `dispatch-agents` | 同時派出 Claude / Codex / Gemini 三大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整三方結果 | 三者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`、`@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
 
 - `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘技能透過它執行
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
@@ -117,15 +117,15 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-web` | 通用網頁抓取，四階段自動升級：curl → Playwright 無頭 → Playwright 有頭 → Camofox 反偵測瀏覽器，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright`, `@askjo/camofox-browser` |
-| `fetch-web-by-curl` | 用系統 `curl` 抓原始 HTML，繞過層級 1-3 反爬（UA/Headers/TLS 指紋），零瀏覽器依賴、最輕量 | `fetch_web_by_curl.mjs`, `fetchWebByCurl.mjs` | 無（系統 `curl`） |
-| `fetch-web-by-playwright-headless` | Playwright 無頭抓原始 HTML，完整 JS 渲染 SPA，含 Shadow DOM 穿透 | `fetch_web_by_playwright_headless.mjs`, `fetchWebByPlaywrightHeadless.mjs` | `playwright` |
-| `fetch-web-by-playwright-head` | Playwright 有頭抓原始 HTML，自動點擊 Cloudflare Turnstile / hCaptcha 驗證 checkbox，含 Shadow DOM 穿透 | `fetch_web_by_playwright_head.mjs`, `fetchWebByPlaywrightHead.mjs` | `playwright` |
-| `fetch-web-by-camofox` | Camofox（修改版 Firefox）反偵測瀏覽器抓 HTML，繞過 Cloudflare Turnstile 等進階驗證 | `fetch_web_by_camofox.mjs`, `fetchWebByCamofox.mjs` | `@askjo/camofox-browser` |
-| `fetch-aisixiang` | 抓取愛思想（aisixiang.com）文章，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇轉 markdown（查詢字串需簡體） | `fetch_aisixiang.mjs`, `fetchAisixiang.mjs` | 無（委派 `fetch-web-by-curl`） |
-| `fetch-guancha` | 抓取觀察者網（guancha.cn）文章轉 markdown，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇（查詢字串需簡體） | `fetch_guancha.mjs`, `fetchGuancha.mjs` | 無（委派 `fetch-web-by-curl`） |
-| `fetch-youtube-transcript` | Playwright + 本機 Chrome 抓 YouTube 字幕，走「顯示轉錄稿」UI 流程繞過 POT 限制，雙路徑（DOM + 網路攔截） | `fetch_youtube_transcript.mjs`, `fetchYoutubeTranscript.mjs` | `playwright` |
-| `download-baidu-pdf` | Playwright + 本機 Chrome 抓百度網盤「免登入公開」分享 PDF（文件預覽）逐頁圖片併為本機 PDF；攔截帶簽章頁圖 URL，拋棄式 headless、零介入；臨時/輸出檔落於 `download-baidu-pdf/tmp` | `download_baidu_pdf.mjs`, `downloadBaiduPdf.mjs` | `playwright`, `pdfkit` |
+| `fetch-web` | 通用網頁抓取，四階段自動升級：curl → Playwright 無頭 → Playwright 有頭 → Camofox 反偵測瀏覽器，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright`, `@askjo/camofox-browser`, `wsemi`, `lodash-es` |
+| `fetch-web-by-curl` | 用系統 `curl` 抓原始 HTML，繞過層級 1-3 反爬（UA/Headers/TLS 指紋），零瀏覽器依賴、最輕量 | `fetch_web_by_curl.mjs`, `fetchWebByCurl.mjs` | `wsemi`, `lodash-es`（+ 系統 `curl`） |
+| `fetch-web-by-playwright-headless` | Playwright 無頭抓原始 HTML，完整 JS 渲染 SPA，含 Shadow DOM 穿透 | `fetch_web_by_playwright_headless.mjs`, `fetchWebByPlaywrightHeadless.mjs` | `playwright`, `wsemi`, `lodash-es` |
+| `fetch-web-by-playwright-head` | Playwright 有頭抓原始 HTML，自動點擊 Cloudflare Turnstile / hCaptcha 驗證 checkbox，含 Shadow DOM 穿透 | `fetch_web_by_playwright_head.mjs`, `fetchWebByPlaywrightHead.mjs` | `playwright`, `wsemi`, `lodash-es` |
+| `fetch-web-by-camofox` | Camofox（修改版 Firefox）反偵測瀏覽器抓 HTML，繞過 Cloudflare Turnstile 等進階驗證 | `fetch_web_by_camofox.mjs`, `fetchWebByCamofox.mjs` | `@askjo/camofox-browser`, `wsemi`, `lodash-es` |
+| `fetch-aisixiang` | 抓取愛思想（aisixiang.com）文章，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇轉 markdown（查詢字串需簡體） | `fetch_aisixiang.mjs`, `fetchAisixiang.mjs` | `wsemi`（自有 HTTP） |
+| `fetch-guancha` | 抓取觀察者網（guancha.cn）文章轉 markdown，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇（查詢字串需簡體） | `fetch_guancha.mjs`, `fetchGuancha.mjs` | `wsemi`, `lodash-es`（委派 `fetch-web-by-curl`） |
+| `fetch-youtube-transcript` | Playwright + 本機 Chrome 抓 YouTube 字幕，走「顯示轉錄稿」UI 流程繞過 POT 限制，雙路徑（DOM + 網路攔截） | `fetch_youtube_transcript.mjs`, `fetchYoutubeTranscript.mjs` | `playwright`, `wsemi`, `lodash-es` |
+| `download-baidu-pdf` | Playwright + 本機 Chrome 抓百度網盤「免登入公開」分享 PDF（文件預覽）逐頁圖片併為本機 PDF；攔截帶簽章頁圖 URL，拋棄式 headless、零介入；臨時/輸出檔落於 `download-baidu-pdf/tmp` | `download_baidu_pdf.mjs`, `downloadBaiduPdf.mjs` | `playwright`, `pdfkit`, `wsemi`, `lodash-es` |
 
 ### 參數格式
 
@@ -152,7 +152,7 @@ node download-baidu-pdf/scripts/download_baidu_pdf.mjs <百度分享網址> [輸
 
 - `fetch-web` 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭 → Camofox；底層四個 `fetch-web-by-*` 亦可單獨使用
 - Playwright 系列使用系統 Chrome（`channel: 'chrome'`），不需額外下載 Chromium
-- `fetch-aisixiang` / `fetch-guancha` 委派 `fetch-web-by-curl` 取 HTML，查詢字串需由呼叫端轉為簡體
+- `fetch-guancha` 委派 `fetch-web-by-curl` 取 HTML；`fetch-aisixiang` 為自有 HTTP（不委派 curl）。兩者查詢字串皆需由呼叫端轉為簡體
 
 ---
 
@@ -160,11 +160,11 @@ node download-baidu-pdf/scripts/download_baidu_pdf.mjs <百度分享網址> [輸
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-tw-data-holiday` | 查詢台灣國定假日（TWSE OpenAPI），回傳指定日期是否為假日及假日名稱 | `fetch_tw_data_holiday.mjs` | 無（Node.js 內建 `https`） |
-| `fetch-tw-data-stock` | 抓取收盤 OHLC 資料（上市 TWSE + 上櫃 TPEX） | `fetch_twse_stock.mjs`, `fetch_tpex_stock.mjs` | `axios` |
-| `fetch-tw-data-futures` | 抓取期交所台指期行情、法人未平倉、P/C Ratio | `fetch_taifex.mjs` | `axios` |
-| `fetch-tw-data-margin` | 抓取融資融券餘額（上市 + 上櫃） | `fetch_twse_margin.mjs`, `fetch_tpex_margin.mjs` | `axios` |
-| `fetch-tw-data-institutional` | 抓取三大法人買賣超（官方 TWSE T86 + TPEX 3Insti） | `fetch_twse_t86.mjs`, `fetch_tpex_3insti.mjs` | `axios` |
+| `fetch-tw-data-holiday` | 查詢台灣國定假日（TWSE OpenAPI），回傳指定日期是否為假日及假日名稱 | `fetch_tw_data_holiday.mjs` | `wsemi`（+ Node.js 內建 `https`） |
+| `fetch-tw-data-stock` | 抓取收盤 OHLC 資料（上市 TWSE + 上櫃 TPEX） | `fetch_twse_stock.mjs`, `fetch_tpex_stock.mjs` | `axios`, `wsemi` |
+| `fetch-tw-data-futures` | 抓取期交所台指期行情、法人未平倉、P/C Ratio | `fetch_taifex.mjs` | `axios`, `wsemi` |
+| `fetch-tw-data-margin` | 抓取融資融券餘額（上市 + 上櫃） | `fetch_twse_margin.mjs`, `fetch_tpex_margin.mjs` | `axios`, `wsemi` |
+| `fetch-tw-data-institutional` | 抓取三大法人買賣超（官方 TWSE T86 + TPEX 3Insti） | `fetch_twse_t86.mjs`, `fetch_tpex_3insti.mjs` | `axios`, `wsemi` |
 
 ### 參數格式
 
@@ -185,7 +185,7 @@ node download-baidu-pdf/scripts/download_baidu_pdf.mjs <百度分享網址> [輸
 | `fetch-tw-news-mops` | 抓取 MOPS 重大公告（上市/上櫃/興櫃/公開發行），Playwright + 內部 API | `fetch_mops.mjs` | `playwright` |
 | `fetch-tw-news-cnyes` | 抓取鉅亨網台股即時新聞（近 100 筆） | `fetch_cnyes.mjs` | `axios` |
 | `fetch-tw-news-statementdog` | 抓取財報狗產業分析與個股新聞 | `fetch_statementdog.mjs` | `axios`, `cheerio` |
-| `fetch-tw-news-moneydj` | 抓取 MoneyDJ 法說/營收新聞（50 頁，約 1.5~3 分鐘） | `fetch_moneydj.mjs` | `axios`, `cheerio` |
+| `fetch-tw-news-moneydj` | 抓取 MoneyDJ 法說/營收新聞（50 頁，約 1.5~3 分鐘） | `fetch_moneydj.mjs` | `axios`, `cheerio`, `wsemi`, `lodash-es` |
 
 ### 參數格式
 
@@ -202,10 +202,10 @@ node download-baidu-pdf/scripts/download_baidu_pdf.mjs <百度分享網址> [輸
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-rss` | 取得任意 RSS Feed 並轉為統一 JSON 格式，支援 YouTube、新聞網站等 | `fetch_rss.mjs` | `axios`, `rss-parser` |
+| `fetch-rss` | 取得任意 RSS Feed 並轉為統一 JSON 格式，支援 YouTube、新聞網站等 | `fetch_rss.mjs` | `axios`, `rss-parser`, `wsemi` |
 | `fetch-ai-news-aggregator` | 取得 AI News Aggregator 最近 24 小時 AI 新聞 | `fetch_ai_news_aggregator.mjs` | `axios` |
-| `fetch-hacker-news` | 取得 Hacker News 最新文章（newest），透過 Firebase API 批次取得文章詳情 | `fetch_hacker_news.mjs` | `axios` |
-| `fetch-news-ai` | 整合 10 個來源（RSS + AI News Aggregator + Hacker News），過濾今日與昨日新聞，依時間降冪排序 | `fetch_news_ai.mjs` | `axios`, `rss-parser` |
+| `fetch-hacker-news` | 取得 Hacker News 最新文章（newest），透過 Firebase API 批次取得文章詳情 | `fetch_hacker_news.mjs` | `axios`, `wsemi` |
+| `fetch-news-ai` | 整合 10 個來源（RSS + AI News Aggregator + Hacker News），過濾今日與昨日新聞，依時間降冪排序 | `fetch_news_ai.mjs` | `axios`, `rss-parser`, `wsemi` |
 
 ### 參數格式
 
@@ -224,7 +224,7 @@ node download-baidu-pdf/scripts/download_baidu_pdf.mjs <百度分享網址> [輸
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `check-tw-trading-day` | 透過 TWSE 官方 API 判斷指定日期是否為台股交易日；exit code：0=交易日、1=非交易日、2=API 錯誤 | `check_tw_trading_day.mjs` | 無（Node.js 內建 `https`） |
+| `check-tw-trading-day` | 透過 TWSE 官方 API 判斷指定日期是否為台股交易日；exit code：0=交易日、1=非交易日、2=API 錯誤 | `check_tw_trading_day.mjs` | `wsemi`（+ Node.js 內建 `https`） |
 
 ```bash
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPath]
@@ -237,8 +237,8 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `send-email` | 透過 GAS Web App API 寄送 Email（純文字或 HTML），支援 JSON 檔案與直接參數兩種模式 | `send_email.mjs` | `axios` |
-| `save-news-to-sheet` | 透過 GAS Web App API 將新聞資料寫入 Google Sheet，支援自動去重 | `save_news_to_sheet.mjs` | `axios` |
+| `send-email` | 透過 GAS Web App API 寄送 Email（純文字或 HTML），支援 JSON 檔案與直接參數兩種模式 | `send_email.mjs` | `axios`, `wsemi` |
+| `save-news-to-sheet` | 透過 GAS Web App API 將新聞資料寫入 Google Sheet，支援自動去重 | `save_news_to_sheet.mjs` | `axios`, `wsemi` |
 
 ### 參數格式
 
@@ -255,10 +255,10 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `convert-chinese` | 繁簡中文互轉（opencc-js）：cn ↔ tw/twp ↔ hk ↔ jp ↔ t 任意方向，預設 cn→twp（簡轉繁台灣詞級） | `convert_chinese.mjs`, `convertChinese.mjs` | `opencc-js` |
-| `shorten-url` | 長網址轉短網址（da.gd 公開 API，免註冊、免 API key、無 preview 中間頁），支援自訂短碼 | `shorten_url.mjs`, `shortenUrl.mjs` | 無（Node 18+ 內建 `fetch`） |
-| `zip-files-or-folder` | 壓縮單檔／多檔／資料夾為 zip，各模式皆可設密碼（zip20 預設、aes256 可選） | `zip_files_or_folder.mjs`, `zipFilesOrFolder.mjs` | `w-zip`, `@zip.js/zip.js` |
-| `share-file` | Playwright + 本機 Chrome 上傳檔案到 Wormhole.app，取一次性 24h 內過期分享連結（≤ 5GB） | `share_file.mjs`, `shareFile.mjs` | `playwright` |
+| `convert-chinese` | 繁簡中文互轉（opencc-js）：cn ↔ tw/twp ↔ hk ↔ jp ↔ t 任意方向，預設 cn→twp（簡轉繁台灣詞級） | `convert_chinese.mjs`, `convertChinese.mjs` | `opencc-js`, `wsemi`, `lodash-es` |
+| `shorten-url` | 長網址轉短網址（da.gd 公開 API，免註冊、免 API key、無 preview 中間頁），支援自訂短碼 | `shorten_url.mjs`, `shortenUrl.mjs` | `wsemi`, `lodash-es`（+ Node 18+ 內建 `fetch`） |
+| `zip-files-or-folder` | 壓縮單檔／多檔／資料夾為 zip，各模式皆可設密碼（zip20 預設、aes256 可選） | `zip_files_or_folder.mjs`, `zipFilesOrFolder.mjs` | `w-zip`, `@zip.js/zip.js`, `wsemi`, `lodash-es` |
+| `share-file` | Playwright + 本機 Chrome 上傳檔案到 Wormhole.app，取一次性 24h 內過期分享連結（≤ 5GB） | `share_file.mjs`, `shareFile.mjs` | `playwright`, `wsemi`, `lodash-es` |
 
 ### 參數格式
 
@@ -288,12 +288,18 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 
 > 程式化 API（camelCase）與 CLI（snake_case）雙檔慣例：每個技能的 `scripts/` 同時提供可程式化 import 的函式檔（回 `{ status, ... }` 結構）與 CLI 包裝檔。
 
+- **`_audit/`**：常設確定性審計工具（依賴對帳 + 機械維度掃描），詳見 `_audit/README.md`。
+
 ---
 
 ## 目錄結構
 
 ```text
 .
+├── _audit/
+│   ├── README.md
+│   ├── audit_deterministic.mjs
+│   └── dep_recon.mjs
 ├── check-tw-trading-day/
 │   ├── SKILL.md
 │   └── scripts/
@@ -524,31 +530,36 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 
 ## 依賴安裝
 
+> 本庫核心函數入口統一以 `wsemi` 做參數驗證、部分技能用 `lodash-es` 取 opt 值，故多數技能依賴含 `wsemi`（部分含 `lodash-es`）；純文件型技能（do-loop / role-* / dispatch-claude/codex/gemini/opencode/antigravity/agents）無 npm 依賴。各技能確切依賴見其 SKILL.md，或執行 `node _audit/dep_recon.mjs` 對帳。
+
 ```bash
 # 台股研究全套（盤前調研 + 盤後總結 + 新聞抓取）
-npm install axios cheerio playwright
+npm install axios cheerio playwright wsemi lodash-es
 
 # 網頁與媒體抓取（fetch-web 全套）
-npm install @mozilla/readability jsdom playwright @askjo/camofox-browser
-# 其中 fetch-web-by-curl 零依賴；fetch-youtube-transcript 僅需 playwright
+npm install @mozilla/readability jsdom playwright @askjo/camofox-browser wsemi lodash-es
+# 其中 fetch-youtube-transcript 需 playwright wsemi lodash-es
+
+# fetch-web-by-curl（系統 curl）
+npm install wsemi lodash-es        # （+ 系統 curl）
 
 # 百度網盤 PDF（download-baidu-pdf）
-npm install playwright pdfkit
+npm install playwright pdfkit wsemi lodash-es
 
 # AI / 科技新聞
-npm install axios rss-parser
+npm install axios rss-parser wsemi
 
 # 僅台股數據抓取或盤後總結
-npm install axios
+npm install axios wsemi
 
 # 通知與儲存（send-email / save-news-to-sheet）
-npm install axios
+npm install axios wsemi
 
 # 檔案與工具
-npm install opencc-js               # convert-chinese
-npm install w-zip @zip.js/zip.js   # zip-files-or-folder
-npm install playwright              # share-file
-# shorten-url 零依賴（Node 18+ 內建 fetch）
+npm install opencc-js wsemi lodash-es        # convert-chinese
+npm install w-zip @zip.js/zip.js wsemi lodash-es   # zip-files-or-folder
+npm install playwright wsemi lodash-es        # share-file
+npm install wsemi lodash-es        # shorten-url（Node 18+ 內建 fetch）
 ```
 
 > 各技能 SKILL.md 內皆有獨立的安裝指引與驗證指令，詳見各技能說明。
