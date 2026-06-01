@@ -3,6 +3,7 @@
 // 輸出：{ dataYear, totalHolidays, holidays, checkDate?, isHoliday?, holidayName? }
 
 import https from 'https';
+import w from 'wsemi';
 
 // ---------- 常數 ----------
 const API_URL = 'https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule';
@@ -126,7 +127,8 @@ export async function fetchTwDataHoliday(checkDate) {
         holidays: uniqueHolidays
     };
 
-    if (checkDate) {
+    // checkDate 為 opt：僅當為合法 YYYYMMDD 字串才做單日假日比對；無效則略過（不誤標 isHoliday）
+    if (w.isestr(checkDate) && /^\d{8}$/.test(checkDate)) {
         result.checkDate = checkDate;
         const match = uniqueHolidays.find(h => h.date === checkDate);
         result.isHoliday = !!match;

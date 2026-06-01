@@ -2,6 +2,9 @@
 //
 // 對外匯出 fetchWebByPlaywrightHeadless(url, options) → { status, url, html?, ... }
 
+import w from 'wsemi';
+import _ from 'lodash-es';
+
 const MAX_RETRIES = 5;
 const INITIAL_WAIT_MS = 3000;
 const MAX_WAIT_MS = 15000;
@@ -88,7 +91,7 @@ async function extractPageContent(page) {
  */
 export async function fetchWebByPlaywrightHeadless(url, options = {}) {
   const fetchedAt = new Date().toISOString();
-  if (!url || typeof url !== 'string') {
+  if (!w.isestr(url)) {
     return { status: 'error', url: String(url), message: 'url is required (string)', reason: 'invalid-url', method: 'playwright-headless', fetchedAt, attempts: 0 };
   }
   if (!_isValidUrl(url)) {
@@ -106,9 +109,12 @@ export async function fetchWebByPlaywrightHeadless(url, options = {}) {
     };
   }
 
-  const navTimeout = options.navigationTimeoutMs ?? DEFAULT_NAV_TIMEOUT_MS;
-  const postWait = options.postNavigationWaitMs ?? DEFAULT_POST_NAV_WAIT_MS;
-  const waitForRedirect = !!options.waitForRedirect;
+  let navTimeout = _.get(options, 'navigationTimeoutMs', null);
+  if (!w.ispint(navTimeout)) navTimeout = DEFAULT_NAV_TIMEOUT_MS; else navTimeout = w.cint(navTimeout);
+  let postWait = _.get(options, 'postNavigationWaitMs', null);
+  if (!w.isp0int(postWait)) postWait = DEFAULT_POST_NAV_WAIT_MS; else postWait = w.cint(postWait);
+  let waitForRedirect = _.get(options, 'waitForRedirect', null);
+  if (!w.isbol(waitForRedirect)) waitForRedirect = false; else waitForRedirect = w.cbol(waitForRedirect);
 
   let lastMessage = '';
 

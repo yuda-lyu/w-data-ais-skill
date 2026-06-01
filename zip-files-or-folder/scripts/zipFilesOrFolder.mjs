@@ -15,6 +15,8 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import w from 'wsemi'
+import _ from 'lodash-es'
 
 const _WIN_RESERVED_RE = /^(con|prn|aux|nul|com\d|lpt\d)(\.|$)/i
 function _guardPath(p) {
@@ -135,13 +137,14 @@ async function _zipWithZipJs(inputs, kinds, output, opts, mode) {
  * @returns {Promise<{ output: string, mode: string, sizeBytes: number, entryCount: number }>}
  */
 export async function zipFilesOrFolder(inputs, output, options = {}) {
-    if (!Array.isArray(inputs) || inputs.length === 0) throw new Error('inputs 必須是非空陣列')
-    if (!output || typeof output !== 'string') throw new Error('output 必須是字串路徑')
+    if (!w.isearr(inputs)) throw new Error('inputs 必須是非空陣列')
+    if (!w.isestr(output)) throw new Error('output 必須是字串路徑')
     _guardPath(output)
 
-    if (options.level != null) {
-        const lv = Number(options.level)
-        if (!Number.isInteger(lv) || lv < 0 || lv > 9) throw new Error(`level 必須是 0-9 之間的整數，得到: ${options.level}`)
+    let level = _.get(options, 'level', null)
+    if (w.isp0int(level)) {
+        const lv = w.cint(level)
+        if (lv < 0 || lv > 9) throw new Error(`level 必須是 0-9 之間的整數，得到: ${options.level}`)
         options = { ...options, level: lv }
     }
     if (options.encryption != null && !VALID_ENCRYPTIONS.includes(options.encryption)) {
@@ -150,6 +153,10 @@ export async function zipFilesOrFolder(inputs, output, options = {}) {
     // 指定 encryption 卻沒 password：加密不會生效（會走無密碼純 zip），明確報錯避免誤以為有加密
     if (options.encryption != null && !options.password) {
         throw new Error('指定 encryption 但未提供 password；加密不會生效。請一併提供 password，或移除 encryption')
+    }
+    // password 若提供須為非空字串；錯型別（如數字/物件）不該靜默走無密碼或被底層強制轉型，明確報錯
+    if (options.password != null && !w.isestr(options.password)) {
+        throw new Error('password 必須是非空字串')
     }
 
     const kinds = inputs.map(_classifyInput)

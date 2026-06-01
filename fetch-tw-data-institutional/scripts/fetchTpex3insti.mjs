@@ -1,4 +1,5 @@
 import axios from 'axios';
+import w from 'wsemi';
 
 /**
  * 櫃買中心 (TPEX) 三大法人買賣超 — 核心模組
@@ -75,11 +76,21 @@ function assertTpexFieldShape(fields) {
 }
 
 export async function fetchTpex3insti(dateStr, stockCodes) {
-    if (!/^\d{8}$/.test(dateStr)) {
+    if (!w.isestr(dateStr) || !/^\d{8}$/.test(dateStr)) {
         throw new Error(`dateStr must be YYYYMMDD, got: ${dateStr}`);
     }
+    // 合法性驗證：例如 20260230 雖符合 8 碼但日期不存在（與同技能 fetchTwseT86 同款，補齊函數入口防呆）
+    {
+        const _y = parseInt(dateStr.substring(0, 4));
+        const _m = parseInt(dateStr.substring(4, 6));
+        const _d = parseInt(dateStr.substring(6, 8));
+        const _t = new Date(_y, _m - 1, _d);
+        if (_t.getFullYear() !== _y || _t.getMonth() !== _m - 1 || _t.getDate() !== _d) {
+            throw new Error(`dateStr 不是合法日期: ${dateStr}（年=${_y} 月=${_m} 日=${_d}）`);
+        }
+    }
 
-    const targetCodes = Array.isArray(stockCodes) ? stockCodes : [];
+    const targetCodes = w.isearr(stockCodes) ? stockCodes : [];
 
     const yyyy   = parseInt(dateStr.substring(0, 4));
     const mm     = dateStr.substring(4, 6);

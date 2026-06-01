@@ -16,6 +16,8 @@ import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
+import w from 'wsemi';
+import _ from 'lodash-es';
 
 const MAX_RETRIES = 5;
 const INITIAL_WAIT_MS = 3000;
@@ -186,7 +188,7 @@ function snapshotToHtml(snapshot, pageTitle) {
  */
 export async function fetchWebByCamofox(url, options = {}) {
   const fetchedAt = new Date().toISOString();
-  if (!url || typeof url !== 'string') {
+  if (!w.isestr(url)) {
     return { status: 'error', url: String(url), message: 'url is required (string)', reason: 'invalid-url', method: 'camofox', fetchedAt, attempts: 0 };
   }
   if (!_isValidUrl(url)) {
@@ -202,10 +204,18 @@ export async function fetchWebByCamofox(url, options = {}) {
     };
   }
 
-  const port = options.port ?? DEFAULT_PORT;
-  const serverStartTimeoutMs = options.serverStartTimeoutMs ?? DEFAULT_SERVER_START_TIMEOUT_MS;
-  const snapshotRetries = options.snapshotRetries ?? DEFAULT_SNAPSHOT_RETRIES;
-  const snapshotWaitMs = options.snapshotWaitMs ?? DEFAULT_SNAPSHOT_WAIT_MS;
+  let port = _.get(options, 'port', null);
+  if (!w.ispint(port)) port = DEFAULT_PORT; else port = w.cint(port);
+
+  let serverStartTimeoutMs = _.get(options, 'serverStartTimeoutMs', null);
+  if (!w.ispint(serverStartTimeoutMs)) serverStartTimeoutMs = DEFAULT_SERVER_START_TIMEOUT_MS; else serverStartTimeoutMs = w.cint(serverStartTimeoutMs);
+
+  let snapshotRetries = _.get(options, 'snapshotRetries', null);
+  if (!w.isp0int(snapshotRetries)) snapshotRetries = DEFAULT_SNAPSHOT_RETRIES; else snapshotRetries = w.cint(snapshotRetries);
+
+  let snapshotWaitMs = _.get(options, 'snapshotWaitMs', null);
+  if (!w.isp0int(snapshotWaitMs)) snapshotWaitMs = DEFAULT_SNAPSHOT_WAIT_MS; else snapshotWaitMs = w.cint(snapshotWaitMs);
+
   const base = 'http://localhost:' + port;
 
   let lastMessage = '';

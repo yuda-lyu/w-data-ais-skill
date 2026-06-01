@@ -1,4 +1,5 @@
 import axios from 'axios';
+import w from 'wsemi';
 
 /**
  * TPEX (櫃買中心) 股價核心模組
@@ -30,8 +31,16 @@ function toRocDate(yyyymmdd) {
     return `${year}/${month}/${day}`;
 }
 
+// 必填日期 YYYYMMDD：格式 + 日曆合法性（函數入口驗，程式化呼叫不繞過 CLI）
+function _assertYmd(dateStr) {
+    if (!w.isestr(dateStr) || !/^\d{8}$/.test(dateStr)) throw new Error(`dateStr 須為 YYYYMMDD 字串，得到: ${dateStr}`);
+    const y = w.cint(dateStr.slice(0, 4)), m = w.cint(dateStr.slice(4, 6)), d = w.cint(dateStr.slice(6, 8)), t = new Date(y, m - 1, d);
+    if (t.getFullYear() !== y || t.getMonth() !== m - 1 || t.getDate() !== d) throw new Error(`dateStr 非合法日期: ${dateStr}`);
+}
+
 export async function fetchTpexStock(dateStr, stockCodes) {
-    const targetCodes = Array.isArray(stockCodes) ? stockCodes : [];
+    _assertYmd(dateStr);
+    const targetCodes = w.isearr(stockCodes) ? stockCodes : [];
     const rocDate = toRocDate(dateStr);
     const url = `https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?l=zh-tw&d=${rocDate}&s=0,asc,0&o=json`;
 

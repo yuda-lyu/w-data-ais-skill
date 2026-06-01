@@ -15,6 +15,8 @@
 
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
+import w from "wsemi";
+import _ from "lodash-es";
 
 // ---------- 子技能委派 ----------
 // 4 個抓取方法委派給同層 sibling 技能；它們各自負責瀏覽器啟動、重試、進程清理等
@@ -321,8 +323,13 @@ async function tryCamofox(url) {
 
 // ---------- 主要匯出函式 ----------
 export async function fetchWeb(url, options = {}) {
-  const method = options.method || "auto";
-  const parse = options.parse !== false;
+  if (!w.isestr(url)) return finalize(String(url), { success: false, reason: "invalid-url", message: "url is required (string)" }, []);
+
+  let method = _.get(options, "method", null);
+  if (!w.isestr(method)) method = "auto";
+
+  let parse = _.get(options, "parse", null);
+  if (!w.isbol(parse)) parse = true; else parse = w.cbol(parse);
 
   // --- 指定特定方法：fetch → inspect → parse ---
   if (method !== "auto") {
@@ -359,7 +366,8 @@ export async function fetchWeb(url, options = {}) {
   }
 
   // --- auto 模式 ---
-  const depth = options._depth || 0;
+  let depth = _.get(options, "_depth", null);
+  if (!w.isp0int(depth)) depth = 0; else depth = w.cint(depth);
 
   // 判識 B：URL 參數中含真實 URL — 提取後重走完整流程
   if (depth < MAX_REDIRECT_DEPTH) {

@@ -9,6 +9,8 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import w from 'wsemi'
+import _ from 'lodash-es'
 
 const WORMHOLE_URL = 'https://wormhole.app/'
 const FIVE_GB = 5 * 1024 * 1024 * 1024
@@ -55,7 +57,7 @@ async function _loadChromium() {
 export async function shareFile(filePath, options = {}) {
     const fetchedAt = _ts()
 
-    if (!filePath || typeof filePath !== 'string') {
+    if (!w.isestr(filePath)) {
         return { status: 'error', message: 'filePath 必須是字串路徑', reason: 'invalid-input', fetchedAt }
     }
     if (!fs.existsSync(filePath)) {
@@ -80,7 +82,8 @@ export async function shareFile(filePath, options = {}) {
         return { status: 'error', message: `檔案為空 (0 bytes): ${filePath}`, reason: 'empty-file', fetchedAt }
     }
 
-    const maxDownloads = options.maxDownloads ?? 1
+    let maxDownloads = _.get(options, 'maxDownloads', null)
+    if (!w.ispint(maxDownloads)) maxDownloads = 1; else maxDownloads = w.cint(maxDownloads)
     if (!VALID_MAX_DOWNLOADS.includes(maxDownloads)) {
         return {
             status: 'error',
@@ -89,7 +92,8 @@ export async function shareFile(filePath, options = {}) {
             fetchedAt,
         }
     }
-    const expirationKey = options.expiration ?? '24h'
+    let expirationKey = _.get(options, 'expiration', null)
+    if (!w.isestr(expirationKey)) expirationKey = '24h'; else expirationKey = w.cstr(expirationKey)
     const expirationLabel = VALID_EXPIRATIONS[expirationKey]
     if (!expirationLabel) {
         return {
@@ -100,10 +104,17 @@ export async function shareFile(filePath, options = {}) {
         }
     }
 
-    const headless = options.headless ?? true
-    const chromeChannel = options.chromeChannel ?? 'chrome'
-    const navTimeout = options.navigationTimeoutMs ?? DEFAULT_NAV_TIMEOUT_MS
-    const uploadTimeout = options.uploadTimeoutMs ?? DEFAULT_UPLOAD_TIMEOUT_MS
+    let headless = _.get(options, 'headless', null)
+    if (!w.isbol(headless)) headless = true; else headless = w.cbol(headless)
+
+    let chromeChannel = _.get(options, 'chromeChannel', null)
+    if (!w.isestr(chromeChannel)) chromeChannel = 'chrome'
+
+    let navTimeout = _.get(options, 'navigationTimeoutMs', null)
+    if (!w.ispint(navTimeout)) navTimeout = DEFAULT_NAV_TIMEOUT_MS; else navTimeout = w.cint(navTimeout)
+
+    let uploadTimeout = _.get(options, 'uploadTimeoutMs', null)
+    if (!w.ispint(uploadTimeout)) uploadTimeout = DEFAULT_UPLOAD_TIMEOUT_MS; else uploadTimeout = w.cint(uploadTimeout)
 
     const maxDownloadsLabel = `${maxDownloads} 下載`
 

@@ -19,6 +19,9 @@
 //     讓 UI 自己跑這個流程是最穩的做法
 //   - 合成事件 (el.click() via evaluate) 會被 YouTube 過濾，必須用真實滑鼠事件
 
+import w from 'wsemi'
+import _ from 'lodash-es'
+
 const MAX_RETRIES = 2  // 含初始最多 3 次
 const INITIAL_WAIT_MS = 3000
 const MAX_WAIT_MS = 9000
@@ -173,6 +176,9 @@ function _domTimestampToMs(t) {
 export async function fetchYoutubeTranscript(url, options = {}) {
     const fetchedAt = ts()
 
+    if (!w.isestr(url)) {
+        return { status: 'error', url: String(url), message: 'invalid YouTube URL or video ID', reason: 'invalid-url', fetchedAt, attempts: 0 }
+    }
     const videoId = _extractVideoId(url)
     if (!videoId) {
         return { status: 'error', url: String(url), message: 'invalid YouTube URL or video ID', reason: 'invalid-url', fetchedAt, attempts: 0 }
@@ -186,11 +192,18 @@ export async function fetchYoutubeTranscript(url, options = {}) {
         return { status: 'error', url: watchUrl, videoId, message: 'playwright not installed (npm install playwright)', reason: 'missing-deps', fetchedAt, attempts: 0 }
     }
 
-    const headless = options.headless ?? false
-    const chromeChannel = options.chromeChannel ?? 'chrome'
-    const navTimeout = options.navigationTimeoutMs ?? DEFAULT_NAV_TIMEOUT_MS
-    const captionsWaitMs = options.captionsWaitMs ?? DEFAULT_CAPTIONS_TIMEOUT_MS
-    const transcriptWaitMs = options.transcriptWaitMs ?? DEFAULT_TRANSCRIPT_TIMEOUT_MS
+    let headless = _.get(options, 'headless', null)
+    if (!w.isbol(headless)) headless = false; else headless = w.cbol(headless)
+    let chromeChannel = _.get(options, 'chromeChannel', null)
+    if (!w.isestr(chromeChannel)) chromeChannel = 'chrome'
+    let navTimeout = _.get(options, 'navigationTimeoutMs', null)
+    if (!w.ispint(navTimeout)) navTimeout = DEFAULT_NAV_TIMEOUT_MS; else navTimeout = w.cint(navTimeout)
+    let captionsWaitMs = _.get(options, 'captionsWaitMs', null)
+    if (!w.ispint(captionsWaitMs)) captionsWaitMs = DEFAULT_CAPTIONS_TIMEOUT_MS; else captionsWaitMs = w.cint(captionsWaitMs)
+    let transcriptWaitMs = _.get(options, 'transcriptWaitMs', null)
+    if (!w.ispint(transcriptWaitMs)) transcriptWaitMs = DEFAULT_TRANSCRIPT_TIMEOUT_MS; else transcriptWaitMs = w.cint(transcriptWaitMs)
+    let language = _.get(options, 'language', null)
+    if (!w.isestr(language)) language = null; else language = w.cstr(language)
 
     let lastMessage = ''
     let lastReason = 'unknown'
@@ -245,7 +258,7 @@ export async function fetchYoutubeTranscript(url, options = {}) {
                     kind: t.kind || 'manual',
                 }))
             })
-            const picked = _pickTrack(tracks, options.language)
+            const picked = _pickTrack(tracks, language)
 
             // 注意：點「顯示轉錄稿」只會載入 YouTube 為本影片決定的「預設」字幕語言，
             // 本流程並未實際切換 UI 字幕語言到 picked。因此只有在「字幕軌唯一」時，

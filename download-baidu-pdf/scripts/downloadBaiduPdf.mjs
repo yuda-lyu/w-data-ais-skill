@@ -31,6 +31,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import w from 'wsemi'
+import _ from 'lodash-es'
 
 // 各技能各自管理自己的臨時/輸出檔：預設落在「技能自身目錄」下的 tmp/（場景 B：套件自帶輸出，
 // 用 fileURLToPath 取模組路徑——絕不用 new URL().pathname；不寫到 cwd / 技能庫根目錄，
@@ -222,6 +224,9 @@ export async function downloadBaiduPdf(url, options = {}) {
     const fetchedAt = _ts()
     const log = (...a) => process.stderr.write(`[download-baidu-pdf] ${new Date().toISOString().slice(11, 19)} ${a.join(' ')}\n`)
 
+    if (!w.isestr(url)) {
+        return { status: 'error', url: String(url), message: '不是有效的百度網盤分享網址（需 pan.baidu.com/s/... 或 /link/...）', reason: 'invalid-url', fetchedAt }
+    }
     if (!_isBaiduShareUrl(url)) {
         return { status: 'error', url: String(url), message: '不是有效的百度網盤分享網址（需 pan.baidu.com/s/... 或 /link/...）', reason: 'invalid-url', fetchedAt }
     }
@@ -233,15 +238,28 @@ export async function downloadBaiduPdf(url, options = {}) {
         return { status: 'error', url, message: err.message, reason: err.reason || 'missing-deps', fetchedAt }
     }
 
-    const outDir = path.resolve(options.outDir || DEFAULT_OUT_DIR)
-    const concurrency = Math.max(1, options.concurrency || DEFAULT_CONCURRENCY)
-    const manualPages = options.pages || null
-    const keepPages = options.keepPages === true
-    const headless = options.headless !== false
-    const chromeChannel = options.chromeChannel || 'chrome'
-    const navTimeout = options.navigationTimeoutMs ?? DEFAULT_NAV_TIMEOUT_MS
-    const signatureWaitMs = options.signatureWaitMs ?? DEFAULT_SIGNATURE_WAIT_MS
-    const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
+    let outDir = _.get(options, 'outDir', null)
+    if (!w.isestr(outDir)) outDir = DEFAULT_OUT_DIR; else outDir = w.cstr(outDir)
+    outDir = path.resolve(outDir)
+    let concurrency = _.get(options, 'concurrency', null)
+    if (!w.ispint(concurrency)) concurrency = DEFAULT_CONCURRENCY; else concurrency = w.cint(concurrency)
+    concurrency = Math.max(1, concurrency)
+    let output = _.get(options, 'output', null)
+    if (!w.isestr(output)) output = null; else output = w.cstr(output)
+    let manualPages = _.get(options, 'pages', null)
+    if (!w.ispint(manualPages)) manualPages = null; else manualPages = w.cint(manualPages)
+    let keepPages = _.get(options, 'keepPages', null)
+    if (!w.isbol(keepPages)) keepPages = false; else keepPages = w.cbol(keepPages)
+    let headless = _.get(options, 'headless', null)
+    if (!w.isbol(headless)) headless = true; else headless = w.cbol(headless)
+    let chromeChannel = _.get(options, 'chromeChannel', null)
+    if (!w.isestr(chromeChannel)) chromeChannel = 'chrome'; else chromeChannel = w.cstr(chromeChannel)
+    let navTimeout = _.get(options, 'navigationTimeoutMs', null)
+    if (!w.ispint(navTimeout)) navTimeout = DEFAULT_NAV_TIMEOUT_MS; else navTimeout = w.cint(navTimeout)
+    let signatureWaitMs = _.get(options, 'signatureWaitMs', null)
+    if (!w.ispint(signatureWaitMs)) signatureWaitMs = DEFAULT_SIGNATURE_WAIT_MS; else signatureWaitMs = w.cint(signatureWaitMs)
+    let pollIntervalMs = _.get(options, 'pollIntervalMs', null)
+    if (!w.ispint(pollIntervalMs)) pollIntervalMs = DEFAULT_POLL_INTERVAL_MS; else pollIntervalMs = w.cint(pollIntervalMs)
 
     let browser = null, context = null
     try {
@@ -281,7 +299,7 @@ export async function downloadBaiduPdf(url, options = {}) {
         }
         const { base, total, filename } = cap
 
-        const outName = sanitizeFilename(options.output || filename || 'baidu-doc.pdf')
+        const outName = sanitizeFilename(output || filename || 'baidu-doc.pdf')
         const outPdf = path.resolve(outDir, outName)
         const slug = outName.replace(/\.pdf$/i, '').replace(/[^\w一-龥]+/g, '').slice(0, 24) || 'doc'
         const pagesDir = path.resolve(outDir, '.pages_' + slug)

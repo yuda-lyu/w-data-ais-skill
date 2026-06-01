@@ -24,16 +24,16 @@ description: 取得任意 RSS Feed 並轉換為統一格式的 JSON 資料陣列
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`、`rss-parser`
+所需套件：`axios`、`rss-parser`、`wsemi`
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "require('axios'); require('rss-parser'); console.log('deps OK')"
+node -e "require('axios'); require('rss-parser'); require('wsemi'); console.log('deps OK')"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios rss-parser
+npm install axios rss-parser wsemi
 ```
 
 ## 執行方式
@@ -100,7 +100,7 @@ JSON 陣列，每筆資料包含以下欄位：
 | `Request failed with status code 404` | RSS URL 無效或暫時性 404（如 YouTube RSS） | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），仍失敗請確認網址正確且可公開存取 |
 | `timeout of 30000ms exceeded` | 來源回應過慢 | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），仍失敗請確認網路連線 |
 | `Request failed with status code 5xx` | 伺服器暫時錯誤 | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次，線性遞增退避），仍失敗請稍後再試 |
-| `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios rss-parser` |
+| `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios rss-parser wsemi` |
 | `Invalid XML` | 來源非合法 RSS/Atom 格式 | 確認網址回傳的是有效 RSS XML |
 
 ## 快速執行

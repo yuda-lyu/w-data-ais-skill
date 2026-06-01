@@ -29,6 +29,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { StringDecoder } from 'node:string_decoder';
+import w from 'wsemi';
+import _ from 'lodash-es';
 
 // ── Windows .cmd/.bat 支援 ──
 // npm 全域安裝的命令在 Windows 上是 .cmd 批次檔，Node.js spawn 無法直接執行
@@ -384,7 +386,56 @@ function _runCliOnce(command, args = [], options = {}) {
  * @returns {Promise<{ ok, stdout, stderr, code, error, durationMs, pid, attempts }>}
  */
 export async function runCli(command, args = [], options = {}) {
-    const { maxRetries = 0, retryDelayMs = 5000, ...onceOptions } = options;
+
+    // command 必填字串：本函式以 error 物件回報失敗（非 throw 風格），故回傳統一 error 結構
+    if (!w.isestr(command)) {
+        return {
+            ok: false, stdout: '', stderr: '',
+            code: null, error: 'command 須為非空字串',
+            durationMs: 0, attempts: 0,
+        };
+    }
+
+    // args：若提供須為陣列，否則回退為空陣列
+    if (!w.isarr(args)) args = [];
+
+    if (!w.isobj(options)) options = {};
+
+    let { maxRetries = 0, retryDelayMs = 5000, ...onceOptions } = options;
+
+    // cwd：非空字串，無效回退預設 process.cwd()
+    let cwd = _.get(onceOptions, 'cwd', null);
+    if (!w.isestr(cwd)) onceOptions.cwd = process.cwd(); else onceOptions.cwd = cwd;
+
+    // input：傳入 stdin 的字串，無效回退預設 undefined（未提供 = 不寫 stdin）
+    let input = _.get(onceOptions, 'input', null);
+    if (!w.isestr(input)) onceOptions.input = undefined; else onceOptions.input = input;
+
+    // validate：驗證規則字串，無效回退預設 undefined（未提供 = 不驗證）
+    // 注意：validate 亦可為自訂函式（buildValidator 支援），故先放行 function 不覆蓋
+    let validate = _.get(onceOptions, 'validate', null);
+    if (w.isfun(validate)) onceOptions.validate = validate;
+    else if (!w.isestr(validate)) onceOptions.validate = undefined; else onceOptions.validate = validate;
+
+    // onStdout / onStderr：串流回呼 function，無效回退預設 undefined（未提供 = 不回呼）
+    let onStdout = _.get(onceOptions, 'onStdout', null);
+    if (!w.isfun(onStdout)) onceOptions.onStdout = undefined; else onceOptions.onStdout = onStdout;
+    let onStderr = _.get(onceOptions, 'onStderr', null);
+    if (!w.isfun(onStderr)) onceOptions.onStderr = undefined; else onceOptions.onStderr = onStderr;
+
+    // maxRetries：非負整數（可為 0），無效回退預設 0
+    if (!w.isp0int(maxRetries)) maxRetries = 0; else maxRetries = w.cint(maxRetries);
+
+    // retryDelayMs：正整數，無效回退預設 5000
+    if (!w.ispint(retryDelayMs)) retryDelayMs = 5000; else retryDelayMs = w.cint(retryDelayMs);
+
+    // timeoutMs：正整數，無效回退預設 120000
+    let timeoutMs = _.get(onceOptions, 'timeoutMs', null);
+    if (!w.ispint(timeoutMs)) onceOptions.timeoutMs = 120_000; else onceOptions.timeoutMs = w.cint(timeoutMs);
+
+    // maxBuffer：正整數，無效回退預設 10MB
+    let maxBuffer = _.get(onceOptions, 'maxBuffer', null);
+    if (!w.ispint(maxBuffer)) onceOptions.maxBuffer = 10 * 1024 * 1024; else onceOptions.maxBuffer = w.cint(maxBuffer);
 
     let lastResult;
     let totalAttempts = 0;
@@ -449,20 +500,34 @@ async function main() {
     }
 
     const command = cliArgs[0];
+    if (!w.isestr(command)) {
+        console.error('Usage: node run_cli.mjs <exe> [args...]');
+        console.error('  Environment: CLI_TIMEOUT_MS, CLI_CWD, CLI_INPUT, CLI_INPUT_FILE,');
+        console.error('               CLI_VALIDATE, CLI_MAX_RETRIES, CLI_RETRY_DELAY_MS,');
+        console.error('               CLI_MAX_BUFFER, CLI_LOG_FILE');
+        process.exit(2);
+    }
     const args = cliArgs.slice(1);
 
     // 環境變數
-    const timeoutMs    = parseInt(process.env.CLI_TIMEOUT_MS || '120000', 10);
-    const maxBuffer    = parseInt(process.env.CLI_MAX_BUFFER || String(10 * 1024 * 1024), 10);
-    const cwd          = process.env.CLI_CWD || process.cwd();
-    const validate     = process.env.CLI_VALIDATE || undefined;
-    const maxRetries   = parseInt(process.env.CLI_MAX_RETRIES || '0', 10);
-    const retryDelayMs = parseInt(process.env.CLI_RETRY_DELAY_MS || '5000', 10);
-    const logFile      = process.env.CLI_LOG_FILE || undefined;
+    // env 值皆為字串：數字類先 w.cint 取數再以型別閘驗證（未設或非正整數字串 → 用既有預設）
+    const _timeoutN    = w.cint(process.env.CLI_TIMEOUT_MS);
+    const timeoutMs    = w.ispint(_timeoutN) ? _timeoutN : 120000;
+    const _maxBufferN  = w.cint(process.env.CLI_MAX_BUFFER);
+    const maxBuffer    = w.ispint(_maxBufferN) ? _maxBufferN : 10 * 1024 * 1024;
+    // maxRetries 允許 0（含 0 正整數）
+    const _maxRetriesN = w.cint(process.env.CLI_MAX_RETRIES);
+    const maxRetries   = w.isp0int(_maxRetriesN) ? _maxRetriesN : 0;
+    const _retryDelayN = w.cint(process.env.CLI_RETRY_DELAY_MS);
+    const retryDelayMs = w.ispint(_retryDelayN) ? _retryDelayN : 5000;
+    // 字串類：非空字串才採用，否則用既有預設（保留「未設 → 預設」行為，不變必填）
+    const cwd          = w.isestr(process.env.CLI_CWD) ? process.env.CLI_CWD : process.cwd();
+    const validate     = w.isestr(process.env.CLI_VALIDATE) ? process.env.CLI_VALIDATE : undefined;
+    const logFile      = w.isestr(process.env.CLI_LOG_FILE) ? process.env.CLI_LOG_FILE : undefined;
 
     // stdin 內容：CLI_INPUT_FILE 優先於 CLI_INPUT
     let input;
-    if (process.env.CLI_INPUT_FILE) {
+    if (w.isestr(process.env.CLI_INPUT_FILE)) {
         try {
             input = fs.readFileSync(process.env.CLI_INPUT_FILE, 'utf8');
         } catch (e) {
@@ -474,7 +539,7 @@ async function main() {
             console.log(JSON.stringify(errResult));
             process.exit(1);
         }
-    } else if (process.env.CLI_INPUT) {
+    } else if (w.isestr(process.env.CLI_INPUT)) {
         input = process.env.CLI_INPUT;
     }
 

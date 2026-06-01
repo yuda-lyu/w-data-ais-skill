@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import w from 'wsemi';
 
 /**
  * 台股盤前調研報告生成器
@@ -12,8 +13,10 @@ import path from 'path';
  *                         agent 調用時應顯式傳入；若省略僅作本地手動執行時的便利 fallback。
  */
 
-const TODAY      = process.argv[2] || new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
-const BASE_OUTPUT_INPUT = process.argv[3] || path.join(process.cwd(), 'w-data-news');
+const _argDate   = process.argv[2];
+const TODAY      = w.isestr(_argDate) ? _argDate : new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
+const _argBaseOut       = process.argv[3];
+const BASE_OUTPUT_INPUT = w.isestr(_argBaseOut) ? _argBaseOut : path.join(process.cwd(), 'w-data-news');
 const BASE_OUTPUT_DIR = resolveBaseOutputDir(BASE_OUTPUT_INPUT);
 const OUTPUT_DIR = path.join(BASE_OUTPUT_DIR, 'tw-stock-research', TODAY);
 const RAW_DIR    = path.join(OUTPUT_DIR, 'raw');

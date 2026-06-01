@@ -1,4 +1,5 @@
 import axios from 'axios';
+import w from 'wsemi';
 
 /**
  * TAIFEX (台灣期貨交易所) 資料抓取核心模組
@@ -282,6 +283,12 @@ async function fetchPCRatio(dateSlash) {
  * @returns {Promise<{date: string, futures: object|null, institutional: object|null, pcRatio: object|null, errors: string[]}>}
  */
 export async function fetchTaifex(dateStr) {
+    // 必填日期 YYYYMMDD：格式 + 日曆合法性（函數入口驗）
+    if (!w.isestr(dateStr) || !/^\d{8}$/.test(dateStr)) throw new Error(`dateStr 須為 YYYYMMDD 字串，得到: ${dateStr}`);
+    {
+        const _y = w.cint(dateStr.slice(0, 4)), _m = w.cint(dateStr.slice(4, 6)), _d = w.cint(dateStr.slice(6, 8)), _t = new Date(_y, _m - 1, _d);
+        if (_t.getFullYear() !== _y || _t.getMonth() !== _m - 1 || _t.getDate() !== _d) throw new Error(`dateStr 非合法日期: ${dateStr}`);
+    }
     const dateSlash = `${dateStr.substring(0, 4)}/${dateStr.substring(4, 6)}/${dateStr.substring(6, 8)}`;
 
     console.log(`Fetching TAIFEX data for ${dateStr} (${dateSlash})`);

@@ -1,6 +1,7 @@
 import { spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import w from 'wsemi';
 
 /**
  * tw-stock-post-market 主控腳本
@@ -24,9 +25,12 @@ import path from 'path';
  * 讀取盤前報告：<baseOutputDir>/tw-stock-research/<YYYYMMDD>/
  */
 
-const TODAY           = process.argv[2] || new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
-const SKILLS_DIR      = process.argv[3] || process.cwd();
-const BASE_OUTPUT_DIR = process.argv[4] || path.join(process.cwd(), 'w-data-news');
+const _argDate        = process.argv[2];
+const TODAY           = w.isestr(_argDate) ? _argDate : new Date().toLocaleString('en-CA', { timeZone: 'Asia/Taipei' }).slice(0, 10).replace(/-/g, '');
+const _argSkillsDir   = process.argv[3];
+const SKILLS_DIR      = w.isestr(_argSkillsDir) ? _argSkillsDir : process.cwd();
+const _argBaseOut     = process.argv[4];
+const BASE_OUTPUT_DIR = w.isestr(_argBaseOut) ? _argBaseOut : path.join(process.cwd(), 'w-data-news');
 const OUTPUT_DIR      = path.join(BASE_OUTPUT_DIR, 'tw-stock-post-market', TODAY);
 const RAW_DIR      = path.join(OUTPUT_DIR, 'raw');
 const ERROR_LOG    = path.join(OUTPUT_DIR, 'error_log.jsonl');

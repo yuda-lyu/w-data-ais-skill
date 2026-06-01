@@ -12,6 +12,9 @@
 //   jp   日本新字體
 //   t    OpenCC 標準繁體（通用）
 
+import w from 'wsemi'
+import _ from 'lodash-es'
+
 const LOCALES = ['cn', 'tw', 'twp', 'hk', 'jp', 't']
 
 let _OpenCC = null
@@ -43,9 +46,11 @@ export function listLocales() {
 }
 
 export async function convertChinese(text, options = {}) {
-    if (typeof text !== 'string') throw new Error('text must be a string')
-    const from = options.from ?? 'cn'
-    const to = options.to ?? 'twp'
+    if (!w.isstr(text)) throw new Error('text must be a string')
+    let from = _.get(options, 'from', null)
+    if (!w.isestr(from)) from = 'cn'
+    let to = _.get(options, 'to', null)
+    if (!w.isestr(to)) to = 'twp'
     if (!LOCALES.includes(from)) throw new Error(`unknown from locale: ${from} (allowed: ${LOCALES.join(', ')})`)
     if (!LOCALES.includes(to)) throw new Error(`unknown to locale: ${to} (allowed: ${LOCALES.join(', ')})`)
     if (from === to) return text  // no-op，避免無謂建表

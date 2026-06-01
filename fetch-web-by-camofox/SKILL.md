@@ -37,16 +37,17 @@ description: 用 Camofox（Camoufox 修改版 Firefox）反偵測瀏覽器抓取
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需 npm 套件：`@askjo/camofox-browser`
+所需 npm 套件：`@askjo/camofox-browser`、`wsemi`、`lodash-es`
 
 執行前驗證：
 ```bash
 node -e "import('@askjo/camofox-browser').then(() => console.log('camofox OK'))"
+node -e "import('wsemi').then(() => import('lodash-es')).then(() => console.log('deps OK'))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定）：
 ```bash
-npm install @askjo/camofox-browser
+npm install @askjo/camofox-browser wsemi lodash-es
 ```
 
 > Camofox 為修改版 Firefox（Camoufox），首次安裝會下載 Firefox binary（~200MB）。

@@ -7,6 +7,7 @@
 // Returns: { status: "success"|"error", ... }
 
 import axios from "axios";
+import w from "wsemi";
 
 // ---------- constants ----------
 const MAX_RETRIES = 5;
@@ -34,16 +35,18 @@ function sleep(ms) {
  * @returns {Promise<object>} result object with status "success" or "error"
  */
 export async function sendEmail(payload) {
+  if (!w.iseobj(payload)) return { status: "error", message: "payload required (object)" };
+
   const { gas_url, token, to, from, subject, body, htmlBody } = payload;
 
   // validate required fields
   const missing = [];
-  if (!gas_url) missing.push("gas_url");
-  if (!token) missing.push("token");
-  if (!to) missing.push("to");
-  if (!from) missing.push("from");
-  if (!subject) missing.push("subject");
-  if (!body && !htmlBody) missing.push("body or htmlBody");
+  if (!w.isestr(gas_url)) missing.push("gas_url");
+  if (!w.isestr(token)) missing.push("token");
+  if (!w.isestr(to)) missing.push("to");
+  if (!w.isestr(from)) missing.push("from");
+  if (!w.isestr(subject)) missing.push("subject");
+  if (!w.isestr(body) && !w.isestr(htmlBody)) missing.push("body or htmlBody");
   if (missing.length > 0) {
     return { status: "error", message: `Missing required fields: ${missing.join(", ")}` };
   }

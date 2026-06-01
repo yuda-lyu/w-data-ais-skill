@@ -1,6 +1,6 @@
 ---
 name: check-tw-trading-day
-description: 檢查指定日期（或今日）是否為台股交易日。透過 TWSE 假日排程 API 前置檢查國定假日，再以 MI_INDEX API 確認交易狀態，無需任何 npm 依賴。適用於所有台股技能的前置交易日判斷。
+description: 檢查指定日期（或今日）是否為台股交易日。透過 TWSE 假日排程 API 前置檢查國定假日，再以 MI_INDEX API 確認交易狀態，僅需 `wsemi`（入口參數驗證）。適用於所有台股技能的前置交易日判斷。
 ---
 
 # 台股交易日檢查
@@ -14,16 +14,18 @@ description: 檢查指定日期（或今日）是否為台股交易日。透過 
 | MI_INDEX API | https://www.twse.com.tw/exchangeReport/MI_INDEX |
 | 假日排程 API | https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule |
 | 查詢方式 | 先比對假日排程攔截國定假日，再以 MI_INDEX 是否有當日收盤資料判斷 |
-| 依賴 | 無 npm 套件依賴；但會引用同技能庫的 fetch-tw-data-holiday（跨技能檔案相依） |
+| 依賴 | `wsemi`（入口參數驗證）；並引用同技能庫的 fetch-tw-data-holiday（跨技能檔案相依） |
 
 ## 安裝指引
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-本技能僅使用 Node.js 內建模組，無需安裝額外 npm 套件。確認 Node.js ≥ 18 即可。
+所需套件：`wsemi`（用於核心函數入口的參數驗證）；其餘僅使用 Node.js 內建模組。確認 Node.js ≥ 18。
 
 ```bash
 node -v   # 確認 Node.js 已安裝
+node -e "import('wsemi').then(()=>console.log('deps OK')).catch(e=>{console.error(e.message);process.exit(1)})"
+npm install wsemi   # 若上一行顯示錯誤
 ```
 
 ## 執行方式

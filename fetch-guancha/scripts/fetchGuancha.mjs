@@ -13,6 +13,7 @@
 //   高階：fetchAuthorArticles, fetchKeywordArticles, fetchTitleArticles,
 //         fetchTopicArticles, fetchArticle
 
+import w from 'wsemi';
 import { fetchWebByCurl } from '../../fetch-web-by-curl/scripts/fetchWebByCurl.mjs';
 
 export const BASE_URL = 'https://www.guancha.cn';
@@ -191,6 +192,7 @@ function extractPubTime(html) {
 }
 
 export function safeFilename(name) {
+  if (!w.isstr(name)) name = String(name == null ? '' : name);
   return name.replace(/[\\/:*?"<>|]/g, '_').slice(0, 200);
 }
 
@@ -321,6 +323,9 @@ async function fetchAllListPages(slug) {
 
 // list-author：先查 A-Z 索引，再翻頁全抓
 export async function fetchAuthorArticles({ name, slug } = {}) {
+  // 「有提供才檢」：傳了但非有效字串 → 視為未提供（讓下方「至少一個」檢查接手）
+  if (name !== undefined && name !== null && !w.isestr(name)) name = undefined;
+  if (slug !== undefined && slug !== null && !w.isestr(slug)) slug = undefined;
   if (!name && !slug) throw new Error('需要 name 或 slug');
 
   let resolvedSlug = slug;
@@ -384,7 +389,7 @@ export async function fetchAuthorArticles({ name, slug } = {}) {
 
 // list-keyword：站方 search-v2 走 sojson.v4 簽名，純 curl 不支援
 export async function fetchKeywordArticles(keyword) {
-  if (!keyword) throw new Error('需要 keyword');
+  if (!w.isestr(keyword)) throw new Error('需要 keyword');
   return {
     status: 'error',
     site: 'guancha',
@@ -401,7 +406,7 @@ export async function fetchKeywordArticles(keyword) {
 
 // list-title：站方無分標題與全文搜尋，與 list-keyword 同源
 export async function fetchTitleArticles(keyword) {
-  if (!keyword) throw new Error('需要 keyword');
+  if (!w.isestr(keyword)) throw new Error('需要 keyword');
   return {
     status: 'error',
     site: 'guancha',
@@ -418,6 +423,9 @@ export async function fetchTitleArticles(keyword) {
 
 // list-topic：先查 KNOWN_TOPICS，命中則翻頁；不命中 fail-fast
 export async function fetchTopicArticles({ name, slug } = {}) {
+  // 「有提供才檢」：傳了但非有效字串 → 視為未提供（讓下方「至少一個」檢查接手）
+  if (name !== undefined && name !== null && !w.isestr(name)) name = undefined;
+  if (slug !== undefined && slug !== null && !w.isestr(slug)) slug = undefined;
   if (!name && !slug) throw new Error('需要 name 或 slug');
 
   let resolvedSlug = slug;
@@ -478,7 +486,7 @@ export async function fetchTopicArticles({ name, slug } = {}) {
 
 // fetch：抓單篇文章 → markdown 字串（含 frontmatter）
 export async function fetchArticle({ url } = {}) {
-  if (!url) throw new Error('需要 url');
+  if (!w.isestr(url)) throw new Error('需要 url');
 
   let html;
   try {

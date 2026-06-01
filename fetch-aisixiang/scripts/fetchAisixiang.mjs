@@ -11,6 +11,8 @@
 //   高階：fetchAuthorArticles, fetchKeywordArticles, fetchTitleArticles,
 //         fetchTopicArticles, fetchArticle
 
+import w from 'wsemi';
+
 export const BASE_URL = 'https://www.aisixiang.com';
 export const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
@@ -143,6 +145,7 @@ function extractArticleContent(html) {
 }
 
 export function safeFilename(name) {
+  if (!w.isstr(name)) name = String(name == null ? '' : name);
   return name.replace(/[\\/:*?"<>|]/g, '_').slice(0, 200);
 }
 
@@ -352,6 +355,9 @@ async function fetchAllSearchPages(buildUrl, parser = parseSearchResults) {
 
 // list-author：站方作者清單兩跳；找不到 → success + count:0（成功查詢、0 筆，非錯誤）
 export async function fetchAuthorArticles({ name, slug } = {}) {
+  // 「有提供才檢」：傳了但非有效字串 → 視為未提供（讓下方「至少一個」檢查接手）
+  if (name !== undefined && name !== null && !w.isestr(name)) name = undefined;
+  if (slug !== undefined && slug !== null && !w.isestr(slug)) slug = undefined;
   if (!name && !slug) throw new Error('需要 name 或 slug');
 
   let resolved;
@@ -412,7 +418,7 @@ export async function fetchAuthorArticles({ name, slug } = {}) {
 
 // list-keyword：keyword tag 搜尋；0 筆 → success + count:0
 export async function fetchKeywordArticles(keyword) {
-  if (!keyword) throw new Error('需要 keyword');
+  if (!w.isestr(keyword)) throw new Error('需要 keyword');
   const buildUrl = (page) =>
     `${BASE_URL}/data/search?searchfield=keywords&keywords=${encodeURIComponent(keyword)}&page=${page}`;
   const { items, total_pages, pages_fetched } = await fetchAllSearchPages(buildUrl);
@@ -447,7 +453,7 @@ export async function fetchKeywordArticles(keyword) {
 
 // list-title：標題模糊搜；0 筆 → success + count:0
 export async function fetchTitleArticles(keyword) {
-  if (!keyword) throw new Error('需要 keyword');
+  if (!w.isestr(keyword)) throw new Error('需要 keyword');
   const buildUrl = (page) =>
     `${BASE_URL}/data/search?searchfield=title&keywords=${encodeURIComponent(keyword)}&page=${page}`;
   const { items, total_pages, pages_fetched } = await fetchAllSearchPages(buildUrl);
@@ -482,6 +488,9 @@ export async function fetchTitleArticles(keyword) {
 
 // list-topic：策展主題兩跳；找不到 → success + count:0（建議改 list-keyword）
 export async function fetchTopicArticles({ keyword, id } = {}) {
+  // 「有提供才檢」：keyword 傳了但非有效字串 → 視為未提供（讓下方「至少一個」檢查接手）
+  if (keyword !== undefined && keyword !== null && !w.isestr(keyword)) keyword = undefined;
+  if (id !== undefined && id !== null && !w.isestr(id)) id = undefined;
   if (!keyword && !id) throw new Error('需要 keyword 或 id');
 
   let topicId = id;
@@ -548,6 +557,9 @@ export async function fetchTopicArticles({ keyword, id } = {}) {
 
 // fetch：抓單篇文章，回 markdown 字串（含 frontmatter）。不寫檔。
 export async function fetchArticle({ aid, url } = {}) {
+  // 「有提供才檢」：url 傳了但非有效字串 → 視為未提供（讓下方「至少一個」檢查接手）
+  if (url !== undefined && url !== null && !w.isestr(url)) url = undefined;
+  if (aid !== undefined && aid !== null && !w.isestr(aid)) aid = undefined;
   const targetUrl = aid ? `${BASE_URL}/data/${aid}.html` : url;
   if (!targetUrl) throw new Error('需要 aid 或 url');
 

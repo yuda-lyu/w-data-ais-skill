@@ -7,7 +7,7 @@ description: 抓取愛思想（aisixiang.com）的文章資料。支援五種模
 
 ## 概述
 
-愛思想（aisixiang.com）是大陸主要的學術思想文章聚合網站，收錄思想史、哲學、政治學、經濟學、法學等領域學者的論文、隨筆、演講、訪談。本技能把該站的四個查詢入口（作者欄頁、keyword 搜尋、title 搜尋、單篇文章）包裝為一致的 CLI。
+愛思想（aisixiang.com）是大陸主要的學術思想文章聚合網站，收錄思想史、哲學、政治學、經濟學、法學等領域學者的論文、隨筆、演講、訪談。本技能把該站的五個查詢入口（作者欄頁、keyword 搜尋、title 搜尋、策展主題、單篇文章）包裝為一致的 CLI。
 
 ## 站方特性與限制
 
@@ -30,10 +30,11 @@ description: 抓取愛思想（aisixiang.com）的文章資料。支援五種模
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-**零外部依賴**——只用 Node 內建 `fetch`、`fs`、`path`。
+抓取邏輯只用 Node 內建 `fetch`、`fs`、`path`；對外 export 函數入口的參數驗證使用 `wsemi`。
 
 ```bash
 node --version    # 需 >= v18（內建 fetch 自 Node 18 起穩定；建議 v20+）
+npm i wsemi
 ```
 
 > 本技能職責：抓原文、結構化 markdown、輸出 JSON 索引。**不做翻譯／繁簡轉換**——這類處理由呼叫端用其他工具（`opencc` CLI、Python `opencc`、`fix-tw-conversion.mjs` 等）銜接。
@@ -111,7 +112,7 @@ node scripts/fetch_aisixiang.mjs list-title --keyword 第一哲学
 
 模糊匹配，會混入字面相同但無關的結果（搜「探底」會抓到「蘇格拉底」）。建議搭配 `list-keyword` 互補。0 筆時同樣回 `status: "success"` + `count: 0` 並附訊息。
 
-### `list-topic` — 按策展主題抓全部文章（fail-fast）
+### `list-topic` — 按策展主題抓全部文章
 
 愛思想 `/zhuanti/` 收錄 ~803 個編輯精選的主題集（学科／事件／人物三大類），每個主題集是站方手選的代表作，比 `list-keyword` 的 tag 匹配精準。
 

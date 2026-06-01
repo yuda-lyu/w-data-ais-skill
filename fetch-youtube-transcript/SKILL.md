@@ -31,7 +31,7 @@ description: 用 Playwright + 本機 Chrome 抓取 YouTube 影片字幕（轉錄
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需 npm 套件：`playwright`
+所需 npm 套件：`playwright`、`wsemi`、`lodash-es`
 系統需求：已安裝 Chrome（透過 `channel: 'chrome'` 直接調用，不需另下載 Chromium）
 
 執行前驗證：
@@ -41,7 +41,7 @@ node -e "require('playwright'); console.log('playwright OK')"
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install playwright
+npm install playwright wsemi lodash-es
 ```
 
 ## 技術原理

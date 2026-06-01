@@ -145,21 +145,21 @@ Vue.component('tweaks-panel', TweaksPanel);
 
 // 區域註冊：只在父元件內可用
 const Page = {
-  components: { IPhoneFrame },
-  template: `<iphone-frame>...</iphone-frame>`
+  components: { PhoneFrame },
+  template: `<phone-frame>...</phone-frame>`
 };
 ```
 
-**命名**：元件名在 template 中用 kebab-case（PascalCase 也行但 in-DOM template 會轉小寫，慣例一律用 kebab-case）。
+**命名**：元件名在 template 中用 kebab-case（PascalCase 也行但 in-DOM template 會轉小寫，慣例一律用 kebab-case）。注意 PascalCase→kebab 是在每個大寫字母前插連字號（`IPhoneFrame` → `<i-phone-frame>`，非 `<iphone-frame>`），命名時避開相鄰大寫（用 `PhoneFrame` 而非 `IPhoneFrame`），kebab 標籤才直觀。
 
 **跨 `<script>` 共用**：檔尾掛到 `window`（與 Vue 3 相同）：
 
 ```js
-const IPhoneFrame = { /* ... */ };
-window.IPhoneFrame = IPhoneFrame;
+const PhoneFrame = { /* ... */ };
+window.PhoneFrame = PhoneFrame;
 
 // 或直接全域註冊一次搞定
-Vue.component('iphone-frame', IPhoneFrame);
+Vue.component('phone-frame', PhoneFrame);
 ```
 
 ---
@@ -177,7 +177,7 @@ Vue.component('iphone-frame', IPhoneFrame);
 ### iPhone 外框
 
 ```js
-const IPhoneFrame = {
+const PhoneFrame = {
   props: {
     title: { type: String, default: 'App' }
   },
@@ -240,8 +240,8 @@ const IPhoneFrame = {
   `
 };
 
-Vue.component('iphone-frame', IPhoneFrame);
-window.IPhoneFrame = IPhoneFrame;
+Vue.component('phone-frame', PhoneFrame);
+window.PhoneFrame = PhoneFrame;
 ```
 
 ### 瀏覽器視窗外框

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import w from 'wsemi';
 
 /**
  * 證交所 (TWSE) 三大法人買賣超 — 核心模組
@@ -21,7 +22,7 @@ function isRetryable(error) {
 }
 
 export async function fetchTwseT86(dateStr, stockCodes) {
-    if (!/^\d{8}$/.test(dateStr)) {
+    if (!w.isestr(dateStr) || !/^\d{8}$/.test(dateStr)) {
         throw new Error(`dateStr must be YYYYMMDD, got: ${dateStr}`);
     }
     // 合法性驗證：例如 20260230 雖然符合 8 碼但日期不存在
@@ -35,7 +36,7 @@ export async function fetchTwseT86(dateStr, stockCodes) {
         }
     }
 
-    const targetCodes = Array.isArray(stockCodes) ? stockCodes : [];
+    const targetCodes = w.isearr(stockCodes) ? stockCodes : [];
     const url = `https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date=${dateStr}&selectType=ALL`;
     console.log(`Fetching from: ${url}`);
     console.log(`Target: ${targetCodes.length === 0 ? 'All Market' : targetCodes.join(', ')}`);

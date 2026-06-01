@@ -1,4 +1,5 @@
 import axios from 'axios';
+import w from 'wsemi';
 
 /**
  * TPEX (櫃買中心) 融資融券核心模組
@@ -36,7 +37,7 @@ function toRocDate(yyyymmdd) {
 
 export async function fetchTpexMargin(dateStr, stockCodes) {
     // Validate dateStr
-    if (!dateStr || !/^\d{8}$/.test(dateStr)) {
+    if (!w.isestr(dateStr) || !/^\d{8}$/.test(dateStr)) {
         throw new Error(`日期參數無效：格式須為 YYYYMMDD (收到 "${dateStr}")`);
     }
     const _y = parseInt(dateStr.substring(0, 4));
@@ -47,7 +48,7 @@ export async function fetchTpexMargin(dateStr, stockCodes) {
         throw new Error(`日期參數無效：不合法的日期 (${dateStr})，年=${_y} 月=${_m} 日=${_d}`);
     }
 
-    const targetCodes = Array.isArray(stockCodes) ? stockCodes.filter(Boolean) : [];
+    const targetCodes = w.isearr(stockCodes) ? stockCodes.filter(Boolean) : [];
 
     const rocDate = toRocDate(dateStr);
     const url = `https://www.tpex.org.tw/web/stock/margin_trading/margin_balance/margin_bal_result.php?l=zh-tw&d=${rocDate}&o=json`;

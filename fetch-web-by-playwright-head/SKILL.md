@@ -33,7 +33,7 @@ description: 用 Playwright 有頭瀏覽器（headed Chrome）抓取網頁原始
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需 npm 套件：`playwright`
+所需 npm 套件：`playwright`、`wsemi`、`lodash-es`
 系統需求：
 - 已安裝 Chrome 或 Chromium（透過 `channel: 'chrome'` 直接調用）
 - **桌面 session**（Windows 桌面、macOS Aqua、Linux X11/Wayland），有頭模式必須能開實體視窗
@@ -45,7 +45,7 @@ node -e "require('playwright'); console.log('playwright OK')"
 
 若顯示錯誤則安裝（安裝位置由執行環境決定）：
 ```bash
-npm install playwright
+npm install playwright wsemi lodash-es
 ```
 
 > ⚠️ **本技能必須在有桌面 session 的環境執行**。若在純 CLI（無 X11/無桌面）環境，Chrome 會啟動失敗，請改用 headless 版（`fetch-web-by-playwright-headless`）。

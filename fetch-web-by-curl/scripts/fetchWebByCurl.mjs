@@ -9,6 +9,8 @@
 //   - URL 經 execFileSync 參數陣列傳遞，無命令注入風險
 
 import { execFileSync } from 'node:child_process';
+import w from 'wsemi';
+import _ from 'lodash-es';
 
 const MAX_RETRIES = 5;
 const INITIAL_WAIT_MS = 3000;
@@ -48,17 +50,24 @@ function _isValidUrl(url) {
  */
 export async function fetchWebByCurl(url, options = {}) {
   const fetchedAt = new Date().toISOString();
-  if (!url || typeof url !== 'string') {
+  if (!w.isestr(url)) {
     return { status: 'error', url: String(url), message: 'url is required (string)', reason: 'invalid-url', method: 'curl', fetchedAt, attempts: 0 };
   }
   if (!_isValidUrl(url)) {
     return { status: 'error', url, message: 'invalid url (must be http/https)', reason: 'invalid-url', method: 'curl', fetchedAt, attempts: 0 };
   }
 
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const ua = options.userAgent || DEFAULT_UA;
-  const referer = options.referer || DEFAULT_REFERER;
-  const acceptLang = options.acceptLanguage || DEFAULT_ACCEPT_LANG;
+  let timeoutMs = _.get(options, 'timeoutMs', null);
+  if (!w.ispint(timeoutMs)) timeoutMs = DEFAULT_TIMEOUT_MS; else timeoutMs = w.cint(timeoutMs);
+
+  let ua = _.get(options, 'userAgent', null);
+  if (!w.isestr(ua)) ua = DEFAULT_UA;
+
+  let referer = _.get(options, 'referer', null);
+  if (!w.isestr(referer)) referer = DEFAULT_REFERER;
+
+  let acceptLang = _.get(options, 'acceptLanguage', null);
+  if (!w.isestr(acceptLang)) acceptLang = DEFAULT_ACCEPT_LANG;
 
   let lastReason = '';
   let lastMessage = '';

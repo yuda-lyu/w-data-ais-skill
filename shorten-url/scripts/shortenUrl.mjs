@@ -23,6 +23,9 @@
 //   - 短於 5 字元 / 過短可能與站方自動生成的短碼衝突（不可預測）
 //   - 全域唯一，case-sensitive
 
+import w from 'wsemi'
+import _ from 'lodash-es'
+
 const API = 'https://da.gd/s'
 const REQUEST_TIMEOUT_MS = 15000
 const NETWORK_MAX_RETRIES = 5
@@ -64,10 +67,11 @@ function _classifyDaGdError(text) {
  * @returns {Promise<object>} { status, url, shortUrl?, alias?, errorCode?, message?, attempts }
  */
 export async function shortenUrl(url, options = {}) {
-    if (!_isHttpUrl(url)) {
+    if (!w.isestr(url) || !_isHttpUrl(url)) {
         return { status: 'error', url, message: 'url 必須以 http:// 或 https:// 開頭', errorCode: 'invalid-input', attempts: 0 }
     }
-    const alias = options.alias
+    let alias = _.get(options, 'alias', null)
+    if (!w.isestr(alias)) alias = null
     if (alias != null && !_validateAlias(alias)) {
         return { status: 'error', url, message: 'alias 必須為 4-10 字元 [A-Za-z0-9_-]（da.gd 對 >10 字元會 silent 截斷）', errorCode: 'invalid-alias', attempts: 0 }
     }

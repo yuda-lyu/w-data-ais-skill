@@ -1,5 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import w from 'wsemi';
+import _ from 'lodash-es';
 
 /**
  * MoneyDJ 新聞抓取核心模組
@@ -16,13 +18,21 @@ import * as cheerio from 'cheerio';
  * @throws {Error} 若抓取到 0 筆新聞或發生不可重試的網路錯誤
  */
 export async function fetchMoneydj(options = {}) {
-    const {
-        totalPages = 50,
-        maxRetries = 10,
-        baseDelayMs = 5000,
-        maxDelayMs = 30000,
-        onPageDone = null,
-    } = options;
+
+    let totalPages = _.get(options, 'totalPages', null);
+    if (!w.ispint(totalPages)) totalPages = 50; else totalPages = w.cint(totalPages);
+
+    let maxRetries = _.get(options, 'maxRetries', null);
+    if (!w.ispint(maxRetries)) maxRetries = 10; else maxRetries = w.cint(maxRetries);
+
+    let baseDelayMs = _.get(options, 'baseDelayMs', null);
+    if (!w.ispint(baseDelayMs)) baseDelayMs = 5000; else baseDelayMs = w.cint(baseDelayMs);
+
+    let maxDelayMs = _.get(options, 'maxDelayMs', null);
+    if (!w.ispint(maxDelayMs)) maxDelayMs = 30000; else maxDelayMs = w.cint(maxDelayMs);
+
+    let onPageDone = _.get(options, 'onPageDone', null);
+    if (!w.isfun(onPageDone)) onPageDone = () => {};
 
     const domain  = 'https://www.moneydj.com';
     const baseUrl = 'https://www.moneydj.com/kmdj/news/newsreallist.aspx?a=mb06&index1=';

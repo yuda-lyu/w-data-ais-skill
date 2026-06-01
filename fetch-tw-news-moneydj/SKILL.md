@@ -28,16 +28,16 @@ description: 抓取 MoneyDJ 理財網法說會與營收新聞（最新 50 頁）
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`、`cheerio`
+所需套件：`axios`、`cheerio`、`wsemi`、`lodash-es`
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "import('axios').then(() => import('cheerio')).then(() => console.log('deps OK'))"
+node -e "import('axios').then(() => import('cheerio')).then(() => import('wsemi')).then(() => import('lodash-es')).then(() => console.log('deps OK'))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios cheerio
+npm install axios cheerio wsemi lodash-es
 ```
 
 ### 執行方式
@@ -145,12 +145,12 @@ MoneyDJ 時間格式：
 ### 2. 執行錯誤 (Module not found)
 
 **症狀**：
-- `Cannot find module 'axios'` 或 `cheerio`
+- `Cannot find module 'axios'` 或 `cheerio`、`wsemi`、`lodash-es`
 
 **解決方法**：
 確保在工作區執行了依賴安裝：
 ```bash
-npm install axios cheerio
+npm install axios cheerio wsemi lodash-es
 ```
 
 ## 快速執行

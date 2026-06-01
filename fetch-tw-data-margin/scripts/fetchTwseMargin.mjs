@@ -1,4 +1,5 @@
 import axios from 'axios';
+import w from 'wsemi';
 
 /**
  * TWSE (證交所) 融資融券核心模組
@@ -29,7 +30,7 @@ function parseNumber(str) {
 
 export async function fetchTwseMargin(dateStr, stockCodes) {
     // Validate dateStr
-    if (!dateStr || !/^\d{8}$/.test(dateStr)) {
+    if (!w.isestr(dateStr) || !/^\d{8}$/.test(dateStr)) {
         throw new Error(`日期參數無效：格式須為 YYYYMMDD (收到 "${dateStr}")`);
     }
     const _y = parseInt(dateStr.substring(0, 4));
@@ -40,7 +41,7 @@ export async function fetchTwseMargin(dateStr, stockCodes) {
         throw new Error(`日期參數無效：不合法的日期 (${dateStr})，年=${_y} 月=${_m} 日=${_d}`);
     }
 
-    const targetCodes = Array.isArray(stockCodes) ? stockCodes.filter(Boolean) : [];
+    const targetCodes = w.isearr(stockCodes) ? stockCodes.filter(Boolean) : [];
 
     const url = `https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN?date=${dateStr}&selectType=ALL&response=json`;
 

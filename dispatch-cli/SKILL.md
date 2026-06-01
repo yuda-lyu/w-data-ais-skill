@@ -23,8 +23,10 @@ description: Generic CLI subprocess runner with timeout, process-tree cleanup, o
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
 ```bash
-# 無額外依賴，僅使用 Node.js 內建模組
 node --version   # 需要 Node.js >= 18
+
+# 入口參數驗證所需依賴
+npm install wsemi lodash-es
 ```
 
 ## 使用方式

@@ -4,6 +4,7 @@
 
 import axios from "axios";
 import Parser from "rss-parser";
+import w from "wsemi";
 
 // ---------- 常數 ----------
 const TIMEOUT = 30000;
@@ -38,6 +39,10 @@ function toUTC8(isoString) {
 
 // ---------- 主要函式 ----------
 export async function fetchRSS(rssUrl) {
+  if (!w.isestr(rssUrl) || !/^https?:\/\//i.test(rssUrl)) {
+    throw new Error("rssUrl 須為有效的 http/https RSS 網址");
+  }
+
   let lastError;
 
   for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {

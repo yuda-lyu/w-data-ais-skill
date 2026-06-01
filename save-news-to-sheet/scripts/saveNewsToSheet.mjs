@@ -7,6 +7,7 @@
 // Returns: { status: "success"|"error", ... }
 
 import axios from "axios";
+import w from "wsemi";
 
 // ---------- constants ----------
 const MAX_RETRIES = 5;
@@ -34,13 +35,15 @@ function sleep(ms) {
  * @returns {Promise<object>} result object with status "success" or "error"
  */
 export async function saveNewsToSheet(payload) {
+  if (!w.iseobj(payload)) return { status: "error", message: "payload required (object)" };
+
   const { gas_url, token, itemsNew } = payload;
 
   // validate required fields
   const missing = [];
-  if (!gas_url) missing.push("gas_url");
-  if (!token) missing.push("token");
-  if (!Array.isArray(itemsNew) || itemsNew.length === 0)
+  if (!w.isestr(gas_url)) missing.push("gas_url");
+  if (!w.isestr(token)) missing.push("token");
+  if (!w.isearr(itemsNew))
     missing.push("itemsNew (needs to be a non-empty array)");
   if (missing.length > 0) {
     return { status: "error", message: `Missing required fields: ${missing.join(", ")}` };

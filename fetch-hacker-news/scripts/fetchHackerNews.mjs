@@ -3,6 +3,7 @@
 // 輸出欄位：{ url, time, title, description, from }
 
 import axios from "axios";
+import w from "wsemi";
 
 const API_BASE = "https://hacker-news.firebaseio.com/v0";
 const TIMEOUT = 30000;
@@ -62,10 +63,8 @@ async function fetchWithRetry(url) {
 }
 
 export async function fetchHackerNews(limit = DEFAULT_LIMIT) {
-  // 正規化 limit：非數字（如 NaN）或 <= 0 時改用預設值，避免 slice(0, NaN) 靜默回傳空陣列
-  if (!Number.isFinite(limit) || limit <= 0) {
-    limit = DEFAULT_LIMIT;
-  }
+  // 正規化 limit：非正整數（如 NaN / <= 0）時改用預設值，避免 slice(0, NaN) 靜默回傳空陣列
+  limit = w.ispint(limit) ? w.cint(limit) : DEFAULT_LIMIT;
 
   // 1. 取得最新文章 ID 列表
   const ids = await fetchWithRetry(`${API_BASE}/newstories.json`);

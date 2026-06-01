@@ -29,7 +29,13 @@ description: 抓取觀察者網（guancha.cn）的文章資料並轉成 markdown
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-**零 npm 依賴**——抓取層委派給同層 sibling 技能 `fetch-web-by-curl`（其本身亦零 npm 依賴，僅需系統 curl）。
+需安裝 npm 套件（`wsemi`，用於入口參數型別驗證）：
+
+```bash
+npm install wsemi
+```
+
+抓取層委派給同層 sibling 技能 `fetch-web-by-curl`（其本身亦零 npm 依賴，僅需系統 curl）。
 
 執行前驗證：
 ```bash
