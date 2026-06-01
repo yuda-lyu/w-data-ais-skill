@@ -37,16 +37,16 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD]
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`
+所需套件：`axios`、`wsemi`
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "require('axios'); console.log('deps OK')"
+node -e "require('axios'); require('wsemi'); console.log('deps OK')"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios
+npm install axios wsemi
 ```
 
 ### 執行方式
@@ -187,7 +187,7 @@ node fetch-tw-data-margin/scripts/fetch_tpex_margin.mjs 3293 20260326
 **解決方法**：
 確保在工作區執行了依賴安裝：
 ```bash
-npm install axios
+npm install axios wsemi
 ```
 
 ### 3. 資料缺失

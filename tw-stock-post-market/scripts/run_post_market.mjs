@@ -78,6 +78,7 @@ function run(label, scriptRelPath, extraArgs = [], timeoutMs = 120000) {
         cwd: SKILLS_DIR,
         timeout: timeoutMs,
         encoding: 'utf8',
+        windowsHide: true,
     });
     if (result.error) {
         const msg = result.error.code === 'ETIMEDOUT'
@@ -104,7 +105,7 @@ log(`檢查交易日：${TODAY}`);
 const tradingCheck = spawnSync(
     'node',
     [path.join(SKILLS_DIR, 'check-tw-trading-day/scripts/check_tw_trading_day.mjs'), TODAY, raw('trading_day.json')],
-    { cwd: SKILLS_DIR, encoding: 'utf8' }
+    { cwd: SKILLS_DIR, encoding: 'utf8', windowsHide: true }
 );
 if (tradingCheck.error) {
     log(`⚠️ 交易日檢查執行失敗（${tradingCheck.error.message}），繼續執行`);
@@ -145,7 +146,7 @@ log('產出報告...');
 const reportResult = spawnSync(
     'node',
     [path.join(SKILLS_DIR, 'tw-stock-post-market/scripts/generate_report.mjs'), TODAY, BASE_OUTPUT_DIR],
-    { cwd: SKILLS_DIR, encoding: 'utf8', timeout: 300000 }
+    { cwd: SKILLS_DIR, encoding: 'utf8', timeout: 300000, windowsHide: true }
 );
 if (reportResult.status !== 0 || reportResult.error) {
     appendErrorLog('generate_report', 'report', 'unknown',

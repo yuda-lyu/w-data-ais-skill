@@ -25,16 +25,16 @@ description: 透過 Google Apps Script Web App API 將新聞資料（itemsNew）
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`
+所需套件：`axios`、`wsemi`
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "require('axios'); console.log('deps OK')"
+node -e "require('axios'); require('wsemi'); console.log('deps OK')"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios
+npm install axios wsemi
 ```
 
 ## 前置需求
@@ -170,7 +170,7 @@ GAS 端以 `type + url + title + description + from` 五欄位組合作為唯一
 | `找不到工作表` | sheetName 設定與實際不符 | 確認 GAS 端 CONFIG.sheetName 與工作表名稱一致 |
 | `addCount: 0` | 全部資料已存在 | 正常行為，去重後無新資料需寫入 |
 | 5xx 伺服器錯誤 | GAS 暫時不可用 | 腳本內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），等待 3s → 6s → ... → 上限 15s |
-| `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios` |
+| `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios wsemi` |
 
 ## 快速執行
 

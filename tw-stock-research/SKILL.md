@@ -5,13 +5,13 @@ description: 台股盤前調研技能。從 8 個來源（MOPS、鉅亨網、財
 
 # 台股盤前調研
 
-從 8 個來源**序列**抓取**近兩日**重大訊息與**前一交易日(T-1)**市場數據，篩選會影響股價的公告/新聞，產出**盤前調研報告**。所有日期標註皆使用實際交易日日期（如 `03/27`），不使用「昨日」等相對日期用語，確保週一或假日後首個交易日的報告日期準確。
+從 8 個來源**序列**抓取重大訊息與**前一交易日(T-1)**市場數據，篩選會影響股價的公告/新聞，產出**盤前調研報告**。新聞類來源（MOPS、鉅亨網、財報狗、MoneyDJ）的時間範圍**依其各自子技能而定（非統一近兩日）**，例如鉅亨網為近 10 天；`generate_report` 不對新聞做日期視窗過濾。所有日期標註皆使用實際交易日日期（如 `03/27`），不使用「昨日」等相對日期用語，確保週一或假日後首個交易日的報告日期準確。
 
 ## 安裝指引
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`、`cheerio`、`playwright`
+所需套件：`axios`、`cheerio`、`playwright`、`wsemi`
 額外需求：環境需安裝 Chrome 或 Chromium（Playwright 透過 `channel: 'chrome'` 自動偵測）
 
 執行前請先驗證套件是否可用：
@@ -21,7 +21,7 @@ node -e "import('axios').then(() => import('cheerio')).then(() => import('playwr
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios cheerio playwright
+npm install axios cheerio playwright wsemi
 ```
 
 ## 🚦 交易日檢查（必要）
@@ -58,10 +58,10 @@ node check-tw-trading-day/scripts/check_tw_trading_day.mjs [YYYYMMDD] [outputPat
 
 | 來源 | 抓取技能 | 資料類型 | 時間範圍 |
 |------|----------|----------|----------|
-| MOPS | `fetch-tw-news-mops` | 官方公告 | 近兩日 |
-| 鉅亨網 | `fetch-tw-news-cnyes` | 即時新聞 | 近兩日 |
-| 財報狗 | `fetch-tw-news-statementdog` | 產業分析 | 近兩日 |
-| MoneyDJ | `fetch-tw-news-moneydj` | 法說/營收 | 近兩日 |
+| MOPS | `fetch-tw-news-mops` | 官方公告 | 依子技能而定（非統一近兩日） |
+| 鉅亨網 | `fetch-tw-news-cnyes` | 即時新聞 | 依子技能而定（近 10 天，最多 100 筆） |
+| 財報狗 | `fetch-tw-news-statementdog` | 產業分析 | 依子技能而定（最新清單） |
+| MoneyDJ | `fetch-tw-news-moneydj` | 法說/營收 | 依子技能而定（最新 50 頁） |
 | 法人買賣超（官方） | `fetch-tw-data-institutional` | 三大法人買賣超（外資/投信/自營/合計）；可指定日期 | T-1（前一交易日） |
 | 收盤股價（官方） | `fetch-tw-data-stock` | 上市+上櫃 OHLC、成交量、漲跌 | T-1 及 T-2 |
 | 期貨（官方） | `fetch-tw-data-futures` | 台指期行情、外資期貨未平倉、P/C Ratio | T-1 |
@@ -348,7 +348,7 @@ w-data-news/tw-stock-research/
 **解決方法**：
 確保在工作區執行了所有依賴安裝：
 ```bash
-npm install axios cheerio playwright
+npm install axios cheerio playwright wsemi
 ```
 
 ### 2. 瀏覽器未找到
@@ -366,7 +366,7 @@ npm install axios cheerio playwright
 
 ```bash
 # 外部 agent 可從任意工作目錄執行；請顯式傳入 skillsDir 與 baseOutputDir
-npm install axios cheerio playwright
+npm install axios cheerio playwright wsemi
 node tw-stock-research/scripts/run_research.mjs [YYYYMMDD] [skillsDir] [baseOutputDir]
 
 # 範例
@@ -383,7 +383,7 @@ mkdir -p ./w-data-news/tw-stock-research/YYYYMMDD/raw   # Unix/Git Bash；PowerS
 node check-tw-trading-day/scripts/check_tw_trading_day.mjs YYYYMMDD ./w-data-news/tw-stock-research/YYYYMMDD/raw/trading_day.json
 
 # 2. 安裝依賴
-npm install axios cheerio playwright
+npm install axios cheerio playwright wsemi
 
 # 3. 依序抓取（outputPath 必須為完整相對路徑）
 node fetch-tw-news-mops/scripts/fetch_mops.mjs                                           ./w-data-news/tw-stock-research/YYYYMMDD/raw/mops.json

@@ -2,7 +2,7 @@
 // shorten_url.mjs — CLI 包裝
 //
 // 用法:
-//   node shorten_url.mjs <URL> [--alias <custom>] [--stats] [--json] [--output <path>]
+//   node shorten_url.mjs <URL> [--alias <custom>] [--json] [--output <path>]
 
 import fs from 'node:fs'
 import path from 'node:path'

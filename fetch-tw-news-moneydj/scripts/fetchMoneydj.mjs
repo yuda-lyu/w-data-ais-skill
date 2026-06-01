@@ -92,7 +92,13 @@ export async function fetchMoneydj(options = {}) {
     let allNewsItems = [];
 
     for (let i = 1; i <= totalPages; i++) {
-        const items = await fetchPage(i);
+        let items;
+        try {
+            items = await fetchPage(i);
+        } catch (error) {
+            console.warn(`[Page ${i}] 抓取失敗，已跳過：${error.message}`);
+            continue;
+        }
         allNewsItems = allNewsItems.concat(items);
 
         if (typeof onPageDone === 'function') {

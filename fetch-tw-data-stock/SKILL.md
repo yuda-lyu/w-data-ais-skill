@@ -306,11 +306,12 @@ https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_resu
 
 **症狀**：
 - `Cannot find module 'axios'`
+- `Cannot find module 'wsemi'`
 
 **解決方法**：
 確保在工作區執行了依賴安裝：
 ```bash
-npm install axios
+npm install axios wsemi
 ```
 
 ### 3. 查無資料

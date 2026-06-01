@@ -33,16 +33,16 @@ opencc-js 原生支援：
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需 npm 套件：`opencc-js`
+所需 npm 套件：`opencc-js`、`wsemi`、`lodash-es`
 
-執行前驗證：
+執行前驗證（`lodash-es` 為 ESM-only，須用動態 `import()` 檢測，不可 `require`）：
 ```bash
-node -e "require('opencc-js'); console.log('opencc-js OK')"
+node -e "require('opencc-js'); require('wsemi'); import('lodash-es').then(() => console.log('deps OK'))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install opencc-js
+npm install opencc-js wsemi lodash-es
 ```
 
 ## 執行方式

@@ -45,7 +45,7 @@ node -e "Promise.all([import('axios'),import('wsemi')]).then(()=>console.log('de
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios
+npm install axios wsemi
 ```
 
 > **Node.js 版本需求**：本技能透過 `TextDecoder('big5')` 解碼 TAIFEX MS950 編碼之 CSV，需要 Node.js ≥ 18 且包含完整 ICU（full-icu）。Node.js 21+ 預設啟用 full-icu；若使用 18/20 之 small-icu 版本（少數官方剝離 ICU 之精簡版）會在解碼處失敗。可用以下指令驗證：
@@ -229,10 +229,11 @@ TAIFEX CSV 下載使用 **MS950（Big5）** 編碼，腳本使用 `TextDecoder('
 
 **症狀**：
 - `Cannot find module 'axios'`
+- `Cannot find module 'wsemi'`
 
 **解決方法**：
 ```bash
-npm install axios
+npm install axios wsemi
 ```
 
 ### 3. 查無資料

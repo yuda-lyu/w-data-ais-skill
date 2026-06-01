@@ -418,7 +418,8 @@ function shouldEscalate(lastBlockType, lastFetchOk) {
   return !lastFetchOk ||
     lastBlockType === DETECT_CAPTCHA ||
     lastBlockType === DETECT_VERIFY ||
-    lastBlockType === DETECT_EMPTY;
+    lastBlockType === DETECT_EMPTY ||
+    lastBlockType === DETECT_REDIRECT;
 }
 
 // ---------- auto 模式：階梯升級邏輯 ----------

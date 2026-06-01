@@ -172,7 +172,7 @@ snapshot 為 Camofox 輸出的層級式文字（類似 markdown outline），本
 
 Camofox server 會 spawn Firefox 子進程；Windows 上 Node.js 的 `serverProc.kill('SIGTERM')` 不會 cascade 到子進程。本技能用 **`taskkill /F /T /PID <pid>`** 清整棵進程樹，避免殘留 orphan Firefox 進程。
 
-Unix/Linux 用 `SIGTERM`（POSIX 標準會 cascade 到 process group）。
+Unix/Linux 對 server 子進程送 `SIGTERM`；該訊號只到 node server 本身，Firefox 是否清乾淨取決於 server 自身的 cleanup（非 process-group cascade）。
 
 ## 安全設計
 

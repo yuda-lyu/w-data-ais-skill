@@ -25,16 +25,16 @@ HN API /newstories.json 取得最新文章 ID 列表（最多 500 筆）
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`
+所需套件：`axios`、`wsemi`
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "require('axios'); console.log('deps OK')"
+node -e "require('axios'); require('wsemi'); console.log('deps OK')"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios
+npm install axios wsemi
 ```
 
 ## 執行方式
@@ -99,7 +99,7 @@ JSON 陣列，每筆資料包含以下欄位：
 | `Request failed with status code 404` | API 端點失效 | 確認 HN Firebase API 是否正常運作 |
 | `timeout of 30000ms exceeded` | API 回應過慢 | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），仍失敗請確認網路連線 |
 | `Request failed with status code 5xx` | 伺服器暫時錯誤 | 已內建自動重試（最多重試 5 次，含初始請求最多執行 6 次，線性遞增退避），仍失敗請稍後再試 |
-| `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios` |
+| `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios wsemi` |
 
 ## 快速執行
 

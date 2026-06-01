@@ -24,16 +24,16 @@ description: 透過 Google Apps Script Web App API 寄送 Email（純文字或 H
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需套件：`axios`
+所需套件：`axios`、`wsemi`
 
 執行前請先驗證套件是否可用：
 ```bash
-node -e "require('axios'); console.log('deps OK')"
+node -e "require('axios'); require('wsemi'); console.log('deps OK')"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install axios
+npm install axios wsemi
 ```
 
 ## 前置需求
@@ -156,7 +156,7 @@ node send-email/scripts/send_email.mjs \
 | `Missing required fields: body or htmlBody` | 兩者皆未提供 | 至少提供 `body` 或 `htmlBody` |
 | 中文亂碼 | 編碼問題 | 腳本已內建 `charset=utf-8`，通常無須額外處理 |
 | 5xx 伺服器錯誤 | GAS 暫時不可用 | 腳本內建自動重試（最多重試 5 次，含初始請求最多執行 6 次），等待 3s → 6s → ... → 上限 15s |
-| `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios` |
+| `Cannot find module 'axios'` | 未安裝依賴 | 執行 `npm install axios wsemi` |
 
 ## HTML 信件建議
 

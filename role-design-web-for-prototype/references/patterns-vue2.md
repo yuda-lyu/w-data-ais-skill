@@ -423,10 +423,14 @@ const TimeMixin = {
   data() {
     return {
       time: 0,
-      playing: true,
-      _frameId: null,
-      _startTime: null
+      playing: true
     };
+  },
+  created() {
+    // _frameId / _startTime 不放 data()：Vue 2 不代理 _ 前綴屬性，
+    // 放 data() 開發版會噴 console 警告。改在 created() 掛到實例上。
+    this._frameId = null;
+    this._startTime = null;
   },
   watch: {
     playing(v) { v ? this._startAnim() : this._stopAnim(); }

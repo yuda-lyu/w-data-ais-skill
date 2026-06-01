@@ -142,9 +142,9 @@ export async function zipFilesOrFolder(inputs, output, options = {}) {
     _guardPath(output)
 
     let level = _.get(options, 'level', null)
-    if (w.isp0int(level)) {
+    if (level != null) {
         const lv = w.cint(level)
-        if (lv < 0 || lv > 9) throw new Error(`level 必須是 0-9 之間的整數，得到: ${options.level}`)
+        if (!w.isp0int(level) || lv < 0 || lv > 9) throw new Error(`level 必須是 0-9 之間的整數，得到: ${options.level}`)
         options = { ...options, level: lv }
     }
     if (options.encryption != null && !VALID_ENCRYPTIONS.includes(options.encryption)) {

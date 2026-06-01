@@ -273,7 +273,7 @@ export async function fetchWebByCamofox(url, options = {}) {
       // 關閉 tab
       await fetch(base + '/tabs/' + tabId + '?userId=fetchWebByCamofox', { method: 'DELETE' }).catch(() => {});
 
-      if (!snap || chars < SNAPSHOT_MIN_CHARS) {
+      if (!snap || chars < SNAPSHOT_MIN_CHARS || !w.isstr(snap.snapshot)) {
         lastMessage = `camofox snapshot empty (${chars} chars)`;
         lastReason = 'camofox-empty';
         throw new Error(lastMessage);

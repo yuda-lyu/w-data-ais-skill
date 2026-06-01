@@ -112,11 +112,19 @@ const getPreMarketPredictions = () => {
         return match[0].split('\n')
             .filter(line => line.startsWith('|') && !line.includes('---') && !line.includes('代碼'))
             .map(row => {
-                const cols = row.split('|').map(c => c.trim()).filter(c => c);
+                // markdown 表列首尾各有一個 `|`，split 後產生 leading/trailing 空段；
+                // 只去掉這兩個邊界空段，中間空欄（本益比/法人動向可能為空）保留佔位，
+                // 否則 filter(c=>c) 移除中間空欄會造成欄位左移、reason 取錯欄。
+                const parts = row.split('|').map(c => c.trim());
+                if (parts.length > 0 && parts[0] === '') parts.shift();
+                if (parts.length > 0 && parts[parts.length - 1] === '') parts.pop();
+                const cols = parts;
                 if (cols.length >= 5) {
+                    // 5 欄：代碼 | 名稱 | 本益比或信心 | 法人動向 | 簡要理由
                     return { code: cols[0], name: cols[1], impact: impactLabel, reason: cols[4] };
                 }
                 if (cols.length >= 3) {
+                    // 3 欄（舊版扁平表）：代碼 | 名稱 | 簡要理由
                     return { code: cols[0], name: cols[1], impact: impactLabel, reason: cols[2] };
                 }
                 return null;
