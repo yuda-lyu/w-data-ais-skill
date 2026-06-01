@@ -1,6 +1,6 @@
 ---
 name: fetch-aisixiang
-description: 抓取愛思想（aisixiang.com）的文章資料。支援五種模式：(1) list-author 列出某作者全部文章（即時抓 /thinktank/ 全站作者列表 → 中文名→URL slug → 抓該作者欄頁；不在站方專欄作者清單者回 not_found，不轉向搜尋）；(2) list-keyword 按 keyword tag 搜尋；(3) list-title 按標題模糊搜；(4) list-topic 按策展主題抓（即時抓 /zhuanti/ 主題清單 → 主題名→ID → 抓該主題頁，主題不存在時 fail-fast 不轉向）；(5) fetch 抓單篇文章轉 markdown。stateless 設計，不寫快取檔。**所有查詢字串需為簡體中文**——呼叫端負責轉換；技能不做 silent transformation。
+description: 抓取愛思想（aisixiang.com）的文章資料。支援五種模式：(1) list-author 列出某作者全部文章（即時抓 /thinktank/ 全站作者列表 → 中文名→URL slug → 抓該作者欄頁；不在站方專欄作者清單者回 success+count:0（message 註明、非錯誤），不轉向搜尋）；(2) list-keyword 按 keyword tag 搜尋；(3) list-title 按標題模糊搜；(4) list-topic 按策展主題抓（即時抓 /zhuanti/ 主題清單 → 主題名→ID → 抓該主題頁，主題不在清單時回 success+count:0（建議改 list-keyword）、不自動轉向）；(5) fetch 抓單篇文章轉 markdown。stateless 設計，不寫快取檔。**所有查詢字串需為簡體中文**——呼叫端負責轉換；技能不做 silent transformation。
 ---
 
 # fetch-aisixiang — 愛思想文章抓取
@@ -64,16 +64,18 @@ node scripts/fetch_aisixiang.mjs list-author --slug gezhaoguang
 
 **輸出**：JSON，`items[]` 每筆含 `aid / url / title / category`（論文／時評／隨筆／著作／演講／讀書／訪談／未分類）
 
-**找不到時 fail-fast**：中文名不在 `/thinktank/` 作者清單時，**回 `status: "not_found"` 並停止**，不自動轉去搜尋。意圖是讓 agent 明確知道「該作者沒專欄」並決定下一步（例如改用 list-keyword 用作者名查文章）。
+**找不到時**：中文名不在 `/thinktank/` 作者清單時，**回 `status: "success"` + `count: 0`**（成功查詢、確定無此作者，非抓取失敗），不自動轉去搜尋。message 標明「該作者沒專欄」，呼叫端可據此決定下一步（例如改用 list-keyword 用作者名查文章）。
 
 ```json
 {
-  "status": "not_found",
+  "status": "success",
   "site": "aisixiang",
   "mode": "author",
   "query": "楊儒賓",
   "authors_count": 963,
-  "message": "「楊儒賓」不在愛思想專欄作者清單中（共 963 位）。尚無此作者文章。提醒：本技能不轉簡繁，呼叫端負責用站方登錄字形（通常是簡體）。"
+  "count": 0,
+  "items": [],
+  "message": "「楊儒賓」不在愛思想專欄作者清單中（共 963 位）。尚無此作者文章（此為查詢成功的真實結果、0 筆，非抓取失敗）。提醒：本技能不轉簡繁，呼叫端負責用站方登錄字形（通常是簡體）。"
 }
 ```
 
@@ -87,16 +89,16 @@ node scripts/fetch_aisixiang.mjs list-keyword --keyword 老庄 \
 
 每頁 30 筆，自動翻完所有頁面（頁間延遲 1 秒），最多抓 50 頁。`items[]` 每筆含 `aid / url / title / author`；`resolved` 含 `total_pages / pages_fetched`。
 
-**0 筆時回 `status: "no_results"`** 並附訊息提示可能字形不對：
+**0 筆時回 `status: "success"` + `count: 0`** 並附訊息提示可能字形不對：
 
 ```json
 {
-  "status": "no_results",
+  "status": "success",
   "mode": "keyword",
   "query": "老莊",
   "count": 0,
   "items": [],
-  "message": "關鍵字 \"老莊\" 在愛思想無相關文章。提醒：站方搜尋只認簡體，呼叫端負責簡體化；若已是簡體仍 0 筆，該主題可能無 tag 索引。"
+  "message": "關鍵字 \"老莊\" 在愛思想無相關文章（查詢成功、0 筆，非抓取失敗）。提醒：站方搜尋只認簡體，呼叫端負責簡體化；若已是簡體仍 0 筆，該主題可能無 tag 索引。"
 }
 ```
 
@@ -107,7 +109,7 @@ node scripts/fetch_aisixiang.mjs list-keyword --keyword 老庄 \
 node scripts/fetch_aisixiang.mjs list-title --keyword 第一哲学
 ```
 
-模糊匹配，會混入字面相同但無關的結果（搜「探底」會抓到「蘇格拉底」）。建議搭配 `list-keyword` 互補。0 筆時同樣回 `status: "no_results"` 並附訊息。
+模糊匹配，會混入字面相同但無關的結果（搜「探底」會抓到「蘇格拉底」）。建議搭配 `list-keyword` 互補。0 筆時同樣回 `status: "success"` + `count: 0` 並附訊息。
 
 ### `list-topic` — 按策展主題抓全部文章（fail-fast）
 
@@ -126,15 +128,17 @@ node scripts/fetch_aisixiang.mjs list-topic --keyword 大数据 \
 node scripts/fetch_aisixiang.mjs list-topic --id 301
 ```
 
-**fail-fast 行為**：主題名不在清單中時，**回 `status: "not_a_topic"` 並提示改用 list-keyword，但不自動轉向**。設計意圖是讓 agent 明確知道「這不是策展主題」並決定是否退到 keyword tag 搜尋。
+**找不到時**：主題名不在 `/zhuanti/` 清單中時，**回 `status: "success"` + `count: 0`**（成功查詢、確定非策展主題，非抓取失敗），message 提示改用 list-keyword，但不自動轉向。呼叫端可據此決定是否退到 keyword tag 搜尋。
 
 ```json
 {
-  "status": "not_a_topic",
+  "status": "success",
   "site": "aisixiang",
   "mode": "topic",
   "query": "老莊",
   "topics_count": 803,
+  "count": 0,
+  "items": [],
   "message": "「老莊」不在愛思想策展主題清單中（共 803 個主題）。建議改用 list-keyword --keyword \"老莊\" 查 keyword tag 結果。本技能不自動轉向，請呼叫端決定是否重試。"
 }
 ```
@@ -168,13 +172,10 @@ node scripts/fetch_aisixiang.mjs fetch \
 | status | 觸發條件 | items 是否填充 | message 是否填充 |
 |---|---|---|---|
 | `success` | 查到結果（`count >= 1`） | ✓ | — |
-| `success` | list-author / list-topic **命中作者欄頁或策展主題（含 `--slug` / `--id` 捷徑）但該頁實際 0 篇文章** | `[]`（`count: 0`） | ✓（標明「命中但 0 篇」，屬查詢成功的真實結果，非抓取失敗） |
-| `not_found` | list-author 找不到該作者（不在 /thinktank/） | ✗ | ✓ |
-| `not_a_topic` | list-topic 找不到該主題（不在 /zhuanti/） | ✗ | ✓（建議改 list-keyword） |
-| `no_results` | list-keyword / list-title 搜尋 0 筆 | `[]` | ✓ |
-| `error` | HTTP 失敗、解析失敗 | ✗ | ✓（error 訊息） |
+| `success` | **任何「成功查詢但 0 筆」**：作者不在 /thinktank/、主題不在 /zhuanti/、命中頁但 0 篇、list-keyword / list-title 搜尋 0 筆 | `[]`（`count: 0`） | ✓（message 標明原因，屬查詢成功的真實結果、非抓取失敗） |
+| `error` | HTTP 失敗、解析失敗（操作未完成） | ✗ | ✓（error 訊息） |
 
-**`success` + `count: 0` 與「抓取失敗」如何區分**：list-author / list-topic 在「命中作者/主題（含捷徑）但該頁 0 篇」時，回 `status: "success"` + `count: 0` + `message`（明確標示「命中但 0 篇、為查詢成功的真實結果」）；抓取失敗則一律走 `status: "error"`。因此呼叫端可靠 `status` 區分二者：`success` 表示「真的查清楚了」（即使 0 篇），`error` 才是「沒查成功」。
+**`success` + `count: 0` 與「抓取失敗」如何區分**：凡「成功查詢、結果 0 筆」（作者/主題不在站方清單、命中頁但 0 篇、搜尋 0 筆）一律回 `status: "success"` + `count: 0` + `message`（標明原因）；抓取失敗（HTTP / 解析錯、操作未完成）才走 `status: "error"`。此為**全庫一致的二元契約**（與 fetch-guancha 等其他技能相同）：`success` 表示「真的查清楚了」（即使 0 筆），`error` 才是「沒查成功」。呼叫端可靠 `status` 判斷是否需 fallback。
 
 agent 看 `status` 即可決定「查得成不成功」；其中 `success` 仍可能 `count: 0`（命中但 0 篇，見上表第二列，此時有 `message` 說明），需要文章內容時再看 `count` / `items`。
 

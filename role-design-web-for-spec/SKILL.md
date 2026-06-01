@@ -482,7 +482,7 @@ CSS、HTML、JS、SVG 的能力遠超過多數人想像 —— **用它們讓使
 <!-- 資料視覺化：圖表（優先序 ECharts > Chart.js > D3） -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>   <!-- 儀表板／複雜互動／大資料集（預設） -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script> <!-- 輕量、快速原型 -->
-<script src="https://d3js.org/d3.v7.min.js"></script>                                    <!-- 完全客製化視覺化 -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>             <!-- 完全客製化視覺化 -->
 
 <!-- Google Fonts 範例（避免 Inter／Roboto／Arial／Fraunces／system-ui） -->
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">

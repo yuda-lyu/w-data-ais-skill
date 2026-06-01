@@ -350,7 +350,7 @@ async function fetchAllSearchPages(buildUrl, parser = parseSearchResults) {
 
 // ───────────────────────── 高階：list / fetch 函式 ─────────────────────────
 
-// list-author：站方作者清單兩跳；找不到 → not_found
+// list-author：站方作者清單兩跳；找不到 → success + count:0（成功查詢、0 筆，非錯誤）
 export async function fetchAuthorArticles({ name, slug } = {}) {
   if (!name && !slug) throw new Error('需要 name 或 slug');
 
@@ -363,16 +363,20 @@ export async function fetchAuthorArticles({ name, slug } = {}) {
     const authors = await fetchAuthorsList();
     const author = lookupAuthor(authors, name);
     if (!author) {
+      // 抓到真實作者清單、確定無此作者 = 成功查詢、結果 0 筆（非抓取失敗）。
+      // 按全庫 binary contract 回 success + count:0，以 message 告知無專欄（與 guancha 一致）。
       return {
-        status: 'not_found',
+        status: 'success',
         site: 'aisixiang',
         mode: 'author',
         query: name,
         fetched_at: new Date().toISOString(),
         authors_count: authors.length,
+        count: 0,
+        items: [],
         message:
           `"${name}" 不在愛思想專欄作者清單中（共 ${authors.length} 位）。` +
-          `尚無此作者文章。` +
+          `尚無此作者文章（此為查詢成功的真實結果、0 筆，非抓取失敗）。` +
           `提醒：本技能不轉簡繁，呼叫端負責用站方登錄字形（通常是簡體）。`,
       };
     }
@@ -406,7 +410,7 @@ export async function fetchAuthorArticles({ name, slug } = {}) {
   return payload;
 }
 
-// list-keyword：keyword tag 搜尋；0 筆 → no_results
+// list-keyword：keyword tag 搜尋；0 筆 → success + count:0
 export async function fetchKeywordArticles(keyword) {
   if (!keyword) throw new Error('需要 keyword');
   const buildUrl = (page) =>
@@ -415,7 +419,7 @@ export async function fetchKeywordArticles(keyword) {
 
   if (items.length === 0) {
     return {
-      status: 'no_results',
+      status: 'success',
       site: 'aisixiang',
       mode: 'keyword',
       query: keyword,
@@ -441,7 +445,7 @@ export async function fetchKeywordArticles(keyword) {
   };
 }
 
-// list-title：標題模糊搜；0 筆 → no_results
+// list-title：標題模糊搜；0 筆 → success + count:0
 export async function fetchTitleArticles(keyword) {
   if (!keyword) throw new Error('需要 keyword');
   const buildUrl = (page) =>
@@ -450,7 +454,7 @@ export async function fetchTitleArticles(keyword) {
 
   if (items.length === 0) {
     return {
-      status: 'no_results',
+      status: 'success',
       site: 'aisixiang',
       mode: 'title',
       query: keyword,
@@ -476,7 +480,7 @@ export async function fetchTitleArticles(keyword) {
   };
 }
 
-// list-topic：策展主題兩跳；找不到 → not_a_topic
+// list-topic：策展主題兩跳；找不到 → success + count:0（建議改 list-keyword）
 export async function fetchTopicArticles({ keyword, id } = {}) {
   if (!keyword && !id) throw new Error('需要 keyword 或 id');
 
@@ -489,13 +493,17 @@ export async function fetchTopicArticles({ keyword, id } = {}) {
     const topics = await fetchTopicsList();
     const hit = lookupTopic(topics, keyword);
     if (!hit) {
+      // 抓到真實主題清單、確定不是策展主題 = 成功查詢、結果 0 筆（非抓取失敗）。
+      // 按全庫 binary contract 回 success + count:0，message 建議改用 list-keyword（不自動轉向）。
       return {
-        status: 'not_a_topic',
+        status: 'success',
         site: 'aisixiang',
         mode: 'topic',
         query: keyword,
         fetched_at: new Date().toISOString(),
         topics_count: topics.length,
+        count: 0,
+        items: [],
         message:
           `"${keyword}" 不在愛思想策展主題清單中（共 ${topics.length} 個主題）。` +
           `建議改用 list-keyword --keyword "${keyword}" 查 keyword tag 結果。` +

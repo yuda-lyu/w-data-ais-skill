@@ -48,14 +48,15 @@ test('fetch-aisixiang 整合測試（串行）', { concurrency: false, timeout: 
   });
   await sleep(BETWEEN_TESTS_MS);
 
-  await t.test('list-author --name 楊儒賓 → not_found（繁體不在簡體清單）', async () => {
+  await t.test('list-author --name 楊儒賓 → success+count:0（繁體不在簡體清單，成功查詢 0 筆）', async () => {
     const r = await fetchAuthorArticles({ name: '楊儒賓' });
-    assert.equal(r.status, 'not_found');
+    assert.equal(r.status, 'success');
     assert.equal(r.mode, 'author');
+    assert.equal(r.count, 0);
+    assert.equal(r.items.length, 0);
     assert.ok(r.authors_count > 500);
     assert.ok(r.message.includes('尚無'));
     assert.ok(r.message.includes('簡繁'));
-    assert.ok(!('items' in r), 'not_found 不應帶 items');
   });
   await sleep(BETWEEN_TESTS_MS);
 
@@ -79,9 +80,9 @@ test('fetch-aisixiang 整合測試（串行）', { concurrency: false, timeout: 
   });
   await sleep(BETWEEN_TESTS_MS);
 
-  await t.test('list-keyword --keyword 老莊 → no_results（繁體 0 命中，parser 不誤抓側邊）', async () => {
+  await t.test('list-keyword --keyword 老莊 → success+count:0（繁體 0 命中，parser 不誤抓側邊）', async () => {
     const r = await fetchKeywordArticles('老莊');
-    assert.equal(r.status, 'no_results');
+    assert.equal(r.status, 'success');
     assert.equal(r.count, 0);
     assert.equal(r.items.length, 0);
     assert.ok(r.message.includes('無相關文章'));
@@ -115,13 +116,14 @@ test('fetch-aisixiang 整合測試（串行）', { concurrency: false, timeout: 
   });
   await sleep(BETWEEN_TESTS_MS);
 
-  await t.test('list-topic --keyword 老莊 → not_a_topic（建議改 list-keyword）', async () => {
+  await t.test('list-topic --keyword 老莊 → success+count:0（建議改 list-keyword）', async () => {
     const r = await fetchTopicArticles({ keyword: '老莊' });
-    assert.equal(r.status, 'not_a_topic');
+    assert.equal(r.status, 'success');
     assert.equal(r.mode, 'topic');
+    assert.equal(r.count, 0);
+    assert.equal(r.items.length, 0);
     assert.ok(r.topics_count > 500);
     assert.ok(r.message.includes('list-keyword'));
-    assert.ok(!('items' in r));
   });
   await sleep(BETWEEN_TESTS_MS);
 

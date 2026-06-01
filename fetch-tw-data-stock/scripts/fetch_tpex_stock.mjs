@@ -55,7 +55,8 @@ if (dateArg) {
 
 let targetCodes = [];
 if (stockCodeArg.toLowerCase() !== 'all') {
-    targetCodes = stockCodeArg.split(',');
+    // split 後須 trim 並過濾空字串，否則「6488, 2330」(逗號後空格) 會產生帶空格的 " 2330" 比對不到而靜默丟股
+    targetCodes = stockCodeArg.split(',').map(c => c.trim()).filter(Boolean);
 }
 
 const defaultFilename = targetCodes.length > 0
