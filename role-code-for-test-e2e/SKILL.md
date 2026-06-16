@@ -27,7 +27,7 @@ Spec 撰寫紀律：spec「重要流程」段標題下緊接 `- **E2E-NNN**` bul
 
 baseline 是「規格凍結點」，命名與編號讓「檔案排序 ≡ 測試執行順序 ≡ spec bullet 順序」三者一致。
 
-**儲存政策**：像素比對的 e2e 僅建標準圖資料夾，測試當次截圖以 buffer 在記憶體比對不落地（截圖函式不帶 path 回傳 Buffer，比對 `buf.equals(fs.readFileSync(baselinePath))`）；僅產製模式才寫檔。同測試的標準圖放同一資料夾（如 `test/pics/login/`）。例外：測試失敗需 pixel diff 時可落 `./tmp/<name>-test.png` 供 sharp/imagemagick 比對。pixel baseline 是補強層不是測試本體，每 case 須先有語意斷言（全域規範 §6.2）。
+**儲存政策**：像素比對的 e2e 僅建標準圖資料夾，測試當次截圖以 buffer 在記憶體比對不落地（截圖函式不帶 path 回傳 Buffer，比對 `buf.equals(fs.readFileSync(baselinePath))`）；僅產製模式才寫檔。同測試的標準圖放同一資料夾（如 `test/pics/login/`）。**失敗證據保留（fail-dump）**：baseline 比對失敗時自動把「當次 capture」與「對應 baseline」**雙雙**存到專屬目錄 `./testPending/<label>__<ts>__{capture,baseline}.png`（檔名帶 ms timestamp + 撞檔 `-N` 後綴，**永不覆蓋**；`./testPending` 已 gitignore）供事後 pixel diff 定位 flake/破壞。本專案統一以 `test/e2e-setup.mjs` 的 `assertBaselineMatch(buf, baselinePath, label)` 實作（baseline 不存在則 throw；相等則靜默 return 不寫檔；不一致才落上述雙檔後 throw），所有 e2e 的 baseline 比對都改走它、不要各自寫裸 `buf.equals` + `./tmp` dump。why 用「專屬不覆蓋目錄 + 雙存」而非單一 `./tmp/<name>-test.png`：後者每跑覆蓋，偶發 flake 的當次證據常被下一次跑蓋掉而無從 diff（殷鑑：adduser E2E-003 drawer flake，dump 被覆蓋後 7 情境重現不出根因）；同時存 capture+baseline 才能直接對比、不必再去翻當時的 baseline。pixel baseline 是補強層不是測試本體，每 case 須先有語意斷言（全域規範 §6.2）。
 
 **檔名**：`<flow>-<lang>-<NNN>-<descriptive-kebab-name>.png`（flow 對應 spec 文件；lang＝eng/cht；NNN＝3 位數補零；kebab 名與 it() case 同字）。**編號錨點＝spec bullet 順序**（不是 mocha case index——spec 有「不測試」bullet 時 mocha index 會跳號對不上）。好處：ls 排序即執行順序、fail 直接定位 spec bullet、缺號即知漏 baseline。
 
