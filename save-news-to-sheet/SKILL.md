@@ -16,7 +16,7 @@ description: 透過 Google Apps Script Web App API 將新聞資料（itemsNew）
 調度 AI 組成 itemsNew 陣列
 → axios POST 到 GAS /exec
 → GAS 驗證 token
-→ 以 type + url + title + description + from 去重
+→ 以 url 去重（Sheet 內已存在相同 url 即跳過）
 → 寫入新資料至 Sheet
 → 回傳 { ok, addCount, itemsAdd }
 ```
@@ -98,20 +98,20 @@ node save-news-to-sheet/scripts/save_news_to_sheet.mjs \
 | `gas_url` | ✅ | GAS Web App 部署網址，須以 `/exec` 結尾 |
 | `token` | ✅ | GAS 端設定的驗證 token |
 | `itemsNew` | ✅ | 要新增的資料陣列 |
-| `type` | ⬜ | 資料類型，如 `news`、`rss`、`report`（為去重依據之一） |
-| `url` | ✅ | 資料網址（每筆必填，為去重依據之一） |
+| `type` | ⬜ | 資料類型，如 `news`、`rss`、`report` |
+| `url` | ✅ | 資料網址（每筆必填，**去重唯一鍵**） |
 | `time` | ⬜ | 時間字串，若未提供 GAS 端會自動補目前時間 |
-| `title` | ⬜ | 文章 / 影片標題（為去重依據之一） |
-| `description` | ⬜ | 內容摘要（為去重依據之一） |
-| `from` | ⬜ | 資料來源（為去重依據之一） |
+| `title` | ⬜ | 文章 / 影片標題 |
+| `description` | ⬜ | 內容摘要 |
+| `from` | ⬜ | 資料來源 |
 
 ## 去重邏輯
 
-GAS 端以 `type + url + title + description + from` 五欄位組合作為唯一鍵：
-- 若 Sheet 已有相同組合的資料，該筆會被跳過
-- 同一次 POST 內若有重複資料，也會去重
-- `time` 不參與去重比對
-- Node.js 端僅驗證每筆 `url` 欄位存在（必填），其餘欄位之去重邏輯由 GAS 後端處理
+GAS 端僅以 `url` 單一欄位作為去重唯一鍵（`buildKey_(item)` 取 `item.url` 去除前後空白；讀取既有資料 `readItemsOld_` 亦只讀 Sheet 之 `url` 欄）：
+- 若 Sheet 已有相同 `url` 的資料，該筆會被跳過
+- 同一次 POST 內若有重複 `url`，僅保留第一筆
+- `url` 以外之欄位（`type`、`time`、`title`、`description`、`from`）皆不參與去重比對
+- Node.js 端僅驗證每筆 `url` 欄位存在（必填），實際去重由 GAS 後端處理
 
 ## 輸出格式
 

@@ -59,6 +59,21 @@ baseline 是「規格凍結點」，命名與編號讓「檔案排序 ≡ 測試
 
 Mocha hook 順序：outer.before → **nested.before** → outer.beforeEach → nested.beforeEach → it。若 outer 用 `beforeEach` 做 DB 初始化且 --grep 過濾掉 outer 所有 it，nested.before 跑時 DB 是空的 → fail。修法：(a) --grep 涵蓋 outer 至少一個 case（如 `--grep "notverify|E2E-001-ok"`）；(b) nested.before 自己做 DB setup（redundant 但 self-contained）；(c) outer 改 `before` 一次 setup。判別：--grep 跑 nested 出現「找不到 user / login fails / 30s timeout」等 DB 沒資料徵狀 → 先查此 artifact，搭 backend log `can not find the user` 是強指標，不是 production bug。
 
+## 每個 case（E2E-NNN × 語系）都 new 一次 browser；DB 也每 case 重置（標準）
+
+業主定義之標準（原話）：**「e2e 內，每個重要流程且單語系，就只能 new 一次瀏覽器去測試，期間會有可能多次截圖比對；之後不論是換重要流程或換語系，都要重新 new 一次瀏覽器去測試。」**
+此處「每個重要流程」指**每個 E2E-NNN case（對應一個 `it()`）**，**不是**整份流程文件。故標準即 **per-case（每個 E2E-NNN/it() × 語系）fresh browser**。
+
+落地：
+- **browser = per-case**：`beforeEach` 內 `chromium.launch()` + `newContext()` + `newPage()`；`afterEach` `browser.close()`。**每個 `it()` 全新 browser/context/page**，cookie/localStorage/session 不跨 case 帶過。換下一個 E2E-NNN、或換語系（外層 `for (let lang)` 進下一圈），都重新 new。
+- **單一 case 內可多次截圖**：同一個 E2E-NNN（多步 case）可在它那一個 browser 內做多次截圖比對；多次截圖屬「同一個 case」，不另 new browser。
+- **DB = per-case**：`beforeEach` 重置（`deleteXxx()` + `insertXxx()` 重建 base seed），`afterEach` 再清一次。
+- **多步/接續流程要拆成各自獨立的 case**：一條流程有多個觀察點（如未驗證登入失敗→重寄→寄出→驗證→登入，共 5 個 E2E-NNN）時，**不可**用一個共用 browser 在 `before` 連續跑完再分 5 個 it() 斷言；應拆成 5 個各自 fresh browser + 各自 seed 狀態的 case（保留 E2E-NNN ↔ it() 一對一）。
+
+why 每 case new（而非用 `before` per-lang/per-describe 共用一個 browser 跑完整段）：①單 `--grep "E2E-NNN"` 跑單一 case 也能獨立成立（共用 browser 時單跑與全跑行為易不一致）；②共用 browser 需在 helper 內手動清 localStorage/狀態，易漏、前一 case 殘留會污染後一 case；③某 case fail 的殘留狀態不會傳染下一個。fresh launch 每 case ~1-2s 成本可接受，**不要為省時間改用 per-lang `before` 共用一個 browser 跑完整段**。
+
+**診斷推論（重要）**：若 browser 已 per-case fresh、DB 也 per-case 重置，卻仍見「跨 case 資料殘留」（list 多一筆、看到別的 flow 建的資料）——**這不是測試設計或瀏覽器殘留問題**，要查 **backend/DB 服務層**：最常見是**多個 backend process 同連一個 lmdb**（某 flow 的 restartBackend spawn 了新 backend、手動多開、或中途砍 mocha 留孤兒），其中一個握著舊的 lmdb snapshot/快取，瀏覽器請求打到它就回舊資料。屬 pixel-mismatch 表成因 #1（DB 內容不同）的延伸：先確認「只剩一個 backend 連這個 DB」。
+
 ## e2e 連線端點一律 `127.0.0.1` 不用 `localhost`（Windows IPv6 Happy-Eyeballs 陷阱）
 
 瀏覽器解析 `localhost` 先試 IPv6 `::1`；dev-server 常只綁 IPv4 → 每新連線多 ~150-200ms 回退。node fetch 不走 Happy-Eyeballs 所以 node 打不慢（誤判陷阱）。「請求慢」先做四象限隔離再決定要不要往 server 追：
