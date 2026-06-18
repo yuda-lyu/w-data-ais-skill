@@ -23,11 +23,13 @@ Audit 硬規則：任一維度缺漏＝部分覆蓋，不能用「case 數對齊
 
 Spec 撰寫紀律：spec「重要流程」段標題下緊接 `- **E2E-NNN**` bullets，不留 prose/blockquote/cross-ref；不獨立建 test 的議題寫進其他段落，不污染重要流程列表。
 
+重要流程內每個項目，配合指定語系，需視為1個case，例如E2E-001+cht就是1個case，E2E-001+eng是另1個case。注意，每個case需各自創建瀏覽器去測試，避免多case之間或向後互相影響。此外，每個case內可有多階段截圖比對，使能讓較長流程之case有更完整的被測試覆蓋率。
+
 ## 標準圖管理
 
 baseline 是「規格凍結點」，命名與編號讓「檔案排序 ≡ 測試執行順序 ≡ spec bullet 順序」三者一致。
 
-**儲存政策**：像素比對的 e2e 僅建標準圖資料夾，測試當次截圖以 buffer 在記憶體比對不落地（截圖函式不帶 path 回傳 Buffer，比對 `buf.equals(fs.readFileSync(baselinePath))`）；僅產製模式才寫檔。同測試的標準圖放同一資料夾（如 `test/pics/login/`）。**失敗證據保留（fail-dump）**：baseline 比對失敗時自動把「當次 capture」與「對應 baseline」**雙雙**存到專屬目錄 `./testPending/<label>__<ts>__{capture,baseline}.png`（檔名帶 ms timestamp + 撞檔 `-N` 後綴，**永不覆蓋**；`./testPending` 已 gitignore）供事後 pixel diff 定位 flake/破壞。本專案統一以 `test/e2e-setup.mjs` 的 `assertBaselineMatch(buf, baselinePath, label)` 實作（baseline 不存在則 throw；相等則靜默 return 不寫檔；不一致才落上述雙檔後 throw），所有 e2e 的 baseline 比對都改走它、不要各自寫裸 `buf.equals` + `./tmp` dump。why 用「專屬不覆蓋目錄 + 雙存」而非單一 `./tmp/<name>-test.png`：後者每跑覆蓋，偶發 flake 的當次證據常被下一次跑蓋掉而無從 diff（殷鑑：adduser E2E-003 drawer flake，dump 被覆蓋後 7 情境重現不出根因）；同時存 capture+baseline 才能直接對比、不必再去翻當時的 baseline。pixel baseline 是補強層不是測試本體，每 case 須先有語意斷言（全域規範 §6.2）。
+**儲存政策**：像素比對的 e2e 僅建標準圖資料夾，測試當次截圖以 buffer 在記憶體比對不落地（截圖函式不帶 path 回傳 Buffer）；僅產製模式才寫檔。同測試的標準圖放同一資料夾（如 `test/pics/login/`）。**比對採反鋸齒感知容差，非 byte-exact**：本專案統一以 `test/e2e-setup.mjs` 的 `assertBaselineMatch(buf, baselinePath, label, opts?)` 實作 — pngjs 同步解碼 → **pixelmatch** 比對（`includeAA:false` 自動偵測並**忽略反鋸齒邊緣像素**，`threshold:0.1`）；**差異像素數 ≤ `maxDiffPixels`（預設 100）則視為通過**、靜默 return；超過才 fail；尺寸不同直接 fail；baseline 不存在則 throw。why 用容差不用 `buf.equals`：SVG icon / 字型邊緣之次像素 raster 跨 browser session 不決定性，byte-exact 會把這類「肉眼等同的反鋸齒 noise」當失敗 → 永無止境的 flake（殷鑑：icon 全面改 @mdi/js SVG 後 byte-exact 炸出大量次像素 flake，逼出 `--disable-gpu` 等 flag 體操仍殘留 register-014 等）；pixelmatch 的 AA 偵測專治此（YIQ 感知色差 + AA slope），真 regression（icon 換 / 版面位移 / 顏色變）動輒數百~數千 px 遠超 maxDiffPixels → 仍被抓到。業界標準同 Playwright 內建 `toHaveScreenshot`（maxDiffPixels/maxDiffPixelRatio/threshold）。**失敗證據保留（fail-dump）**：比對失敗時自動把「當次 capture」「對應 baseline」「diff 標紅圖」存到專屬目錄 `./testPending/<label>__<ts>__{capture,baseline,diff}.png`（檔名帶 ms timestamp + 撞檔 `-N` 後綴，**永不覆蓋**；`./testPending` 已 gitignore）供事後定位。why 不覆蓋 + 三存：偶發 flake 當次證據才不會被下次跑蓋掉（殷鑑：adduser E2E-003 drawer flake，dump 被覆蓋後重現不出根因）。pixel baseline 是補強層不是測試本體，每 case 須先有語意斷言（全域規範 §6.2）。
 
 **檔名**：`<flow>-<lang>-<NNN>-<descriptive-kebab-name>.png`（flow 對應 spec 文件；lang＝eng/cht；NNN＝3 位數補零；kebab 名與 it() case 同字）。**編號錨點＝spec bullet 順序**（不是 mocha case index——spec 有「不測試」bullet 時 mocha index 會跳號對不上）。好處：ls 排序即執行順序、fail 直接定位 spec bullet、缺號即知漏 baseline。
 
@@ -38,6 +40,8 @@ baseline 是「規格凍結點」，命名與編號讓「檔案排序 ≡ 測試
 **重產政策**：UI 變更後重產須先詢問使用者授權，不可自行決定；針對性產製只產受影響的，除非使用者明確說全部重產；i18n 多語系每語系都涵蓋。why：無差別重產＝把當下行為（含 bug）凍結為真理。
 
 **手術式重產（`--names` 指定單張）必須在「截圖前」gate**，不能只 gate 寫檔——要省的是截圖成本（每張數十秒）。正解：`shouldGen(lang, name)`（截圖前判斷）＋ `writeBaseline(...)`（寫檔 filter 安全網）並存且寫法統一。此屬靜態控制流（全域規範 §2.6 規則 6）：讀 regen 迴圈追到 file:line 就有答案。
+
+**標注要求**：針對測試的展示或編輯區，需要繪製紅框用以標注。因 e2e 為瀏覽器截圖範圍大，要讓讀者或審查者方便知道是此測試主要是觀看哪個區域之內容，故需針對觀看區域（例如展示標題區或輸入文字方塊區等）繪製矩形紅框，顏色須用 #f26，線寬用 5px。
 
 ## 寫 e2e 前的思考起點
 
@@ -66,9 +70,12 @@ Mocha hook 順序：outer.before → **nested.before** → outer.beforeEach → 
 
 落地：
 - **browser = per-case**：`beforeEach` 內 `chromium.launch()` + `newContext()` + `newPage()`；`afterEach` `browser.close()`。**每個 `it()` 全新 browser/context/page**，cookie/localStorage/session 不跨 case 帶過。換下一個 E2E-NNN、或換語系（外層 `for (let lang)` 進下一圈），都重新 new。
-- **單一 case 內可多次截圖**：同一個 E2E-NNN（多步 case）可在它那一個 browser 內做多次截圖比對；多次截圖屬「同一個 case」，不另 new browser。
+- **單一 case 內可多次截圖**：一個 case 可在它那一個 browser 內做多次截圖比對；多次截圖屬「同一個 case」，不另 new browser。一個 case 可能只是一個瞬時畫面、也可能是一段需逐階段觀察的 journey。
 - **DB = per-case**：`beforeEach` 重置（`deleteXxx()` + `insertXxx()` 重建 base seed），`afterEach` 再清一次。
-- **多步/接續流程要拆成各自獨立的 case**：一條流程有多個觀察點（如未驗證登入失敗→重寄→寄出→驗證→登入，共 5 個 E2E-NNN）時，**不可**用一個共用 browser 在 `before` 連續跑完再分 5 個 it() 斷言；應拆成 5 個各自 fresh browser + 各自 seed 狀態的 case（保留 E2E-NNN ↔ it() 一對一）。
+- **「拆成多 case」vs「單一 case 多階段截圖」的判別（關鍵，別搞反）**：
+  - **獨立情境** — 各自 seed、彼此無狀態依賴（如密碼錯誤 / 帳號停用 / 已過期 / 被封鎖，每個都是獨立一組前置）→ **各自一個 per-case it()**，各自 fresh browser。
+  - **承接式 sequential journey** — 後段 state 承接前段真實副作用、無法乾淨 seed 中間點，或整段共用一次外部 round-trip（如 email 寄出→收信→開連結驗證）。典型：未驗證流程「登入失敗→點重寄→寄出信→收信開驗證連結→驗證後登入」。→ **這整段是「一個 case」**：用它自己的一個 browser 走完整段 journey，於每個階段做截圖＋語意比對（即上一條「單一 case 內可多次截圖」）。此 journey 沿用的多個 E2E-NNN 編號 = **同一 case 內的多個截圖點，不是多個 case**。
+  - **不要把承接式 journey 硬拆成多個獨立 case**：中間階段（如「已收到信的驗證連結結果頁」）依賴前段真實副作用（後端剛寄出、信箱實收），硬拆需偽造 state（seed 假 token / 跳過寄信），反把整合驗證做成假測試（殷鑑：本要驗「真實信件內含可用連結」，硬拆後變成只驗「我自己塞的 token 能開頁」）。判別句：**「中間某階段的前置，是不是前一階段的真實副作用造成、且無法用 seed 乾淨複製？」是 → 同一 case 多截圖；否（每階段都能獨立 seed）→ 可拆獨立 case。**
 
 why 每 case new（而非用 `before` per-lang/per-describe 共用一個 browser 跑完整段）：①單 `--grep "E2E-NNN"` 跑單一 case 也能獨立成立（共用 browser 時單跑與全跑行為易不一致）；②共用 browser 需在 helper 內手動清 localStorage/狀態，易漏、前一 case 殘留會污染後一 case；③某 case fail 的殘留狀態不會傳染下一個。fresh launch 每 case ~1-2s 成本可接受，**不要為省時間改用 per-lang `before` 共用一個 browser 跑完整段**。
 
@@ -110,7 +117,7 @@ async function captureStable(page, opts = {}) {
 
 負面斷言（已驗證無效的土辦法，別重走）：warmup dummy screenshot（打破其他 baseline）、`document.fonts.ready`（只保證 layout 不保證 paint）、拉長固定 waitForTimeout、雙重 rAF 偵測（對 paint/GPU 冷啟無效）。直接從 retry-until-stable 起跳。
 
-**Pixel 不一致是決定性的——永遠有具體成因，禁止歸「warm-state 微差/已知限制」收尾**。先 diff 定位差異區域（sharp/imagemagick 框 bounding box），再對照下表；歷次逐一 diff 命中率 100% 都是具體成因：
+**超出容差的 pixel 差是決定性的——永遠有具體成因，禁止歸「warm-state 微差/已知限制」收尾**（反鋸齒次像素已由 `assertBaselineMatch` 的 pixelmatch AA 偵測 + `maxDiffPixels` 自動吸收、不算 fail；會 fail 的是「真不同像素數 > maxDiffPixels」的真差異）。先看 `./testPending` 的 `__diff.png`（pixelmatch 已標出真差異區）或自行 diff 定位（sharp/imagemagick 框 bounding box），再對照下表；歷次逐一 diff 命中率 100% 都是具體成因：
 
 | # | 成因 | 徵狀 | 解法 |
 |---|---|---|---|
@@ -118,9 +125,9 @@ async function captureStable(page, opts = {}) {
 | 2 | 動畫未停（CSS/SVG SMIL/canvas） | 差異在會動的元件 | pauseAnimations；SMIL 凍不到→遮黑；動態數據→遮罩 |
 | 3 | 延遲特效（setTimeout reveal） | 同畫面忽有忽無某元素、寬度差幾 px | captureStable `initialWaitMs` 等 timer fire |
 | 4 | hover/focus 殘留 | 點擊後滑鼠停在元件上拍進 hover 態 | 截圖前 `page.mouse.move(0,0)` + 等動畫 |
-| 5 | async 未 settle（font/paint/glyph） | 首次渲染整體微差 | captureStable retry；正解是「等 settle」不是「接受微差」 |
+| 5 | async 未 settle（font/paint/glyph） | 首次渲染整體微差 | captureStable retry 等 settle；settle 後殘留的反鋸齒次像素由 pixelmatch AA 偵測吸收（非盲目接受微差） |
 
-真有極少數區域怎麼等都不穩 → 遮罩該區域，不是接受 N bytes 微差。
+分流（取代舊「不接受 N bytes 微差」一刀切）：**①反鋸齒次像素 noise**（SVG icon / 字型邊緣，肉眼等同，跨 session raster 不決定性）→ 由 `assertBaselineMatch` 的 pixelmatch `includeAA:false` + `maxDiffPixels` 容差**自動吸收**，不必 chase、不必遮罩、不必 `--disable-gpu` 等 flag 體操；**②真會動的動態內容**（資料/動畫/canvas 怎麼等都不穩）→ **遮罩**該區域；**③超容差的真差異**（>maxDiffPixels）→ 照上表查**具體成因**，不是放寬 maxDiffPixels 將就。
 
 `animations: 'disabled'` 只 fast-forward CSS animations/transitions，**不會 fast-forward `setTimeout`**——retry 只保證「某 state 穩定」不保證是 final state（timer 前後兩個 state 各自都穩定 → 隨機收斂），故 `initialWaitMs=500` 必要（對 300ms 級 timer 給 1.6× buffer）。
 
