@@ -3,7 +3,7 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（43 個）
+## 技能總覽（44 個）
 
 | 分類 | 技能數 |
 |------|:------:|
@@ -26,6 +26,7 @@
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
 | `do-loop` | 自主循環開發：以 Planner→Executor→Auditor 三角色驅動完整開發迴圈，持久化 `state.json` 支援跨 session 斷點續接 | 無（純工作流協議） |
+| `oper-schedule-for-windows` | Windows 工作排程（Task Scheduler）設定要點：先判任務型態（一次性 job／常駐行程）→ 挑 ExecutionTimeLimit／MultipleInstances／LogonType → schtasks 或 XML 配方建立 → 讀回驗證；含 TimeTrigger vs LogonTrigger、PowerShell 5.1 編碼陷阱、日常管理（免提權） | 無（純操作指引，需 Windows + PowerShell 5.1） |
 
 - 三角色迴圈：規劃（拆解任務 + 驗收條件）→ 執行（逐一實作）→ 審計（品質檢查）→ 修正（若未通過）→ 結案
 - 6 個中止條件：成功結案、需求不明、技術阻塞、單任務修正 ≥ 3 次、整體迴圈 > 5 輪、使用者中斷
@@ -452,6 +453,8 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 │   └── scripts/
 │       ├── fetchYoutubeTranscript.mjs
 │       └── fetch_youtube_transcript.mjs
+├── oper-schedule-for-windows/
+│   └── SKILL.md
 ├── role-design-web-for-magazine/
 │   ├── SKILL.md
 │   └── references/
@@ -525,7 +528,7 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 
 ## 依賴安裝
 
-> 本庫核心函數入口統一以 `wsemi` 做參數驗證、部分技能用 `lodash-es` 取 opt 值，故多數技能依賴含 `wsemi`（部分含 `lodash-es`）；純文件型技能（do-loop / role-* / dispatch-claude/codex/opencode/antigravity/agents）無 npm 依賴。各技能確切依賴見其 SKILL.md，或執行 `node _audit/dep_recon.mjs` 對帳。
+> 本庫核心函數入口統一以 `wsemi` 做參數驗證、部分技能用 `lodash-es` 取 opt 值，故多數技能依賴含 `wsemi`（部分含 `lodash-es`）；純文件型技能（do-loop / oper-schedule-for-windows / role-* / dispatch-claude/codex/opencode/antigravity/agents）無 npm 依賴。各技能確切依賴見其 SKILL.md，或執行 `node _audit/dep_recon.mjs` 對帳。
 
 ```bash
 # 台股研究全套（盤前調研 + 盤後總結 + 新聞抓取）
