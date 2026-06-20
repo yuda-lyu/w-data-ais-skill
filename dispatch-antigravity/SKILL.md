@@ -18,7 +18,7 @@ description: This skill should be used when the user asks to "run antigravity as
 ## 何時使用此 Skill
 
 - 使用者要求「跑 antigravity」「呼叫 agy」「用 antigravity cli 當 agent」
-- 個人 / 免費帳戶用戶要從 `dispatch-gemini` 遷移過來（2026-06-18 後 gemini CLI 停服）
+- 需要 Gemini 系列模型的後端推理能力（gemini CLI 已停服，`agy` 為官方後繼）
 - 需要 Antigravity 多 agent 平台的能力（共用 Antigravity 2.0 desktop 的 agent harness）
 
 ## 透過 dispatch-cli 調用（推薦）
@@ -102,7 +102,7 @@ if (result.ok) {
 | `--log-file <path>` | 視情況 | 自訂 log 檔位置 |
 | `--sandbox` | ❌ 避免 | 會限制 terminal，可能擋住部分操作 |
 
-> **與 dispatch-gemini 的差異**：
+> **與舊版 Gemini CLI 的差異**：
 > 1. 命令名 `agy` 不是 `antigravity`
 > 2. **沒有** `-m / --model` 旗標
 > 3. **沒有** `-o json` 結構化輸出旗標
@@ -191,4 +191,4 @@ curl -fsSL https://antigravity.google/cli/install.sh | bash
 
 > **Headless / CI 環境**：`--dangerously-skip-permissions` 不會自動完成 OAuth；請事先在本機完成認證，憑證會快取在 `~/.agy/` 或 `%USERPROFILE%\.agy\`。
 
-> **與 `dispatch-gemini` 的關係**：本技能是 `dispatch-gemini` 的後繼者（gemini CLI 於 2026-06-18 對個人帳戶停服）。Code Assist Enterprise 授權者仍可繼續用 `dispatch-gemini`；其餘人應改用本技能。
+> **取代 dispatch-gemini**：本技能是已移除的 `dispatch-gemini` 的後繼者（gemini CLI 已於 2026-06-18 起停止 CLI 服務）。原先一切 gemini CLI 派工場景，一律改用本技能。

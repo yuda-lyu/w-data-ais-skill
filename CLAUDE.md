@@ -14,7 +14,7 @@
 
 | 類別 | 技能 | 驗證方式 |
 |---|---|---|
-| 🔴 **禁止實跑**（spawn 子進程／開 cmd 視窗）| `dispatch-cli`、`dispatch-claude`、`dispatch-codex`、`dispatch-gemini`、`dispatch-opencode`、`dispatch-agents` | 核心 `run_cli.mjs` 的功能**就是 spawn 外部 CLI**；Windows 上 `.cmd` shim / `cmd.exe` fallback 會**彈出真實 cmd 視窗**。只准讀碼 + 對純函式（如 `_parseJsEntryFromCmd`、輸出解碼）做 mock 單元測試；**絕不** `node run_cli.mjs` 跑真實 CLI、**絕不**實測 cmd.exe fallback 路徑 |
+| 🔴 **禁止實跑**（spawn 子進程／開 cmd 視窗）| `dispatch-cli`、`dispatch-claude`、`dispatch-codex`、`dispatch-opencode`、`dispatch-agents` | 核心 `run_cli.mjs` 的功能**就是 spawn 外部 CLI**；Windows 上 `.cmd` shim / `cmd.exe` fallback 會**彈出真實 cmd 視窗**。只准讀碼 + 對純函式（如 `_parseJsEntryFromCmd`、輸出解碼）做 mock 單元測試；**絕不** `node run_cli.mjs` 跑真實 CLI、**絕不**實測 cmd.exe fallback 路徑 |
 | 🔴 **禁止實跑**（開瀏覽器）| `download-baidu-pdf`、`fetch-web-by-playwright-headless`、`fetch-web-by-playwright-head`、`fetch-web-by-camofox`、`fetch-youtube-transcript`、`fetch-tw-news-mops` | Playwright 會啟動本機 Chrome。只准讀碼 + 靜態分析；要驗 DOM/解析邏輯就抽純函式 mock |
 | 🔴 **禁止實跑**（不可逆外部動作）| `send-email`（真寄信）、`share-file`（真上傳）、`save-news-to-sheet`（真寫外部 Google Sheet）| 只讀碼 + mock；driver 一律不打真實 endpoint |
 | 🟡 **可實跑但限 `./tmp/`**（對外網唯讀抓取）| `fetch-web-by-curl`、`fetch-web`、`fetch-rss`、`fetch-hacker-news`、`fetch-ai-news-aggregator`、`fetch-news-ai`、`fetch-aisixiang`、`fetch-guancha`、`check-tw-trading-day`、`fetch-tw-data-*`、`fetch-tw-news-cnyes`、`fetch-tw-news-statementdog`、`fetch-tw-news-moneydj` | 可實跑，但**輸出一律帶 `outputPath=./tmp/...`**（見 §3），收尾清 tmp。注意 fetch-tw-news-mops 走瀏覽器，屬 🔴 |

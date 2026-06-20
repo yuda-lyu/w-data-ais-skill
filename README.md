@@ -102,10 +102,9 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 | `dispatch-cli` | 通用 CLI 子進程執行器（核心層），提供超時控制、進程樹清理、輸出驗證、結構化錯誤回報與自動重試，供其他 dispatch 技能調用 | Node.js ≥ 18，需 `wsemi`、`lodash-es` |
 | `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | 需安裝 `@anthropic-ai/claude-code`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
 | `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | 需安裝 `@openai/codex`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
-| `dispatch-gemini` | 以 Google Gemini CLI (`gemini`) 作為獨立 agent 驅動，預設可連網 | 需安裝 `@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
 | `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | 需安裝 `opencode-ai`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
 | `dispatch-antigravity` | 以 Antigravity CLI (`agy`) 作為獨立 agent 驅動 | 需安裝 `agy` CLI（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
-| `dispatch-agents` | 同時派出 Claude / Codex / Gemini 三大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整三方結果 | 三者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`、`@google/gemini-cli`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
+| `dispatch-agents` | 同時派出 Claude / Codex 兩大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整雙方結果 | 兩者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
 
 - `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘技能透過它執行
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
@@ -328,10 +327,6 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 │   ├── SKILL.md
 │   └── references/
 │       └── codex-flags.md
-├── dispatch-gemini/
-│   ├── SKILL.md
-│   └── references/
-│       └── gemini-flags.md
 ├── dispatch-opencode/
 │   ├── SKILL.md
 │   └── references/
@@ -530,7 +525,7 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 
 ## 依賴安裝
 
-> 本庫核心函數入口統一以 `wsemi` 做參數驗證、部分技能用 `lodash-es` 取 opt 值，故多數技能依賴含 `wsemi`（部分含 `lodash-es`）；純文件型技能（do-loop / role-* / dispatch-claude/codex/gemini/opencode/antigravity/agents）無 npm 依賴。各技能確切依賴見其 SKILL.md，或執行 `node _audit/dep_recon.mjs` 對帳。
+> 本庫核心函數入口統一以 `wsemi` 做參數驗證、部分技能用 `lodash-es` 取 opt 值，故多數技能依賴含 `wsemi`（部分含 `lodash-es`）；純文件型技能（do-loop / role-* / dispatch-claude/codex/opencode/antigravity/agents）無 npm 依賴。各技能確切依賴見其 SKILL.md，或執行 `node _audit/dep_recon.mjs` 對帳。
 
 ```bash
 # 台股研究全套（盤前調研 + 盤後總結 + 新聞抓取）

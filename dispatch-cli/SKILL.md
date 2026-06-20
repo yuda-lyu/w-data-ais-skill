@@ -1,6 +1,6 @@
 ---
 name: dispatch-cli
-description: Generic CLI subprocess runner with timeout, process-tree cleanup, output validation, and structured error handling. Core invocation layer for dispatch-claude, dispatch-codex, dispatch-gemini, dispatch-opencode and any external CLI.
+description: Generic CLI subprocess runner with timeout, process-tree cleanup, output validation, and structured error handling. Core invocation layer for dispatch-claude, dispatch-codex, dispatch-opencode and any external CLI.
 ---
 
 # dispatch-cli — 通用 CLI 子進程調用技能
@@ -13,10 +13,10 @@ description: Generic CLI subprocess runner with timeout, process-tree cleanup, o
 
 ## 何時使用此 Skill
 
-- 需要從 Node.js 調用任何外部 CLI（claude、codex、gemini、opencode、curl、node 子腳本...）
+- 需要從 Node.js 調用任何外部 CLI（claude、codex、opencode、curl、node 子腳本...）
 - 需要可靠的超時控制與殭屍進程防治
 - 需要統一的成功/失敗回報格式
-- 作為 `dispatch-claude`、`dispatch-codex`、`dispatch-gemini`、`dispatch-opencode` 的核心調用層
+- 作為 `dispatch-claude`、`dispatch-codex`、`dispatch-opencode` 的核心調用層
 
 ## 安裝指引
 
@@ -169,14 +169,6 @@ CLI_TIMEOUT_MS=180000 \
   "重構 utils/ 目錄下的所有函式"
 ```
 
-### dispatch-gemini
-
-```bash
-CLI_TIMEOUT_MS=180000 CLI_CWD=/path/to/project \
-  node dispatch-cli/scripts/run_cli.mjs \
-  gemini --approval-mode=yolo -p "分析此專案架構"
-```
-
 ### dispatch-opencode
 
 ```bash
@@ -205,5 +197,4 @@ CLI_TIMEOUT_MS=180000 \
 |------|------|
 | `dispatch-claude` | 使用本技能調用 `claude -p` |
 | `dispatch-codex` | 使用本技能調用 `codex exec` |
-| `dispatch-gemini` | 使用本技能調用 `gemini -p` |
 | `dispatch-opencode` | 使用本技能調用 `opencode run` |
