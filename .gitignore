@@ -4,6 +4,7 @@ node_modules
 .claude
 package-lock.json
 script.txt
+zAI.md
 
 _temp
 tmp
