@@ -83,12 +83,13 @@ function _escapeWinCmd(cmd) {
 }
 
 /**
- * 從 .cmd shim 中解析出實際的 JS 入口檔案路徑。
+ * 從 .cmd shim 中解析出實際入口檔案路徑（可能為 JS，亦可能為原生 .exe）。
  * npm 全域安裝的 .cmd 格式固定，末行為：
  *   ... "%_prog%"  "%dp0%\node_modules\...\entry" %*
- * 入口可能為 .js / .cjs / .mjs / 無副檔名（如 opencode 的 bin/opencode）；
+ * 入口可能為 .js / .cjs / .mjs / 無副檔名 / .exe（如 opencode 的 bin/opencode.exe）；
  * 故一律抓引號內 node_modules 後的相對路徑、再以 existsSync 驗證實體檔存在
- * （只匹配 .js 會讓 opencode 等無副檔名入口落入 cmd.exe fallback、破壞多行 prompt）。
+ * （只匹配 .js 會讓無副檔名入口落入 cmd.exe fallback、破壞多行 prompt）。
+ * 回傳後由 _buildSpawnArgs 依副檔名決定：.exe 直接 spawn、其餘交給 node。
  */
 function _parseJsEntryFromCmd(cmdPath) {
     try {
@@ -117,11 +118,15 @@ function _buildSpawnArgs(command, args) {
     const resolved = _resolveCommand(command);
     // .exe 可直接 spawn
     if (/\.exe$/i.test(resolved)) return { file: resolved, args };
-    // .cmd/.bat → 嘗試解析出 JS 入口，直接用 node 執行
+    // .cmd/.bat → 嘗試解析出實際入口
     if (/\.(cmd|bat)$/i.test(resolved)) {
-        const jsEntry = _parseJsEntryFromCmd(resolved);
-        if (jsEntry) {
-            return { file: process.execPath, args: [jsEntry, ...args] };
+        const entry = _parseJsEntryFromCmd(resolved);
+        if (entry) {
+            // 入口為原生 .exe（如 opencode 的 bin/opencode.exe）→ 直接 spawn；
+            // 切勿丟給 node，否則 node 會把 PE 二進位當 JS 解析而崩潰（MZ... SyntaxError）。
+            if (/\.exe$/i.test(entry)) return { file: entry, args };
+            // 入口為 JS（.js/.cjs/.mjs/無副檔名）→ 用 node 直接執行，繞過 cmd.exe，支援多行參數
+            return { file: process.execPath, args: [entry, ...args] };
         }
         // fallback: 透過 cmd.exe 執行（注意：不支援多行參數）
         const escaped = args.map(a => _escapeWinArg(a));
