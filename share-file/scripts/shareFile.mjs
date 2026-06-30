@@ -130,6 +130,26 @@ export async function shareFile(filePath, options = {}) {
         const ctx = await browser.newContext({ locale: 'zh-TW' })
         const page = await ctx.newPage()
 
+        // 追蹤真正的上傳狀態：連結出現 ≠ 上傳完成。
+        // Wormhole 流程：連結樂觀產生 → 檔案位元組 POST 到 Backblaze B2 → /b2/finish-upload commit。
+        // 必須等 commit 完成且無 B2 in-flight 才能關瀏覽器，否則位元組沒落地、接收者下載 0%。
+        // 事件須在 goto/上傳前註冊，才能完整捕捉。
+        let b2InFlight = 0
+        let commitDone = false
+        page.on('request', (req) => {
+            if (req.url().includes('backblaze.com')) b2InFlight++
+        })
+        const _settleB2 = (req) => {
+            if (req.url().includes('backblaze.com')) b2InFlight = Math.max(0, b2InFlight - 1)
+        }
+        page.on('requestfinished', async (req) => {
+            _settleB2(req)
+            if (/\/b2\/finish/.test(req.url())) {
+                try { const r = await req.response(); if (r && r.status() === 200) commitDone = true } catch { /* noop */ }
+            }
+        })
+        page.on('requestfailed', _settleB2)
+
         await page.goto(WORMHOLE_URL, { waitUntil: 'domcontentloaded', timeout: navTimeout })
 
         // 等 file input 出現（站方 SPA 載入）
@@ -184,6 +204,23 @@ export async function shareFile(filePath, options = {}) {
                 return sel ? sel.text : null
             })
         })
+
+        // 等上傳「真正完成」才放行關瀏覽器：commit 完成且無 B2 in-flight，或 DOM 顯示「已上傳」。
+        // 連結出現於 ~2s 但檔案位元組要到 ~5.5s 才 commit 到 Backblaze B2；提早關會中斷上傳 → 接收者下載 0%。
+        const upDeadline = Date.now() + uploadTimeout
+        let uploadComplete = false
+        while (Date.now() < upDeadline) {
+            if (commitDone && b2InFlight === 0) { uploadComplete = true; break }
+            const domDone = await page.evaluate(() => {
+                const b = document.body ? (document.body.innerText || '') : ''
+                return /已上傳|Uploaded/.test(b) && !/上傳中|Uploading/.test(b)
+            }).catch(() => false)
+            if (domDone) { uploadComplete = true; break }
+            await page.waitForTimeout(POLL_INTERVAL_MS)
+        }
+        if (!uploadComplete) {
+            throw new Error(`上傳未在 ${uploadTimeout}ms 內完成（檔案未 commit 至儲存後端，關閉瀏覽器會導致接收者無法下載）`)
+        }
 
         return {
             status: 'success',
