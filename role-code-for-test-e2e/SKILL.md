@@ -29,7 +29,7 @@ Spec 撰寫紀律：spec「重要流程」段標題下緊接 `- **E2E-NNN**` bul
 
 baseline 是「規格凍結點」，命名與編號讓「檔案排序 ≡ 測試執行順序 ≡ spec bullet 順序」三者一致。
 
-**儲存政策**：像素比對的 e2e 僅建標準圖資料夾，測試當次截圖以 buffer 在記憶體比對不落地（截圖函式不帶 path 回傳 Buffer）；僅產製模式才寫檔。同測試的標準圖放同一資料夾（如 `test/pics/login/`）。**比對採反鋸齒感知容差，非 byte-exact**：本專案統一以 `test/e2e-setup.mjs` 的 `assertBaselineMatch(buf, baselinePath, label, opts?)` 實作 — pngjs 同步解碼 → **pixelmatch** 比對（`includeAA:false` 自動偵測並**忽略反鋸齒邊緣像素**，`threshold:0.1`）；**差異像素數 ≤ `maxDiffPixels`（預設 100）則視為通過**、靜默 return；超過才 fail；尺寸不同直接 fail；baseline 不存在則 throw。why 用容差不用 `buf.equals`：SVG icon / 字型邊緣之次像素 raster 跨 browser session 不決定性，byte-exact 會把這類「肉眼等同的反鋸齒 noise」當失敗 → 永無止境的 flake（殷鑑：icon 全面改 @mdi/js SVG 後 byte-exact 炸出大量次像素 flake，逼出 `--disable-gpu` 等 flag 體操仍殘留 register-014 等）；pixelmatch 的 AA 偵測專治此（YIQ 感知色差 + AA slope），真 regression（icon 換 / 版面位移 / 顏色變）動輒數百~數千 px 遠超 maxDiffPixels → 仍被抓到。業界標準同 Playwright 內建 `toHaveScreenshot`（maxDiffPixels/maxDiffPixelRatio/threshold）。**失敗證據保留（fail-dump）**：比對失敗時自動把「當次 capture」「對應 baseline」「diff 標紅圖」存到專屬目錄 `./testPending/<label>__<ts>__{capture,baseline,diff}.png`（檔名帶 ms timestamp + 撞檔 `-N` 後綴，**永不覆蓋**；`./testPending` 已 gitignore）供事後定位。why 不覆蓋 + 三存：偶發 flake 當次證據才不會被下次跑蓋掉（殷鑑：adduser E2E-003 drawer flake，dump 被覆蓋後重現不出根因）。pixel baseline 是補強層不是測試本體，每 case 須先有語意斷言（全域規範 §6.2）。
+**儲存政策**：像素比對的 e2e 僅建標準圖資料夾，測試當次截圖以 buffer 在記憶體比對不落地（截圖函式不帶 path 回傳 Buffer）；僅產製模式才寫檔。同測試的標準圖放同一資料夾（如 `test/pics/login/`）。**比對採反鋸齒感知容差，非 byte-exact**：統一以各專案 `test/e2e-setup.mjs` 匯出之 **baseline 比對函式**實作（**函式實名與簽章因專案而異，本技能不寫死，由各專案 `CLAUDE.md` 落地映射**；欲確認機制請 grep `pixelmatch`，不要憑函式名猜測——曾有 agent 以他專案函式名 grep 落空即誤判「本專案沒有 pixelmatch」）— pngjs 同步解碼 → **pixelmatch** 比對（`includeAA:false` 自動偵測並**忽略反鋸齒邊緣像素**，`threshold:0.1`）；**差異像素數 ≤ `maxDiffPixels`（預設 100）則視為通過**、靜默 return；超過才 fail；尺寸不同直接 fail；baseline 不存在則 throw。why 用容差不用 `buf.equals`：SVG icon / 字型邊緣之次像素 raster 跨 browser session 不決定性，byte-exact 會把這類「肉眼等同的反鋸齒 noise」當失敗 → 永無止境的 flake（殷鑑：icon 全面改 @mdi/js SVG 後 byte-exact 炸出大量次像素 flake，逼出 `--disable-gpu` 等 flag 體操仍殘留 register-014 等）；pixelmatch 的 AA 偵測專治此（YIQ 感知色差 + AA slope），真 regression（icon 換 / 版面位移 / 顏色變）動輒數百~數千 px 遠超 maxDiffPixels → 仍被抓到。業界標準同 Playwright 內建 `toHaveScreenshot`（maxDiffPixels/maxDiffPixelRatio/threshold）。**失敗證據保留（fail-dump）**：比對失敗時自動把「當次 capture」「對應 baseline」「diff 標紅圖」存到專屬目錄 `./testPending/<label>__<ts>__{capture,baseline,diff}.png`（檔名帶 ms timestamp + 撞檔 `-N` 後綴，**永不覆蓋**；`./testPending` 已 gitignore）供事後定位。why 不覆蓋 + 三存：偶發 flake 當次證據才不會被下次跑蓋掉（殷鑑：adduser E2E-003 drawer flake，dump 被覆蓋後重現不出根因）。pixel baseline 是補強層不是測試本體，每 case 須先有語意斷言（全域規範 §6.2）。
 
 **檔名**：`<flow>-<lang>-<NNN>-<descriptive-kebab-name>.png`（flow 對應 spec 文件；lang＝eng/cht；NNN＝3 位數補零；kebab 名與 it() case 同字）。**編號錨點＝spec bullet 順序**（不是 mocha case index——spec 有「不測試」bullet 時 mocha index 會跳號對不上）。好處：ls 排序即執行順序、fail 直接定位 spec bullet、缺號即知漏 baseline。
 
@@ -117,7 +117,7 @@ async function captureStable(page, opts = {}) {
 
 負面斷言（已驗證無效的土辦法，別重走）：warmup dummy screenshot（打破其他 baseline）、`document.fonts.ready`（只保證 layout 不保證 paint）、拉長固定 waitForTimeout、雙重 rAF 偵測（對 paint/GPU 冷啟無效）。直接從 retry-until-stable 起跳。
 
-**超出容差的 pixel 差是決定性的——永遠有具體成因，禁止歸「warm-state 微差/已知限制」收尾**（反鋸齒次像素已由 `assertBaselineMatch` 的 pixelmatch AA 偵測 + `maxDiffPixels` 自動吸收、不算 fail；會 fail 的是「真不同像素數 > maxDiffPixels」的真差異）。先看 `./testPending` 的 `__diff.png`（pixelmatch 已標出真差異區）或自行 diff 定位（sharp/imagemagick 框 bounding box），再對照下表；歷次逐一 diff 命中率 100% 都是具體成因：
+**超出容差的 pixel 差是決定性的——永遠有具體成因，禁止歸「warm-state 微差/已知限制」收尾**（反鋸齒次像素已由 baseline 比對函式的 pixelmatch AA 偵測 + `maxDiffPixels` 自動吸收、不算 fail；會 fail 的是「真不同像素數 > maxDiffPixels」的真差異）。先看 `./testPending` 的 `__diff.png`（pixelmatch 已標出真差異區）或自行 diff 定位（sharp/imagemagick 框 bounding box），再對照下表；歷次逐一 diff 命中率 100% 都是具體成因：
 
 | # | 成因 | 徵狀 | 解法 |
 |---|---|---|---|
@@ -127,7 +127,7 @@ async function captureStable(page, opts = {}) {
 | 4 | hover/focus 殘留 | 點擊後滑鼠停在元件上拍進 hover 態 | 截圖前 `page.mouse.move(0,0)` + 等動畫 |
 | 5 | async 未 settle（font/paint/glyph） | 首次渲染整體微差 | captureStable retry 等 settle；settle 後殘留的反鋸齒次像素由 pixelmatch AA 偵測吸收（非盲目接受微差） |
 
-分流（取代舊「不接受 N bytes 微差」一刀切）：**①反鋸齒次像素 noise**（SVG icon / 字型邊緣，肉眼等同，跨 session raster 不決定性）→ 由 `assertBaselineMatch` 的 pixelmatch `includeAA:false` + `maxDiffPixels` 容差**自動吸收**，不必 chase、不必遮罩、不必 `--disable-gpu` 等 flag 體操；**②真會動的動態內容**（資料/動畫/canvas 怎麼等都不穩）→ **遮罩**該區域；**③超容差的真差異**（>maxDiffPixels）→ 照上表查**具體成因**，不是放寬 maxDiffPixels 將就。
+分流（取代舊「不接受 N bytes 微差」一刀切）：**①反鋸齒次像素 noise**（SVG icon / 字型邊緣，肉眼等同，跨 session raster 不決定性）→ 由 baseline 比對函式的 pixelmatch `includeAA:false` + `maxDiffPixels` 容差**自動吸收**，不必 chase、不必遮罩、不必 `--disable-gpu` 等 flag 體操；**②真會動的動態內容**（資料/動畫/canvas 怎麼等都不穩）→ **遮罩**該區域；**③超容差的真差異**（>maxDiffPixels）→ 照上表查**具體成因**，不是放寬 maxDiffPixels 將就。
 
 `animations: 'disabled'` 只 fast-forward CSS animations/transitions，**不會 fast-forward `setTimeout`**——retry 只保證「某 state 穩定」不保證是 final state（timer 前後兩個 state 各自都穩定 → 隨機收斂），故 `initialWaitMs=500` 必要（對 300ms 級 timer 給 1.6× buffer）。
 
