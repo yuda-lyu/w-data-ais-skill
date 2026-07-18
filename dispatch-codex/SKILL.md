@@ -27,28 +27,28 @@ description: This skill should be used when the user asks to "run codex as an ag
 ```bash
 # 基本呼叫（預設最強模型 + 最強推理）
 node dispatch-cli/scripts/run_cli.mjs \
-  codex exec --full-auto --skip-git-repo-check \
-  -m gpt-5.5 \
+  codex exec --sandbox workspace-write --skip-git-repo-check \
+  -m gpt-5.6-sol \
   --config sandbox_workspace_write.network_access=true \
-  --config model_reasoning_effort='"xhigh"' \
+  --config model_reasoning_effort='"max"' \
   "你的任務描述"
 
 # 完整防護：超時 + 重試
 CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 \
   node dispatch-cli/scripts/run_cli.mjs \
-  codex exec --full-auto --skip-git-repo-check \
-  -m gpt-5.5 \
+  codex exec --sandbox workspace-write --skip-git-repo-check \
+  -m gpt-5.6-sol \
   --config sandbox_workspace_write.network_access=true \
-  --config model_reasoning_effort='"xhigh"' \
+  --config model_reasoning_effort='"max"' \
   "你的任務描述"
 
-# 回退到 API key 可用模型（若未 ChatGPT 登入）
+# 回退到均衡模型（Sol 過載 / 429 / 額度受限時）
 CLI_TIMEOUT_MS=180000 \
   node dispatch-cli/scripts/run_cli.mjs \
-  codex exec --full-auto --skip-git-repo-check \
-  -m gpt-5.4 \
+  codex exec --sandbox workspace-write --skip-git-repo-check \
+  -m gpt-5.6-terra \
   --config sandbox_workspace_write.network_access=true \
-  --config model_reasoning_effort='"xhigh"' \
+  --config model_reasoning_effort='"max"' \
   "你的任務描述"
 ```
 
@@ -62,10 +62,10 @@ CLI_TIMEOUT_MS=180000 \
 import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
 
 const result = await runCli('codex', [
-    'exec', '--full-auto', '--skip-git-repo-check',
-    '-m', 'gpt-5.5',
+    'exec', '--sandbox', 'workspace-write', '--skip-git-repo-check',
+    '-m', 'gpt-5.6-sol',
     '--config', 'sandbox_workspace_write.network_access=true',
-    '--config', 'model_reasoning_effort="xhigh"',
+    '--config', 'model_reasoning_effort="max"',
     '重構此模組並撰寫單元測試',
 ], {
     timeoutMs: 180_000,
@@ -82,37 +82,37 @@ if (result.ok) {
 
 | 模型 ID | 說明 |
 |---------|------|
-| `gpt-5.5` | **預設模型**，OpenAI 最新旗艦（2026-04-23 發布），目前 Codex 官方推薦的首選模型。**僅透過 ChatGPT 登入可用，API key 認證尚不可用** |
-| `gpt-5.4` | API key 認證可用的最高階模型，272K 上下文 / 1M 最大 |
-| `gpt-5.4-mini` | 輕量版，速度更快、成本更低 |
-| `gpt-5.3-codex` | 專為程式碼優化的版本 |
-| `gpt-5.2` | 舊版，可向後相容 |
+| `gpt-5.6-sol` | **預設模型**，GPT-5.6 三階中的旗艦（frontier，priority 1），官方定位 complex coding / computer use / research / cybersecurity 等高難度開放式任務；372K context；唯一支援 `ultra` 推理檔 |
+| `gpt-5.6-terra` | 均衡日常主力（priority 2），372K context；Sol 過載時的第一備援 |
+| `gpt-5.6-luna` | 快速低成本（priority 3），372K context；明確、可重複的量產型工作 |
 
-指定模型：`-m gpt-5.5`（本 skill 預設使用 `gpt-5.5`；若僅有 API key 認證環境，請改用 `-m gpt-5.4`）
+指定模型：`-m gpt-5.6-sol`（本 skill 預設；備援依序 `-m gpt-5.6-terra` → `-m gpt-5.6-luna`）
 
-> 模型型錄來源：[codex-rs/models-manager/models.json](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json)（註：`gpt-5.5` 目前尚未列入 bundled `models.json`，但 CLI v0.124.0+ 可直接以 `-m gpt-5.5` 啟用，走 ChatGPT 登入路由）。
+> 模型型錄來源：[codex-rs/models-manager/models.json](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json)（CLI v0.144.3 bundled 型錄實證：僅含 gpt-5.6 三階，free～enterprise 全 plan 可用；舊 `gpt-5.5` / `gpt-5.4` / `gpt-5.3-codex` / `gpt-5.2` 已自型錄移除，不再是建議選項）。
 
 ## 推理等級（model_reasoning_effort）
 
 | 等級 | 說明 |
 |------|------|
-| `xhigh` | **預設，目前 Codex CLI 支援的最強推理深度**，GPT-5.5 / 5.4 / 5.3-codex 皆支援 |
+| `ultra` | **GPT-5.6-Sol 專屬最高檔**：max 級推理＋自動子代理派工（automatic task delegation），適合可平行拆解的巨型任務；消耗與時長顯著上升 |
+| **`max`** | **本 skill 預設，最深單任務推理**，GPT-5.6 全系（sol / terra / luna）皆支援 |
+| `xhigh` | 延伸推理（0.12x 時代的最深檔，現已非最深） |
 | `high` | 複雜除錯、架構決策、程式碼審查 |
 | `medium` | Codex 原廠預設，平衡速度與品質 |
 | `low` | 簡單任務，速度優先 |
 | `minimal` | 最快，適合提取、路由、簡單轉換 |
 | `none` | 完全不進行推理 |
 
-指定推理等級：`--config model_reasoning_effort='"xhigh"'`
+指定推理等級：`--config model_reasoning_effort='"max"'`
 
-> 本 skill 預設使用 `xhigh` 最強推理。Codex CLI v0.124.0 的 `ReasoningEffort` enum 仍為六階（`None` / `Minimal` / `Low` / `Medium` / `High` / `XHigh`），**沒有** `max` 等級，`xhigh` 即為最深。若需加速可降級為 `high` 或 `medium`。
-> 備註：v0.124.0 TUI 支援 `Alt+,` / `Alt+.` 即時降/升推理等級；切換模型時會重置為新模型的預設推理等級，記得顯式傳 `--config model_reasoning_effort='"xhigh"'` 以確保最深推理。
+> 本 skill 預設使用 `max` 最深單任務推理。Codex CLI v0.144.3 的 `ReasoningEffort` enum 為八階＋自訂（`None`/`Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`/`Ultra`/`Custom(String)`，原始碼 `codex-rs/protocol/src/openai_models.rs` @ rust-v0.144.3 確認）；bundled 型錄 `models.json` 標注 gpt-5.6 全系支援至 `max`、`ultra` 為 Sol 專屬。若需加速可降級為 `xhigh` / `high`。
+> `ultra` 屬「執行模式」而非單純更深思考——會自動展開子代理平行派工；官方文件另註記 Max/Ultra 在部分入口需於 app 設定啟用。headless `codex exec` 下若 `ultra` 不生效，退回 `max` 即可（此點未實跑驗證，僅依官方文件與原始碼標注，需實測確認）。
 >
 > **跨 shell 差異提醒**：本節命令列範例（含上方各 `node dispatch-cli/...` 範例）皆以 bash／zsh／Git Bash 語法書寫，含兩處需依 shell 調整的寫法：「引號跳脫」與「環境變數前綴」。Windows 使用者照抄會失敗，請改用對應寫法。
 >
-> **(1) 引號跳脫**：上述 `'"xhigh"'`（外層單引號包雙引號）為 bash／zsh 寫法，需讓 codex CLI 收到帶雙引號的 TOML 字面值。
-> - **PowerShell**：使用 `--config model_reasoning_effort='\"xhigh\"'`（外層單引號內以反斜線跳脫雙引號），或改用程式化呼叫（推薦）：`spawn('codex', ['--config', 'model_reasoning_effort="xhigh"'])`，以陣列直傳參數可繞過 shell escaping 問題。
-> - **cmd.exe**：使用 `--config "model_reasoning_effort=\"xhigh\""`。
+> **(1) 引號跳脫**：上述 `'"max"'`（外層單引號包雙引號）為 bash／zsh 寫法，需讓 codex CLI 收到帶雙引號的 TOML 字面值。
+> - **PowerShell**：使用 `--config model_reasoning_effort='\"max\"'`（外層單引號內以反斜線跳脫雙引號），或改用程式化呼叫（推薦）：`spawn('codex', ['--config', 'model_reasoning_effort="max"'])`，以陣列直傳參數可繞過 shell escaping 問題。
+> - **cmd.exe**：使用 `--config "model_reasoning_effort=\"max\""`。
 >
 > **(2) 環境變數前綴**：上述 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node ...`（在命令前以 `VAR=value` 設定環境變數）為 bash／zsh／Git Bash 專用語法。PowerShell 會 parse error、cmd 不適用，須改寫：
 > - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
@@ -125,23 +125,26 @@ if (result.ok) {
 | 參數 | 必要 | 說明 |
 |------|------|------|
 | `exec` | ✅ | 非互動/headless 模式（少了這個會出現 "stdin is not a terminal" 錯誤） |
-| `--full-auto` | ✅ | 允許 Codex 自動執行所有操作，不需人工確認 |
+| `--sandbox workspace-write` | ✅ | 允許在 workspace 內自動寫檔執行（**v0.144.x 起取代已棄用的 `--full-auto`**；舊旗標仍可解析但列 hidden 並印棄用警告） |
 | `--skip-git-repo-check` | ✅ | 允許在非 git repo 目錄下執行（否則報錯 "Not inside a trusted directory"） |
 | `--config sandbox_workspace_write.network_access=true` | ✅ | 啟用沙箱網路，讓 npm install / pip install 等可以正常使用 |
-| `--config model_reasoning_effort='"xhigh"'` | ✅ | 啟用最強推理模式（預設 `xhigh`） |
+| `--config model_reasoning_effort='"max"'` | ✅ | 啟用最深推理（本 skill 預設 `max`） |
 
 ### 進階選項（近期新增旗標）
 
 | 參數 | 說明 |
 |------|------|
-| `--yolo` | `--dangerously-bypass-approvals-and-sandbox` 的別名（與 `--full-auto` 互斥，危險操作用） |
+| `--dangerously-bypass-approvals-and-sandbox` | 跳過所有核准且停用沙箱（危險；`--yolo` 別名已不在 v0.144.x help 列出，勿再依賴） |
+| `--full-auto` | **已棄用**（v0.144.x 轉為 hidden 相容旗標，執行時印警告）；一律改用 `--sandbox workspace-write` |
 | `--ephemeral` | 不落地 session，用於暫時性一次性任務 |
 | `--ignore-user-config` | 不載入 `$CODEX_HOME/config.toml`（認證仍會讀取） |
 | `--ignore-rules` | 跳過 user/project 的 execpolicy 規則 |
 | `--enable <FEATURE>` / `--disable <FEATURE>` | v0.124.0+：啟/停特定功能（可重複），等同 `-c features.<name>=true/false` |
 | `--output-last-message <FILE>` / `-o` | 將最終訊息寫入檔案 |
 | `--output-schema <FILE>` | 強制回應符合 JSON Schema |
-| `--profile <NAME>` / `-p` | 載入 `~/.codex/config.toml` 中的命名 profile |
+| `--profile <NAME>` / `-p` | v0.144.x 起為 v2 profile 檔案制：疊加 `$CODEX_HOME/<name>.config.toml` 於基礎設定之上（舊 config.toml 內 `[profiles.x]` 段落制已改） |
+| `--strict-config` | config.toml 含本版不認得的欄位時直接報錯（防設定拼錯靜默失效） |
+| `--dangerously-bypass-hook-trust` | 免 hook 信任確認直接執行 hooks（危險，僅限已自行審核 hook 來源的自動化） |
 | `--add-dir <DIR>` | 額外可寫入目錄（可重複） |
 | `--json`（推薦）/ `--experimental-json`（舊別名） | 輸出 JSONL 事件流 |
 | `codex exec resume --last` | 延續最近一次 session |
@@ -154,6 +157,8 @@ if (result.ok) {
 | `stdin is not a terminal` | 用了 `codex` 而非 `codex exec` | 改用 `codex exec` |
 | `Not inside a trusted directory` | 未在 git repo 內且缺少旗標 | 加上 `--skip-git-repo-check` |
 | npm install 網路失敗 | 沙箱預設封鎖網路 | 加上 `--config sandbox_workspace_write.network_access=true` |
+| `--full-auto is deprecated` 警告 | v0.144.x 起 `--full-auto` 轉為隱藏相容旗標 | 改用 `--sandbox workspace-write`（本 skill 範例已更新） |
+| 模型找不到 / 拒收 `-m` 值 | 用了已自型錄移除的 `gpt-5.5`/`gpt-5.4` 等舊 ID，或 CLI 過舊 | 改用 `gpt-5.6-sol`（備援 terra / luna）；CLI 過舊先升級至 v0.144.x+ |
 
 ## dispatch-cli 建議參數
 
@@ -177,10 +182,10 @@ prompt: "... 寫入 result_dispatcher.txt"
 # 註：以下 CLI_TIMEOUT_MS=180000 前綴為 bash／zsh／Git Bash 專用；
 #     Windows（PowerShell／cmd）的環境變數寫法請見「推理等級 → 跨 shell 差異提醒」章節。
 command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
-         codex exec --full-auto --skip-git-repo-check \
-         -m gpt-5.5 \
+         codex exec --sandbox workspace-write --skip-git-repo-check \
+         -m gpt-5.6-sol \
          --config sandbox_workspace_write.network_access=true \
-         --config model_reasoning_effort='"xhigh"' \
+         --config model_reasoning_effort='"max"' \
          "... 寫入 result_codex.txt"
 ```
 
@@ -201,7 +206,7 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 > 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
 
 ```bash
-codex --version   # 確認 codex-cli 已安裝（建議 v0.124.0+ 以使用 gpt-5.5）
+codex --version   # 確認 codex-cli 已安裝（建議 v0.144.x+ 以使用 gpt-5.6 型錄與 max/ultra 推理；實測 0.144.6＝npm 最新）
 ```
 
 若未安裝或版本過舊，請依執行環境自行決定安裝方式。安裝**位置**由執行 AI 自行決定，只要最終 `codex` 指令可被執行即可：
@@ -216,8 +221,8 @@ npm install @openai/codex@latest
 ```
 
 認證方式二擇一：
-- **ChatGPT 登入（推薦，支援 `gpt-5.5`）**：執行 `codex login` 依引導完成 OAuth
-- **API Key（目前尚不支援 `gpt-5.5`，最高可用 `gpt-5.4`）**：
+- **ChatGPT 登入（推薦）**：執行 `codex login` 依引導完成 OAuth；gpt-5.6 三階（sol/terra/luna）free～enterprise 全 plan 可用
+- **API Key**：
   ```bash
   export OPENAI_API_KEY=your_key_here
   ```

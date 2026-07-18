@@ -52,7 +52,7 @@ node dispatch-cli/scripts/run_cli.mjs node fetch-tw-news-cnyes/scripts/fetch_cny
 node dispatch-cli/scripts/run_cli.mjs curl -s -L "https://example.com"
 
 # 調用 codex
-node dispatch-cli/scripts/run_cli.mjs codex exec --full-auto "重構此模組"
+node dispatch-cli/scripts/run_cli.mjs codex exec --sandbox workspace-write "重構此模組"
 ```
 
 環境變數控制行為：
@@ -165,7 +165,7 @@ CLI_TIMEOUT_MS=120000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 \
 ```bash
 CLI_TIMEOUT_MS=180000 \
   node dispatch-cli/scripts/run_cli.mjs \
-  codex exec --full-auto --skip-git-repo-check \
+  codex exec --sandbox workspace-write --skip-git-repo-check \
   "重構 utils/ 目錄下的所有函式"
 ```
 
