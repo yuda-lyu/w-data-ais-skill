@@ -1,6 +1,6 @@
 ---
 name: fetch-youtube-transcript
-description: 用 Playwright + 本機 Chrome 抓取 YouTube 影片字幕（轉錄稿），走 YouTube 自家「顯示轉錄稿」UI 流程繞過 timedtext POT (Proof of Origin Token) 限制與 IP rate limit。雙路徑（DOM 讀取 + 網路攔截）並行確保穩定。回傳結構化 segments（含時戳與純文字版）。適用於需穩定批次抓取 YouTube 字幕的 AI Agent / 知識庫匯入流程。
+description: 抓取 YouTube 影片字幕（轉錄稿）。主路徑用 yt-dlp（不開瀏覽器、不需登入，直接解析 InnerTube player response 取帶簽名字幕軌 URL）；yt-dlp 失敗或未安裝時退回 Playwright + 本機 Chrome（持久 profile 可保留登入態）走「顯示轉錄稿」UI 三路徑（DOM 讀取 + get_transcript 攔截 + 播放器 CC timedtext 攔截）。回傳結構化 segments（含時戳與純文字版）。適用於需穩定批次抓取 YouTube 字幕的 AI Agent / 知識庫匯入流程。
 ---
 
 # fetch-youtube-transcript — 用本機 Chrome 抓 YouTube 字幕
@@ -10,12 +10,14 @@ description: 用 Playwright + 本機 Chrome 抓取 YouTube 影片字幕（轉錄
 抓取 YouTube 影片字幕（含手動字幕與自動字幕），回傳結構化 segments（每段含時戳、毫秒、文字）以及方便直接使用的 `timestampedText`、`plainText` 字串。
 
 **特點**：
-- 用 Playwright 啟動本機 Chrome（`channel: 'chrome'`），完整 TLS 指紋與 Sec-Fetch 標頭
-- 拋棄式 profile（每次乾淨，跑完即丟），不碰使用者個人 Chrome profile
+- **主路徑 yt-dlp（2026-07 起）**：`yt-dlp -J` 直接打 InnerTube 拿 player response，字幕軌 URL 自帶簽名參數、純 HTTP 下載即可——**不開瀏覽器、不需登入、不觸發 POT / get_transcript 400**；`_pickTrack` 手動軌優先，語言／種類 100% 確定（`languageVerified: true`）
+- **備援路徑 Playwright**（yt-dlp 未安裝或失敗才啟動，會開瀏覽器視窗）：用 Playwright 啟動本機 Chrome（`channel: 'chrome'`），完整 TLS 指紋與 Sec-Fetch 標頭；以下特點皆屬此備援路徑
+- **專用持久 profile**（預設 `~/.w-yt-chrome-profile`，`userDataDir` 可覆寫）：首次在開出的視窗手動登入一次 YouTube 後，登入態永久沿用，之後每次執行都是「已登入的本機 Chrome」；未登入也能抓一般公開影片。不碰日常 Chrome 的預設 profile——Chrome 136+ 基於安全政策禁止對預設 user data directory 開 CDP，Playwright 掛不上去，此為官方認可的替代做法
 - **不直接打 `/api/timedtext`**——避免 POT (Proof of Origin Token) 強制檢查（自 2025 年起 YouTube 對該端點要求 POT，否則回 200 + 空 body）
 - 走 YouTube 自家「顯示轉錄稿」UI 流程，讓前端 JS 自動帶 POT 呼叫內部 `/youtubei/v1/get_transcript`
 - 用 Playwright 原生 click（送真實滑鼠事件 down→move→up），繞過 YouTube 對合成 click 事件的過濾
-- **雙路徑並行等待**：DOM 讀取 + 網路攔截，誰先成功用誰，互為備援
+- **三路徑並行等待**：DOM 讀取 + get_transcript 網路攔截 + 播放器 CC 的 `/api/timedtext` 攔截（按 `c` 讓播放器自己帶 POT 抓字幕軌；以 URL `v=<videoId>` 過濾，避免把前置廣告的字幕當主影片字幕），誰先成功用誰
+- 未登入／新 profile 時 InnerTube 可能對 get_transcript 直接回 400（面板永遠空白，2026-07 實測）——此時 CC timedtext 路徑仍可用；備援期間迴圈會自動點「略過廣告」（原生 click）、確保播放中、以 `aria-pressed` 狀態判斷後才補按 `c`
 
 **適用場景**：
 - 批次抓取 YouTube 影片字幕到知識庫
@@ -24,7 +26,7 @@ description: 用 Playwright + 本機 Chrome 抓取 YouTube 影片字幕（轉錄
 
 **不適用**：
 - 沒有提供字幕的影片（會回 `reason: 'no-captions'`）
-- 會員專屬／年齡限制／私人影片（需登入態，可改 `profileDir` 指向已登入 Chrome profile）
+- 會員專屬／年齡限制／私人影片：需登入態——先在專用 profile 首次手動登入一次 YouTube 即可（見「特點」）；**不可**把 `userDataDir` 指向日常 Chrome 的預設 User Data 目錄（Chrome 136+ 禁止，會連不上）
 - 一次跑數百部以上的高頻場景（YouTube 仍可能對 InnerTube 觸發其他層的反爬，建議加 throttling）
 
 ## 安裝指引
@@ -32,40 +34,52 @@ description: 用 Playwright + 本機 Chrome 抓取 YouTube 影片字幕（轉錄
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
 所需 npm 套件：`playwright`、`wsemi`、`lodash-es`
-系統需求：已安裝 Chrome（透過 `channel: 'chrome'` 直接調用，不需另下載 Chromium）
+系統需求：
+- **yt-dlp**（主路徑；強烈建議安裝，有它就不會開瀏覽器）：`pip install -U yt-dlp` 或 winget/choco；驗證 `yt-dlp --version`（實測 2026.06.09）
+- 已安裝 Chrome（備援路徑用，透過 `channel: 'chrome'` 直接調用，不需另下載 Chromium）
 
 執行前驗證：
 ```bash
+yt-dlp --version   # 主路徑（未安裝也能跑，會退回 Playwright 開瀏覽器）
 node -e "require('playwright'); console.log('playwright OK')"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
+pip install -U yt-dlp
 npm install playwright wsemi lodash-es
 ```
 
 ## 技術原理
 
-### 為什麼非用 Playwright + UI 不可
+### 為什麼 yt-dlp 是主路徑
+
+自行組 timedtext URL 直打會踩 POT / rate limit（見下表），但 **yt-dlp 以 InnerTube API 拿 player response，其中的字幕軌 URL 自帶完整簽名參數**，純 HTTP GET 即可下載（json3），不需瀏覽器與登入。實測（2026-07）連未登入 InnerTube 對 `get_transcript` 回 400 的情境下，yt-dlp 路徑照常成功。
 
 | 直接做法 | 失敗原因 |
 |---|---|
-| `fetch('https://youtube.com/api/timedtext?v=...&fmt=json3')` | HTTP 429（IP rate limit ~5 req/10s）|
-| 帶完整 cookies + Chrome UA 直送 timedtext | 仍 429 或回 200 空 body（POT 檢查） |
+| `fetch('https://youtube.com/api/timedtext?v=...&fmt=json3')`（自組 URL） | HTTP 429（IP rate limit ~5 req/10s）|
+| 帶完整 cookies + Chrome UA 直送自組 timedtext | 仍 429 或回 200 空 body（POT 檢查） |
 | Playwright headless 直接打 timedtext | 同上 |
 | Playwright `page.evaluate(() => button.click())` | YouTube 過濾合成事件，內部 API 不會被觸發 |
+| 未登入／新 profile 點「顯示轉錄稿」 | InnerTube 對 `/youtubei/v1/get_transcript` 回 400，面板永遠空白（2026-07 實測） |
 
 ### 本技能的做法
 
 ```
-1. 啟動本機 Chrome（chromium.launch，拋棄式 profile）
+0. 主路徑 yt-dlp：
+   yt-dlp -J 取 metadata → subtitles/automatic_captions 挑軌（手動優先）
+   → fetch 該軌 json3 URL（自帶簽名）→ 解析 → 回傳
+   ↓ 失敗或未安裝才走備援
+1. 啟動本機 Chrome（launchPersistentContext，專用持久 profile `~/.w-yt-chrome-profile`）
 2. goto watch 頁
 3. 等 ytInitialPlayerResponse.captions 就緒（確認影片有字幕）
 4. 滾動 + 展開 description（讓「顯示轉錄稿」按鈕渲染）
-5. Playwright 原生 .click() 按按鈕（真實滑鼠事件）
-6. 並行等待：
-   (A) DOM: ytd-transcript-segment-renderer 出現
+5. Playwright 原生 .click() 按按鈕（真實滑鼠事件）＋點播放器取得焦點
+6. 並行等待（迴圈內同時：原生 click 略過廣告、確保播放中、依 aria-pressed 補按 c 開 CC）：
+   (A) DOM: transcript 段落元素出現
    (B) 網路: /youtubei/v1/get_transcript 回應
+   (C) 網路: 播放器 CC 的 /api/timedtext（fmt=json3，以 v=<videoId> 過濾廣告）
    ↓ 誰先成功用誰
 7. 解析 segments → 回傳結構化資料
 ```
@@ -75,13 +89,14 @@ npm install playwright wsemi lodash-es
 ### CLI
 
 ```bash
-node fetch-youtube-transcript/scripts/fetch_youtube_transcript.mjs <url-or-id> [outputPath] [--language=zh-TW] [--headless]
+node fetch-youtube-transcript/scripts/fetch_youtube_transcript.mjs <url-or-id> [outputPath] [--language=zh-TW] [--headless] [--user-data-dir=<dir>]
 ```
 
 - `url-or-id`（必填）— YouTube watch URL / youtu.be 短網址 / shorts URL / 11 字 video ID
 - `outputPath`（選填）— 輸出 JSON 路徑；未指定則印至 stdout
 - `--language=`（選填）— 偏好字幕語言（如 `zh-TW`, `en`）；未指定則 zh-TW > zh-Hant > zh > en > 第一個
 - `--headless`（選填）— 無頭模式；預設有頭（YouTube 偵測到 headless 會拒絕載入轉錄稿，**不建議開**）
+- `--user-data-dir=`（選填）— 持久 profile 目錄，預設 `~/.w-yt-chrome-profile`（登入態沿用；不可指向日常 Chrome 預設 User Data）
 
 ### 範例
 
@@ -116,6 +131,7 @@ await fetchYoutubeTranscript(url, {
   language: 'zh-TW',                    // 偏好字幕語言
   headless: false,                      // 預設 false（YouTube 偵測 headless 會擋）
   chromeChannel: 'chrome',              // playwright launch channel
+  userDataDir: undefined,               // 持久 profile 目錄，預設 ~/.w-yt-chrome-profile（首次登入後登入態沿用）
   navigationTimeoutMs: 30000,
   captionsWaitMs: 30000,                // 等 ytInitialPlayerResponse 的 timeout
   transcriptWaitMs: 30000,              // 等 transcript 載入的 timeout
@@ -172,13 +188,13 @@ await fetchYoutubeTranscript(url, {
 
 `reason` 列舉：
 - `invalid-url` — URL 格式錯，或無法解析出 video ID
-- `missing-deps` — playwright 未安裝
+- `missing-deps` — playwright 未安裝（且 yt-dlp 路徑已失敗）
 - `no-captions` — 影片沒有字幕（`ytInitialPlayerResponse` 沒 captionTracks）
-- `button-not-found` — 找不到「顯示轉錄稿」按鈕（影片可能未啟用 transcript）
-- `transcript-empty` — 按鈕點了但 30 秒內 panel 沒載入 segments
+- `transcript-empty` — 等待逾時，三路徑皆未取得 segments（找不到「顯示轉錄稿」按鈕已不再是致命錯誤，會印 stderr 提示並靠 CC 路徑續行）
 - `playwright-error` — 瀏覽器啟動／導航／例外
 
-`source` 列舉（成功時）：`dom` 或 `network`
+`source` 列舉（成功時）：`ytdlp-json3`（主路徑）、`dom`、`network`、`timedtext`（備援路徑）
+`method` 列舉：`yt-dlp`（主路徑）或 `playwright-headed-ui`（備援路徑）
 
 ## status 約定
 
@@ -220,8 +236,8 @@ await fetchYoutubeTranscript(url, {
 ## 安全設計
 
 - 寫檔路徑經 `_WIN_RESERVED_RE` 防護，禁止寫入 Windows 保留裝置名（`nul`、`con`、`prn`、`aux`、`com1-9`、`lpt1-9`）
-- `browser.close()` 放在 `finally` 區塊，確保資源釋放（即使拋例外）
-- 拋棄式 profile（Playwright 自動建 temp dir，跑完丟棄），不會碰使用者個人 Chrome profile
+- `context.close()` 放在 `finally` 區塊，確保資源釋放（即使拋例外）
+- 專用持久 profile（預設 `~/.w-yt-chrome-profile`）與日常 Chrome 的預設 profile 完全隔離，不讀不寫使用者日常瀏覽資料；登入態只存在此專用目錄
 
 ## 邊界與已知限制
 
