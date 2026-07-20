@@ -122,16 +122,24 @@ codex exec review --uncommitted
 
 ## 可用模型
 
-| 模型 ID | 說明 |
-|---------|------|
-| `gpt-5.6-sol` | **本 skill 預設**，GPT-5.6 旗艦（frontier，priority=1），高難度開放式任務；372K context；唯一支援 `ultra` 推理檔 |
-| `gpt-5.6-terra` | 均衡日常主力（priority=2），372K context |
-| `gpt-5.6-luna` | 快速低成本（priority=3），372K context |
+| 模型 ID | priority | visibility | 原廠預設推理 | 支援推理檔 |
+|---------|---|---|---|---|
+| `gpt-5.6-sol` | 1 | list | **`low`** | low / medium / high / xhigh / max / **ultra** |
+| `gpt-5.6-terra` | 2 | list | medium | low / medium / high / xhigh / max / **ultra** |
+| `gpt-5.6-luna` | 3 | list | medium | low / medium / high / xhigh / max |
+| `gpt-5.5` | 7 | list | medium | low / medium / high / xhigh |
+| `gpt-5.4` | 16 | hide | medium | low / medium / high / xhigh |
+| `gpt-5.4-mini` | 23 | hide | medium | low / medium / high / xhigh |
+| `codex-auto-review` | 43 | hide | medium | low / medium / high / xhigh |
 
-> 型錄來源：[codex-rs/models-manager/models.json](https://github.com/openai/codex/blob/main/codex-rs/models-manager/models.json)（@ rust-v0.144.3 實證）
-> 注意事項：
-> - v0.144.3 bundled 型錄**僅含 gpt-5.6 三階**，free～enterprise 全 plan 可用；三者皆支援 `low`～`max` 推理，Sol 另支援 `ultra`。
-> - 舊 `gpt-5.5` / `gpt-5.4` / `gpt-5.4-mini` / `gpt-5.3-codex` / `gpt-5.2` 已自 bundled 型錄移除，不再是建議選項。
+> 型錄來源：**本機 `~/.codex/models_cache.json`（2026-07-20 實讀，CLI v0.144.6 執行期實際生效的型錄）**。
+> 此表取代先前依 GitHub bundled JSON 摘要所寫的內容——該摘要有兩處失真，已於此更正：
+> - ❌「`ultra` 為 Sol 專屬」→ ✅ **Sol 與 Terra 皆支援 `ultra`**，僅 Luna 不支援。
+> - ❌「舊型號已全數自型錄移除」→ ✅ `gpt-5.5` 仍列於清單、`gpt-5.4` 系列僅 `visibility: hide`（不列選單但可指定）；真正消失的是 `gpt-5.3-codex` / `gpt-5.2`。
+>
+> 另注意 **Sol 的原廠預設推理檔是 `low`**（非 medium），不顯式傳 `--config model_reasoning_effort='"max"'` 就不會是最深推理。
+>
+> ⚠ **型錄列出 ≠ 帳號可用**：`visibility` / `supported_in_api` 描述模型本身，實際可用性由伺服器依帳號方案與訂閱狀態裁決。查帳號側：`~/.codex/auth.json` 的 `auth_mode`，以及 `tokens.id_token` payload 內的 `chatgpt_plan_type` / `chatgpt_subscription_active_until`。
 
 ## 已棄用／更名
 
