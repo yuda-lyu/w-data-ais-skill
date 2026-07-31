@@ -1,12 +1,13 @@
 # 用 C# 操作處理 vsdx 說明
 
-> 本文說明如何以 C#（.NET 10 file-based app）驅動 Microsoft Visio COM 自動化，批次將 `.vsdx` 轉出 `.png`。內容整理自本專案實作 `_docs/src/convert_vsdx/convertVsdxToPng.cs`，所有行號引用皆指向該檔；各項作法與陷阱均為實測結論，可直接沿用至其他專案。
+> 本文說明如何以 C#（.NET 10 file-based app）驅動 Microsoft Visio COM 自動化，批次將 `.vsdx` 轉出 `.png`。內容整理自 `convertVsdxToPng.cs` 之實作經驗（該檔位於原撰寫專案之 `_docs/src/convert_vsdx/`，不在本專案內，行號引用為撰寫當時版本，作法以本文各碼段為準）；各項作法與陷阱均為實測結論，可直接沿用至其他專案。
 
 ## 1. 適用場景與整體做法
 
 - **場景**：Windows 環境、本機已安裝 Microsoft Visio，需程式化將 vsdx 匯出為點陣圖（png），且要能控制解析度（dpi）、白底、批次處理與驗證輸出。
 - **做法**：不經任何第三方套件，直接以 COM 自動化驅動一個「另起的隱藏 Visio 實例」開檔並逐頁 `Export()`。C# 端用 `dynamic` 晚綁定呼叫，免安裝 interop assembly（PIA）。
 - **形式**：採 .NET 10 的 file-based app——單一 `.cs` 檔即可 `dotnet run`，不需 `.csproj`。
+- **選型對照**：COM 路線僅在需要 Visio **渲染引擎**（轉圖、列印）時使用。vsdx 亦為 zip＋XML 之 OPC 封裝，純結構性增刪改理論上可免 Visio 直改 XML（`System.IO.Packaging`；注意 vsdx 為 Visio 專屬 schema，docx 篇所用之 `DocumentFormat.OpenXml` **不支援** vsdx），本專案未實測；免 Office 直改路線之通則與陷阱見 `用cs操作處理docx說明.md`。
 
 ## 2. 環境需求
 
@@ -26,7 +27,7 @@
 #:property BuiltInComInteropSupport=true
 ```
 
-- **`PublishAot=false`**：file-based app 預設 `PublishAot=true`，而 AOT 會停用 Built-in COM interop——不關掉的話 `Activator.CreateInstance` 建 COM 物件直接失敗。這是最容易踩到的一雷。
+- **`PublishAot=false`**：file-based app 預設 `PublishAot=true`，而 AOT 會停用 Built-in COM interop——不關掉的話 `Activator.CreateInstance` 建 COM 物件直接失敗。這是最容易踩到的一雷。**同一預設另有一雷**（docx 篇實證）：`PublishAot=true` 連動停用 `System.Text.Json` 之反射序列化，即使 `dotnet run`（JIT）執行，反射式 `Deserialize` 也直接拋錯；凡 file-based app 用反射式 JSON 同樣必關此旗標（或改 source generator，可保留 NativeAOT 能力），詳 docx 篇 §3。
 - **`BuiltInComInteropSupport=true`**：.NET（Core 系）預設不啟用內建 COM interop，須顯式開啟。
 - **`TargetFramework=net10.0-windows`**：COM 需要 windows TFM，必須鎖定。
 
@@ -140,6 +141,10 @@ string srcDir = Path.GetDirectoryName(thisFile())!;
 ### 7.3 中文輸出
 
 `Console.OutputEncoding = Encoding.UTF8`（L27），避免主控台中文亂碼。
+
+### 7.4 由 node 調用且需回傳結構化結果：一律中介檔案，勿解析 stdout
+
+wsemi 之 `execProcess` 會於每個 stdout chunk 後注入換行，且 .NET console 對逾 256B 之單行輸出分次 flush——對 stdout 做機器解析會在高負載時隨機炸開（本專案 991 事件全量重產實測 166 次失敗，閒置機 10 次亦中 1 次）。結果應由 cs 寫出結果檔（UTF-8 **無 BOM**），node 讀檔取回；stdout 僅供人讀 log。完整模式（argv 傳 `base64(JSON{fpIn,fpOut})`＋重試）見 docx 篇 §3 與 `dg01_report/replaceDocxTablesWithText.mjs`。本篇之轉圖場景輸出即為 png 檔案本身，天然無此問題。
 
 ## 8. 已知限制
 

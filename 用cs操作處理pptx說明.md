@@ -1,12 +1,13 @@
 # 用 C# 操作處理 pptx 說明
 
-> 本文說明如何以 C#（.NET 10 file-based app）驅動 Microsoft PowerPoint COM 自動化，將 pptx 內之圖形（shape）放大後轉存高解析 png。內容整理自本專案「指針.pptx」實作經驗（測試碼於 `tmp/pptx/scalePptxShapeToPng.cs`），各項作法與陷阱均為實測結論。COM 啟動、釋放與 file-based app 之通則與 vsdx 篇相同，本文著重 PowerPoint 特有行為。
+> 本文說明如何以 C#（.NET 10 file-based app）驅動 Microsoft PowerPoint COM 自動化，將 pptx 內之圖形（shape）放大後轉存高解析 png。內容整理自本專案「指針.pptx」實作經驗（測試碼原於 `tmp/pptx/scalePptxShapeToPng.cs`，屬臨時檔已清理，完整流程碼見 §9），各項作法與陷阱均為實測結論。COM 啟動、釋放與 file-based app 之通則與 vsdx 篇相同（含 `PublishAot=false` 之兩個 why 與 stdout 結果通道陷阱，見 vsdx 篇 §3、§7.4），本文著重 PowerPoint 特有行為。
 
 ## 1. 適用場景與整體做法
 
 - **場景**：Windows 環境、本機已安裝 PowerPoint，需程式化將 pptx 內之向量圖形放大 N 倍後輸出透明背景 png，且放大後視覺比例（浮凸邊框、線寬）須與原圖一致。
 - **做法**：以 COM 自動化驅動隱藏之 PowerPoint 實例，開啟 pptx 副本，對 shape 做幾何縮放＋效果參數補償，再以 `Shape.Export()`（隱藏方法）輸出 png。C# 端用 `dynamic` 晚綁定，免安裝 PIA。
 - **形式**：.NET 10 file-based app，單一 `.cs` 檔 `dotnet run`，檔首三行 `#:property` 同 vsdx 篇（`TargetFramework=net10.0-windows`、`PublishAot=false`、`BuiltInComInteropSupport=true`）。
+- **選型對照**：本篇處理需 PowerPoint **渲染引擎**之場景（shape 轉高解析 png）；若僅需 pptx 內純結構性增刪改（不需渲染），可循 docx 篇之 Open XML SDK 免 Office 路線（同庫之 `PresentationDocument` 亦支援 pptx，本專案未實測），見 `用cs操作處理docx說明.md`。
 
 ## 2. 環境需求
 
