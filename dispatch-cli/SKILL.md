@@ -174,7 +174,7 @@ CLI_TIMEOUT_MS=180000 \
 ```bash
 CLI_TIMEOUT_MS=180000 \
   node dispatch-cli/scripts/run_cli.mjs \
-  opencode run --agent build -m "opencode/nemotron-3-super-free" \
+  opencode run --agent build -m "opencode/deepseek-v4-flash-free" \
   "撰寫單元測試"
 ```
 
