@@ -38,29 +38,41 @@ description: 抓取任意網頁的文章內容並提取純文字。支援四種�
 | `fetch-web-by-curl` | 無 | 系統有 `curl`（Windows 10 1803+ 內建） |
 | `fetch-web-by-playwright-headless` | `playwright` | Chrome／Chromium |
 | `fetch-web-by-playwright-head` | `playwright` | Chrome／Chromium + 桌面 session |
-| `fetch-web-by-camofox` | `@askjo/camofox-browser` | （首次安裝會下載 Firefox binary）|
+| `fetch-web-by-camofox` | `w-fetch-web`（v1.0.1+ 已內含 `@askjo/camofox-browser`）| （首次安裝會下載 Firefox binary）|
 
-### 本技能直接依賴（解析層）
+### 本技能直接依賴
 
-所需套件：`@mozilla/readability`、`jsdom`（用於文章正文提取）、`wsemi`、`lodash-es`（核心腳本直接 import）
+所需套件：**`w-fetch-web`**（抓取與解析實作皆由其提供；`@mozilla/readability`、`jsdom`、`playwright`、`wsemi`、`lodash-es` 為其內部相依，會隨之自動安裝）
 
-執行前驗證（`lodash-es` 為 ESM-only，不能 `require`，須用動態 `import()`）：
+執行前驗證：
 ```bash
-node -e "require('@mozilla/readability'); require('jsdom'); require('wsemi'); import('lodash-es').then(()=>console.log('deps OK'))"
+node -e "import('w-fetch-web').then(m=>console.log('w-fetch-web OK:', Object.keys(m.default).join(',')))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install @mozilla/readability jsdom wsemi lodash-es
+npm install w-fetch-web
 ```
+
+> **實作已抽出至 `w-fetch-web` 套件**：本技能的 `scripts/fetchWeb.mjs` 現為轉發層，
+> 函式名稱、參數與回傳格式皆與先前一致，既有呼叫端無須改動。
+> 完整 API 見 [w-fetch-web 文件](https://yuda-lyu.github.io/w-fetch-web/global.html)。
+>
+> ⚠ `w-fetch-web` 為 UMD 套件，**只能 default import**（`import wfw from 'w-fetch-web'`），
+> named import（`import { fetchWeb } from 'w-fetch-web'`）取不到函式。
 
 ### 一鍵安裝全部依賴
 
 ```bash
-npm install @mozilla/readability jsdom wsemi lodash-es playwright @askjo/camofox-browser
+npm install w-fetch-web
 ```
 
-> ⚠️ 本技能依網站防禦強度自動階梯升級（curl → Playwright 無頭 → Playwright 有頭 → Camofox），長期執行必定會遇到需要 Playwright/Camofox 的場景，4 個子技能依賴未裝齊會導致對應方法回 `missing-deps` 失敗。
+> **`w-fetch-web` v1.0.1 起已內含全部相依**：`@askjo/camofox-browser`、`@mozilla/readability`、
+> `jsdom`、`playwright`、`wsemi`、`lodash-es`，裝這一個即可跑完四階。
+> （v1.0.0 未含 camofox，須另裝；若卡在 `camofox-not-found`，先確認 `w-fetch-web` 已升到 v1.0.1+。）
+> 首次安裝會下載 Camofox 的 Firefox binary（~200MB）。
+>
+> ⚠️ 本技能依網站防禦強度自動階梯升級（curl → Playwright 無頭 → Playwright 有頭 → Camofox），長期執行必定會遇到需要 Playwright/Camofox 的場景，依賴未裝齊會導致對應方法回 `missing-deps` 失敗。
 
 ## 技術原理
 
@@ -200,7 +212,7 @@ node fetch-web/scripts/fetch_web.mjs "https://mp.weixin.qq.com/s/xxx" ./result.j
 |------|------|------|
 | `missing @mozilla/readability or jsdom` | 未安裝基礎依賴 | 執行 `npm install @mozilla/readability jsdom` |
 | `missing playwright` | 未安裝進階依賴 | 執行 `npm install playwright` |
-| `camofox-browser not installed` | 未安裝 Camofox 依賴 | 執行 `npm install @askjo/camofox-browser` |
+| `camofox-browser not installed` | `w-fetch-web` 為 v1.0.0（未含 camofox 相依），或該相依被清理掉 | 升級 `npm install w-fetch-web@latest`（v1.0.1+ 已內含）；或單獨補裝 `npm install @askjo/camofox-browser` |
 | `HTTP 403` | TLS 指紋被擋（curl 也被擋） | 嘗試 `--method=playwright` 或 `--method=playwright-headed` |
 | `CAPTCHA or challenge page` | 網站要求驗證碼 | 嘗試 `--method=playwright-headed`（需桌面環境） |
 | `content too short` | 頁面為 SPA 需 JS 渲染 | 嘗試 `--method=playwright` |

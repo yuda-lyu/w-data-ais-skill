@@ -33,20 +33,24 @@ description: 用 Playwright 有頭瀏覽器（headed Chrome）抓取網頁原始
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需 npm 套件：`playwright`、`wsemi`、`lodash-es`
+所需 npm 套件：**`w-fetch-web`**（抓取實作由其提供；`playwright`、`wsemi`、`lodash-es` 為其內部相依，會隨之自動安裝）
 系統需求：
 - 已安裝 Chrome 或 Chromium（透過 `channel: 'chrome'` 直接調用）
 - **桌面 session**（Windows 桌面、macOS Aqua、Linux X11/Wayland），有頭模式必須能開實體視窗
 
 執行前驗證：
 ```bash
-node -e "require('playwright'); console.log('playwright OK')"
+node -e "import('w-fetch-web').then(m=>console.log('w-fetch-web OK:', typeof m.default.fetchWebByPlaywrightHead))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定）：
 ```bash
-npm install playwright wsemi lodash-es
+npm install w-fetch-web
 ```
+
+> **實作已抽出至 `w-fetch-web` 套件**：本技能的 `scripts/fetchWebByPlaywrightHead.mjs` 現為轉發層，
+> 函式名稱、參數與回傳格式皆與先前一致，既有呼叫端無須改動。
+> 完整 API 見 [w-fetch-web 文件](https://yuda-lyu.github.io/w-fetch-web/global.html)。
 
 > ⚠️ **本技能必須在有桌面 session 的環境執行**。若在純 CLI（無 X11/無桌面）環境，Chrome 會啟動失敗，請改用 headless 版（`fetch-web-by-playwright-headless`）。
 

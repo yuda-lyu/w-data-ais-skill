@@ -26,18 +26,22 @@ description: 用 Playwright 無頭瀏覽器（headless Chrome）抓取網頁原�
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需 npm 套件：`playwright`、`wsemi`、`lodash-es`
+所需 npm 套件：**`w-fetch-web`**（抓取實作由其提供；`playwright`、`wsemi`、`lodash-es` 為其內部相依，會隨之自動安裝）
 系統需求：已安裝 Chrome 或 Chromium（透過 `channel: 'chrome'` 直接調用，不需另下載 Chromium）
 
 執行前驗證：
 ```bash
-node -e "require('playwright'); console.log('playwright OK')"
+node -e "import('w-fetch-web').then(m=>console.log('w-fetch-web OK:', typeof m.default.fetchWebByPlaywrightHeadless))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定，需確保腳本的模組解析路徑可達）：
 ```bash
-npm install playwright wsemi lodash-es
+npm install w-fetch-web
 ```
+
+> **實作已抽出至 `w-fetch-web` 套件**：本技能的 `scripts/fetchWebByPlaywrightHeadless.mjs` 現為轉發層，
+> 函式名稱、參數與回傳格式皆與先前一致，既有呼叫端無須改動。
+> 完整 API 見 [w-fetch-web 文件](https://yuda-lyu.github.io/w-fetch-web/global.html)。
 
 > Playwright 使用 `channel: 'chrome'` 直接調用系統 Chrome，避免額外下載 ~500MB Chromium binary。
 

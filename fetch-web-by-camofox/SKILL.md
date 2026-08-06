@@ -37,18 +37,26 @@ description: 用 Camofox（Camoufox 修改版 Firefox）反偵測瀏覽器抓取
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-所需 npm 套件：`@askjo/camofox-browser`、`wsemi`、`lodash-es`
+所需 npm 套件：**`w-fetch-web`**（抓取實作由其提供；**v1.0.1 起已內含 `@askjo/camofox-browser`**，
+以及 `wsemi`、`lodash-es` 等，裝這一個即可）
 
 執行前驗證：
 ```bash
+node -e "import('w-fetch-web').then(m=>console.log('w-fetch-web OK:', typeof m.default.fetchWebByCamofox))"
 node -e "import('@askjo/camofox-browser').then(() => console.log('camofox OK'))"
-node -e "import('wsemi').then(() => import('lodash-es')).then(() => console.log('deps OK'))"
 ```
 
 若顯示錯誤則安裝（安裝位置由執行環境決定）：
 ```bash
-npm install @askjo/camofox-browser wsemi lodash-es
+npm install w-fetch-web
 ```
+
+> ⚠ 若 `w-fetch-web` 為 **v1.0.0**（未含 camofox 相依），呼叫時會回 `reason: 'camofox-not-found'`。
+> 升級 `npm install w-fetch-web@latest` 即可，或單獨補裝 `npm install @askjo/camofox-browser`。
+
+> **實作已抽出至 `w-fetch-web` 套件**：本技能的 `scripts/fetchWebByCamofox.mjs` 現為轉發層，
+> 函式名稱、參數與回傳格式皆與先前一致，既有呼叫端無須改動。
+> 完整 API 見 [w-fetch-web 文件](https://yuda-lyu.github.io/w-fetch-web/global.html)。
 
 > Camofox 為修改版 Firefox（Camoufox），首次安裝會下載 Firefox binary（~200MB）。
 >
@@ -131,7 +139,7 @@ await fetchWebByCamofox(url, {
 ```
 
 `reason` 列舉：
-- `camofox-not-found`：未安裝 `@askjo/camofox-browser`
+- `camofox-not-found`：找不到 `@askjo/camofox-browser`（多為 `w-fetch-web` 停留在 v1.0.0，或該相依被清理掉）
 - `camofox-error`：server 啟動失敗、tab 建立失敗、API 例外
 - `camofox-empty`：snapshot 內容過短（< 50 字）
 - `invalid-url`：URL 格式錯

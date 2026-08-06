@@ -32,6 +32,8 @@ npm i wsemi lodash-es
 
 其餘只用 Node.js 內建 `child_process`、`fs`、`path` 模組。
 
+所需 npm 套件：**`w-fetch-web`**（抓取實作由其提供；`wsemi`、`lodash-es` 為其內部相依，會隨之自動安裝）
+
 系統需求：`curl` 命令可用
 - **Windows 10 1803+ / Windows 11**：已內建 `curl.exe`
 - **macOS**：已內建
@@ -41,7 +43,17 @@ npm i wsemi lodash-es
 ```bash
 curl --version
 node --version    # 需 >= v18
+node -e "import('w-fetch-web').then(m=>console.log('w-fetch-web OK:', typeof m.default.fetchWebByCurl))"
 ```
+
+若顯示錯誤則安裝（安裝位置由執行環境決定）：
+```bash
+npm install w-fetch-web
+```
+
+> **實作已抽出至 `w-fetch-web` 套件**：本技能的 `scripts/fetchWebByCurl.mjs` 現為轉發層，
+> 函式名稱、參數與回傳格式皆與先前一致，既有呼叫端（含 `fetch-guancha`）無須改動。
+> 完整 API 見 [w-fetch-web 文件](https://yuda-lyu.github.io/w-fetch-web/global.html)。
 
 ## 執行方式
 
