@@ -18,11 +18,11 @@
 //   **不提供任何登入功能**：需登入/提取碼/已失效的分享一律回 preview-not-found（不在本技能範圍）。
 //
 // 借鏡技能庫既有瀏覽器技能（累積的開啟/重試經驗）：
-//   - channel:'chrome'（用系統 Chrome，免下載 Chromium）              ← fetch-web-by-playwright-*
+//   - channel:'chrome'（用系統 Chrome，免下載 Chromium）              ← w-fetch-web fetchWebByPlaywright*
 //   - missing-deps 用 try{import}catch 優雅回報                        ← 全庫慣例
-//   - 開啟/導航 transient 失敗才重試 + 線性退避；已分類錯誤不重試      ← fetch-web-by-playwright-*
+//   - 開啟/導航 transient 失敗才重試 + 線性退避；已分類錯誤不重試      ← w-fetch-web fetchWebByPlaywright*
 //   - 反自動化：--disable-blink-features=AutomationControlled
-//     + addInitScript 隱藏 navigator.webdriver                         ← fetch-web-by-playwright-head
+//     + addInitScript 隱藏 navigator.webdriver                         ← w-fetch-web fetchWebByPlaywrightHead
 //   - page.on('request') 網路攔截                                       ← fetch-youtube-transcript
 //   - browser.close() 放 finally，例外也釋放資源                        ← 全庫慣例
 //

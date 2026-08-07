@@ -1,95 +1,15 @@
-import axios from 'axios';
-import w from 'wsemi';
+// fetchTwseStock.mjs — 抓取證交所 (TWSE) 個股或全市場日成交資訊
+//
+// 本檔為 w-dwdata-hub 套件之轉發層：實作已抽出至該套件統一維護，
+// 此處僅保留技能既有的匯入路徑與函式名稱，故既有呼叫端無須改動。
+//
+// fetchTwseStock(dateStr, stockCode, opt) → TWSE 原始資料物件
+// 完整 API 見 https://yuda-lyu.github.io/w-dwdata-hub/global.html
+//
+// 注意：w-dwdata-hub 為 UMD 套件，只能 default import，named import 取不到函式。
 
-/**
- * TWSE (證交所) 股價核心模組
- * 抓取上市個股日成交資訊或全市場收盤資料
- *
- * @param {string} dateStr - 日期字串 (YYYYMMDD)
- * @param {string} [stockCode] - 股票代號 (例如 "2330")；省略或 "all" 表示全市場
- * @returns {Promise<object>} TWSE API 回傳的原始資料物件
- * @throws {Error} API 錯誤、網路錯誤或無資料
- */
+import hub from 'w-dwdata-hub';
 
-const MAX_RETRIES = 10;
-const BASE_DELAY_MS = 5000;
-const MAX_DELAY_MS = 30000;
+export const fetchTwseStock = hub.fetchTwseStock;
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-function isRetryable(error) {
-    const status = error.response?.status;
-    if (status) return status >= 500 || status === 429;
-    return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
-}
-
-// 將 YYYYMMDD 轉為民國 ROC 日期字串（用以與 STOCK_DAY 回傳之日期欄位比對）
-function toRocDateString(yyyymmdd) {
-    const y = parseInt(yyyymmdd.substring(0, 4)) - 1911;
-    const m = yyyymmdd.substring(4, 6);
-    const d = yyyymmdd.substring(6, 8);
-    return `${y}/${m}/${d}`;
-}
-
-// 必填日期 YYYYMMDD：格式 + 日曆合法性（函數入口驗，程式化呼叫不繞過 CLI）
-function _assertYmd(dateStr) {
-    if (!w.isestr(dateStr) || !/^\d{8}$/.test(dateStr)) throw new Error(`dateStr 須為 YYYYMMDD 字串，得到: ${dateStr}`);
-    const y = w.cint(dateStr.slice(0, 4)), m = w.cint(dateStr.slice(4, 6)), d = w.cint(dateStr.slice(6, 8)), t = new Date(y, m - 1, d);
-    if (t.getFullYear() !== y || t.getMonth() !== m - 1 || t.getDate() !== d) throw new Error(`dateStr 非合法日期: ${dateStr}`);
-}
-
-export async function fetchTwseStock(dateStr, stockCode) {
-    _assertYmd(dateStr);
-    const isSingleStock = w.isestr(stockCode) && stockCode.toLowerCase() !== 'all';
-    const stockNo = isSingleStock ? stockCode : 'ALLBUT0999';
-
-    let url;
-    if (isSingleStock) {
-        url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${dateStr}&stockNo=${stockNo}`;
-    } else {
-        url = `https://www.twse.com.tw/exchangeReport/MI_INDEX?response=json&date=${dateStr}&type=ALLBUT0999`;
-    }
-
-    console.log(`Fetching TWSE data: ${dateStr}, Stock: ${stockNo}`);
-    console.log(`URL: ${url}`);
-
-    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-        try {
-            const response = await axios.get(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                timeout: 10000
-            });
-
-            const data = response.data;
-
-            if (data.stat !== 'OK') {
-                throw new Error(`TWSE API returned: ${data.stat}`);
-            }
-
-            // STOCK_DAY 回傳整月資料；若呼叫者明確指定單一日期，過濾為該日單筆
-            // 保留原欄位結構（fields/data/title/...），僅替換 data 為篩選後陣列
-            if (isSingleStock && Array.isArray(data.data)) {
-                const rocDate = toRocDateString(dateStr);
-                const filtered = data.data.filter(row => row[0] === rocDate);
-                data.data = filtered;
-                if (filtered.length === 0) {
-                    // 整月有資料但指定日無 → 當日停盤／假日／未開市
-                    throw new Error(`TWSE 個股 ${stockCode} 於 ${dateStr} 無交易資料（可能為假日或停盤）`);
-                }
-            }
-
-            return data;
-
-        } catch (error) {
-            const attemptsLeft = MAX_RETRIES + 1 - attempt;
-            if (!isRetryable(error) || attemptsLeft <= 0) {
-                throw error;
-            }
-            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
-            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] ${error.message} — 等待 ${delay / 1000}s 後重試...`);
-            await sleep(delay);
-        }
-    }
-}
+export default fetchTwseStock;

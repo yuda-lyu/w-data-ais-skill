@@ -12,7 +12,7 @@ function _guardPath(p) {
 /**
  * TAIFEX (台灣期貨交易所) 資料抓取 CLI
  * 目的：抓取台指期行情、三大法人期貨未平倉、Put/Call Ratio
- * 依賴：axios（透過 fetchTaifex 核心模組）
+ * 依賴：w-dwdata-hub（透過 fetchTaifex 核心模組）
  *
  * 用法:
  * node fetch_taifex.mjs [YYYYMMDD] [outputPath]

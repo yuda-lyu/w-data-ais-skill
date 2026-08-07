@@ -18,27 +18,28 @@ description: 抓取任意網頁的文章內容並提取純文字。支援四種�
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-### 子技能依賴（必裝；與本技能位於同一技能庫的同層 sibling 目錄）
+### 抓取層實作來源
 
-本技能將四個抓取方法委派給以下 4 個獨立子技能（內部 `import` 同層相對路徑）：
+四個抓取方法的實作**皆由 `w-fetch-web` 套件提供**（本技能的 `scripts/fetchWeb.mjs` 為轉發層）：
 
-| 方法 | 委派給子技能 |
-|---|---|
-| ① curl | `fetch-web-by-curl` |
-| ② Playwright 無頭 | `fetch-web-by-playwright-headless` |
-| ③ Playwright 有頭 | `fetch-web-by-playwright-head` |
-| ④ Camofox | `fetch-web-by-camofox` |
-
-> 4 個子技能必須與本技能放在同一技能庫的同層目錄（如 `<skills_root>/fetch-web/`、`<skills_root>/fetch-web-by-curl/`、…）。本技能透過 `../../<sibling>/scripts/...` 相對路徑載入。
-
-各子技能各自的 npm 依賴（請依各 SKILL.md 安裝）：
-
-| 子技能 | 套件 | 系統需求 |
+| 方法 | 對應套件函式 | `--method` 值 |
 |---|---|---|
-| `fetch-web-by-curl` | 無 | 系統有 `curl`（Windows 10 1803+ 內建） |
-| `fetch-web-by-playwright-headless` | `playwright` | Chrome／Chromium |
-| `fetch-web-by-playwright-head` | `playwright` | Chrome／Chromium + 桌面 session |
-| `fetch-web-by-camofox` | `w-fetch-web`（v1.0.1+ 已內含 `@askjo/camofox-browser`）| （首次安裝會下載 Firefox binary）|
+| ① curl | `fetchWebByCurl` | `curl` |
+| ② Playwright 無頭 | `fetchWebByPlaywrightHeadless` | `playwright` |
+| ③ Playwright 有頭 | `fetchWebByPlaywrightHead` | `playwright-headed` |
+| ④ Camofox | `fetchWebByCamofox` | `camofox` |
+
+> 先前拆為 `fetch-web-by-*` 四個子技能的作法已移除；實作統一收斂至 `w-fetch-web` 套件，
+> 不再有同層目錄相對載入的擺放要求。需單獨使用某一階，以 `--method` 指定即可。
+
+各方法的系統需求：
+
+| 方法 | 系統需求 |
+|---|---|
+| curl | 系統有 `curl`（Windows 10 1803+ 內建） |
+| Playwright 無頭 | Chrome／Chromium |
+| Playwright 有頭 | Chrome／Chromium + 桌面 session |
+| Camofox | 首次安裝會下載 Firefox binary（~200MB） |
 
 ### 本技能直接依賴
 
@@ -122,11 +123,11 @@ npm install w-fetch-web
 
 ### 安全設計
 
-低階抓取（curl 命令注入防護、瀏覽器資源清理、Camofox 進程樹清理等）由 4 個子技能各自實作；本技能僅負責 orchestration。摘要：
-- URL 透過 `execFileSync` 參數陣列傳遞（**防止命令注入**） — 由 `fetch-web-by-curl` 實作
-- Playwright 的 `browser.close()` 放在 `finally` 區塊 — 由兩個 playwright 子技能實作
-- Camofox server 進程樹清理（Windows 用 `taskkill /F /T`）— 由 `fetch-web-by-camofox` 實作
-- 4 個子技能皆內建自動重試（最多重試 5 次，**含初始請求最多執行 6 次**，線性遞增退避 3s→6s→…→15s）；curl 針對 5xx/429 及網路錯誤重試，Playwright/Camofox 針對導航逾時、瀏覽器 crash 等例外重試
+低階抓取（curl 命令注入防護、瀏覽器資源清理、Camofox 進程樹清理等）由 `w-fetch-web` 套件實作；本技能僅負責轉發。摘要：
+- URL 透過 `execFileSync` 參數陣列傳遞（**防止命令注入**） — 由 `w-fetch-web` 的 `fetchWebByCurl` 實作
+- Playwright 的 `browser.close()` 放在 `finally` 區塊 — 由 `w-fetch-web` 的兩個 playwright 函式實作
+- Camofox server 進程樹清理（Windows 用 `taskkill /F /T`）— 由 `w-fetch-web` 的 `fetchWebByCamofox` 實作
+- 四個方法皆內建自動重試（最多重試 5 次，**含初始請求最多執行 6 次**，線性遞增退避 3s→6s→…→15s）；curl 針對 5xx/429 及網路錯誤重試，Playwright/Camofox 針對導航逾時、瀏覽器 crash 等例外重試
 
 ## 執行方式
 
@@ -210,8 +211,8 @@ node fetch-web/scripts/fetch_web.mjs "https://mp.weixin.qq.com/s/xxx" ./result.j
 
 | 錯誤 | 原因 | 解法 |
 |------|------|------|
-| `missing @mozilla/readability or jsdom` | 未安裝基礎依賴 | 執行 `npm install @mozilla/readability jsdom` |
-| `missing playwright` | 未安裝進階依賴 | 執行 `npm install playwright` |
+| `missing @mozilla/readability or jsdom` | `w-fetch-web` 未安裝或其相依不全 | 執行 `npm install w-fetch-web` |
+| `missing playwright` | `w-fetch-web` 未安裝或其相依不全 | 執行 `npm install w-fetch-web` |
 | `camofox-browser not installed` | `w-fetch-web` 為 v1.0.0（未含 camofox 相依），或該相依被清理掉 | 升級 `npm install w-fetch-web@latest`（v1.0.1+ 已內含）；或單獨補裝 `npm install @askjo/camofox-browser` |
 | `HTTP 403` | TLS 指紋被擋（curl 也被擋） | 嘗試 `--method=playwright` 或 `--method=playwright-headed` |
 | `CAPTCHA or challenge page` | 網站要求驗證碼 | 嘗試 `--method=playwright-headed`（需桌面環境） |

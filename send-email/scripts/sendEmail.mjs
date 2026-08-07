@@ -6,7 +6,6 @@
 //
 // Returns: { status: "success"|"error", ... }
 
-import axios from "axios";
 import w from "wsemi";
 
 // ---------- constants ----------
@@ -25,6 +24,50 @@ function ts() {
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+// ---------- HTTP（node 內建 fetch，取代 axios） ----------
+// 保留 axios.post 的關鍵行為，使既有重試判斷與回傳處理無須改動：
+//   1. 自動 JSON.stringify 請求 body；回應自動解析 JSON，非 JSON 時保留原始字串
+//      （GAS 部署權限不當時會回 HTTP 200 + HTML 登入頁，必須保留字串以供辨識）
+//   2. 非 2xx 拋錯，且錯誤帶 response:{status,data}（與 axios 同形），供 catch 沿用
+//   3. timeout 以 AbortController 實作；逾時錯誤標 code='ECONNABORTED'（與 axios 同）
+// 差異：axios 的 maxRedirects:5 無對應設定，fetch 走 redirect:'follow'
+//      （undici 預設上限 20 次）；GAS 實務上僅 1-2 次重導，不影響。
+async function _postJson(url, body, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let res;
+  let text;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify(body),
+      redirect: "follow",
+      signal: ctrl.signal,
+    });
+    text = await res.text();
+  } catch (err) {
+    if (err.name === "AbortError") {
+      const e = new Error(`timeout of ${timeoutMs}ms exceeded`);
+      e.code = "ECONNABORTED";
+      throw e;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  let data;
+  try { data = JSON.parse(text); } catch { data = text; }
+
+  if (!res.ok) {
+    const e = new Error(`Request failed with status code ${res.status}`);
+    e.response = { status: res.status, data };
+    throw e;
+  }
+  return { data };
 }
 
 // ---------- core function ----------
@@ -57,15 +100,11 @@ export async function sendEmail(payload) {
 
   for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
     try {
-      const { data } = await axios.post(gas_url, reqBody, {
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-        timeout: TIMEOUT,
-        maxRedirects: 5,
-      });
+      const { data } = await _postJson(gas_url, reqBody, TIMEOUT);
 
       // GAS Web App 契約：成功必為 { ok: true, ... }；應用層失敗為 { ok: false, ... }。
       // 但部署權限非「任何人」或 gas_url 跑到登入/授權頁時，GAS 會回 HTTP 200 + HTML
-      // （axios 解析非 JSON 失敗 → data 為字串）。故成功必須「明確驗證 ok === true」，
+      // （JSON 解析失敗 → data 為字串）。故成功必須「明確驗證 ok === true」，
       // 不可用「非 ok:false 即成功」，否則 HTML 200 會被誤判成功（信根本沒寄出卻回報成功）。
       if (data && data.ok === true) {
         return {

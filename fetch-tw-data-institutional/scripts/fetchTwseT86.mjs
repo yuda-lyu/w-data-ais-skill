@@ -1,96 +1,15 @@
-import axios from 'axios';
-import w from 'wsemi';
+// fetchTwseT86.mjs — 抓取證交所 (TWSE) T86 三大法人買賣超
+//
+// 本檔為 w-dwdata-hub 套件之轉發層：實作已抽出至該套件統一維護，
+// 此處僅保留技能既有的匯入路徑與函式名稱，故既有呼叫端無須改動。
+//
+// fetchTwseT86(dateStr, opt) → TWSE 原始資料物件
+// 完整 API 見 https://yuda-lyu.github.io/w-dwdata-hub/global.html
+//
+// 注意：w-dwdata-hub 為 UMD 套件，只能 default import，named import 取不到函式。
 
-/**
- * 證交所 (TWSE) 三大法人買賣超 — 核心模組
- *
- * @param {string} dateStr - 日期字串 YYYYMMDD
- * @param {string[]} [stockCodes] - 股票代號陣列，省略或空陣列表示全市場
- * @returns {Promise<{source: string, date: string, data: object[]}>}
- */
+import hub from 'w-dwdata-hub';
 
-const MAX_RETRIES   = 10;
-const BASE_DELAY_MS = 5000;
-const MAX_DELAY_MS  = 30000;
+export const fetchTwseT86 = hub.fetchTwseT86;
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-function isRetryable(error) {
-    const status = error.response?.status;
-    if (status) return status >= 500 || status === 429;
-    return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
-}
-
-export async function fetchTwseT86(dateStr, stockCodes) {
-    if (!w.isestr(dateStr) || !/^\d{8}$/.test(dateStr)) {
-        throw new Error(`dateStr must be YYYYMMDD, got: ${dateStr}`);
-    }
-    // 合法性驗證：例如 20260230 雖然符合 8 碼但日期不存在
-    {
-        const _y = parseInt(dateStr.substring(0, 4));
-        const _m = parseInt(dateStr.substring(4, 6));
-        const _d = parseInt(dateStr.substring(6, 8));
-        const testDate = new Date(_y, _m - 1, _d);
-        if (testDate.getFullYear() !== _y || testDate.getMonth() !== _m - 1 || testDate.getDate() !== _d) {
-            throw new Error(`dateStr 不是合法日期: ${dateStr}（年=${_y} 月=${_m} 日=${_d}）`);
-        }
-    }
-
-    const targetCodes = w.isearr(stockCodes) ? stockCodes : [];
-    const url = `https://www.twse.com.tw/rwd/zh/fund/T86?response=json&date=${dateStr}&selectType=ALL`;
-    console.log(`Fetching from: ${url}`);
-    console.log(`Target: ${targetCodes.length === 0 ? 'All Market' : targetCodes.join(', ')}`);
-
-    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-        try {
-            const response = await axios.get(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                timeout: 15000,
-            });
-            const data = response.data;
-
-            if (data.stat !== 'OK') {
-                throw new Error(`TWSE T86 API returned: ${data.stat}`);
-            }
-
-            const fields  = data.fields;
-            const rawData = data.data;
-
-            if (!rawData) {
-                throw new Error('TWSE T86: data not found in response.');
-            }
-
-            let parsedData = rawData.map(row => {
-                const obj = {};
-                fields.forEach((field, index) => {
-                    let value = row[index];
-                    if (typeof value === 'string') value = value.trim();
-                    obj[field] = value;
-                });
-                return obj;
-            });
-
-            if (targetCodes.length > 0) {
-                const codeField = fields.find(f => f.includes('證券代號'));
-                if (!codeField) {
-                    throw new Error('無法篩選個股：API 回應中找不到證券代號欄位');
-                }
-                parsedData = parsedData.filter(item => targetCodes.includes(item[codeField]));
-            }
-
-            console.log(`Fetched ${parsedData.length} records.`);
-            return { source: 'twse', date: dateStr, data: parsedData };
-
-        } catch (error) {
-            const attemptsLeft = MAX_RETRIES + 1 - attempt;
-            if (!isRetryable(error) || attemptsLeft <= 0) {
-                throw error;
-            }
-            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
-            console.warn(`[Retry ${attempt}/${MAX_RETRIES}] ${error.message} — 等待 ${delay / 1000}s 後重試...`);
-            await sleep(delay);
-        }
-    }
-}
+export default fetchTwseT86;

@@ -117,13 +117,9 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 主要腳本 | 依賴 |
 |------|------|----------|------|
-| `fetch-web` | 通用網頁抓取，四階段自動升級：curl → Playwright 無頭 → Playwright 有頭 → Camofox 反偵測瀏覽器，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `@mozilla/readability`, `jsdom`, `playwright`, `@askjo/camofox-browser`, `wsemi`, `lodash-es` |
-| `fetch-web-by-curl` | 用系統 `curl` 抓原始 HTML，繞過層級 1-3 反爬（UA/Headers/TLS 指紋），零瀏覽器依賴、最輕量 | `fetch_web_by_curl.mjs`, `fetchWebByCurl.mjs` | `wsemi`, `lodash-es`（+ 系統 `curl`） |
-| `fetch-web-by-playwright-headless` | Playwright 無頭抓原始 HTML，完整 JS 渲染 SPA，含 Shadow DOM 穿透 | `fetch_web_by_playwright_headless.mjs`, `fetchWebByPlaywrightHeadless.mjs` | `playwright`, `wsemi`, `lodash-es` |
-| `fetch-web-by-playwright-head` | Playwright 有頭抓原始 HTML，自動點擊 Cloudflare Turnstile / hCaptcha 驗證 checkbox，含 Shadow DOM 穿透 | `fetch_web_by_playwright_head.mjs`, `fetchWebByPlaywrightHead.mjs` | `playwright`, `wsemi`, `lodash-es` |
-| `fetch-web-by-camofox` | Camofox（修改版 Firefox）反偵測瀏覽器抓 HTML，繞過 Cloudflare Turnstile 等進階驗證 | `fetch_web_by_camofox.mjs`, `fetchWebByCamofox.mjs` | `@askjo/camofox-browser`, `wsemi`, `lodash-es` |
+| `fetch-web` | 通用網頁抓取，四階段自動升級：curl → Playwright 無頭 → Playwright 有頭 → Camofox 反偵測瀏覽器，統一由 Readability 解析文章主體 | `fetch_web.mjs`, `fetchWeb.mjs` | `w-fetch-web`（已內含 readability / jsdom / playwright / camofox） |
 | `fetch-aisixiang` | 抓取愛思想（aisixiang.com）文章，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇轉 markdown（查詢字串需簡體） | `fetch_aisixiang.mjs`, `fetchAisixiang.mjs` | `wsemi`（自有 HTTP） |
-| `fetch-guancha` | 抓取觀察者網（guancha.cn）文章轉 markdown，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇（查詢字串需簡體） | `fetch_guancha.mjs`, `fetchGuancha.mjs` | `wsemi`, `lodash-es`（委派 `fetch-web-by-curl`） |
+| `fetch-guancha` | 抓取觀察者網（guancha.cn）文章轉 markdown，五模式：作者 / 關鍵字 / 標題 / 主題 / 單篇（查詢字串需簡體） | `fetch_guancha.mjs`, `fetchGuancha.mjs` | `w-fetch-web`, `wsemi` |
 | `fetch-youtube-transcript` | Playwright + 本機 Chrome 抓 YouTube 字幕，走「顯示轉錄稿」UI 流程繞過 POT 限制，雙路徑（DOM + 網路攔截） | `fetch_youtube_transcript.mjs`, `fetchYoutubeTranscript.mjs` | `playwright`, `wsemi`, `lodash-es` |
 | `download-baidu-pdf` | Playwright + 本機 Chrome 抓百度網盤「免登入公開」分享 PDF（文件預覽）逐頁圖片併為本機 PDF；攔截帶簽章頁圖 URL，拋棄式 headless、零介入；臨時/輸出檔落於 `download-baidu-pdf/tmp` | `download_baidu_pdf.mjs`, `downloadBaiduPdf.mjs` | `playwright`, `pdfkit`, `wsemi`, `lodash-es` |
 
@@ -132,12 +128,6 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 ```bash
 # 通用抓取（自動階梯升級；可 --method 強制指定）
 node fetch-web/scripts/fetch_web.mjs <url> [outputPath] [--method=curl|playwright|playwright-headed]
-
-# 單方法抓取（皆回原始 HTML，不做 Readability 解析）
-node fetch-web-by-curl/scripts/fetch_web_by_curl.mjs <url> [outputPath]
-node fetch-web-by-playwright-headless/scripts/fetch_web_by_playwright_headless.mjs <url> [outputPath]
-node fetch-web-by-playwright-head/scripts/fetch_web_by_playwright_head.mjs <url> [outputPath]
-node fetch-web-by-camofox/scripts/fetch_web_by_camofox.mjs <url> [outputPath]
 
 # 知識站抓取（查詢字串需為簡體中文）
 node fetch-aisixiang/scripts/fetch_aisixiang.mjs <mode> <query> [outputPath]
@@ -150,9 +140,9 @@ node fetch-youtube-transcript/scripts/fetch_youtube_transcript.mjs <url-or-id> [
 node download-baidu-pdf/scripts/download_baidu_pdf.mjs <百度分享網址> [輸出檔.pdf] [--out-dir <path>]
 ```
 
-- `fetch-web` 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭 → Camofox；底層四個 `fetch-web-by-*` 亦可單獨使用
+- `fetch-web` 預設自動升級：curl 被擋（403/CAPTCHA）→ Playwright 無頭 → Playwright 有頭 → Camofox；四個階段的實作皆由 `w-fetch-web` 套件提供，需單獨呼叫某一階時以 `--method` 指定
 - Playwright 系列使用系統 Chrome（`channel: 'chrome'`），不需額外下載 Chromium
-- `fetch-guancha` 委派 `fetch-web-by-curl` 取 HTML；`fetch-aisixiang` 為自有 HTTP（不委派 curl）。兩者查詢字串皆需由呼叫端轉為簡體
+- `fetch-guancha` 委派 `w-fetch-web` 的 `fetchWebByCurl` 取 HTML；`fetch-aisixiang` 為自有 HTTP（不委派 curl）。兩者查詢字串皆需由呼叫端轉為簡體
 
 ---
 
@@ -428,26 +418,6 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 │   └── scripts/
 │       ├── fetchWeb.mjs
 │       └── fetch_web.mjs
-├── fetch-web-by-camofox/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── fetchWebByCamofox.mjs
-│       └── fetch_web_by_camofox.mjs
-├── fetch-web-by-curl/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── fetchWebByCurl.mjs
-│       └── fetch_web_by_curl.mjs
-├── fetch-web-by-playwright-head/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── fetchWebByPlaywrightHead.mjs
-│       └── fetch_web_by_playwright_head.mjs
-├── fetch-web-by-playwright-headless/
-│   ├── SKILL.md
-│   └── scripts/
-│       ├── fetchWebByPlaywrightHeadless.mjs
-│       └── fetch_web_by_playwright_headless.mjs
 ├── fetch-youtube-transcript/
 │   ├── SKILL.md
 │   └── scripts/
@@ -535,11 +505,8 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 npm install axios cheerio playwright wsemi lodash-es
 
 # 網頁與媒體抓取（fetch-web 全套）
-npm install @mozilla/readability jsdom playwright @askjo/camofox-browser wsemi lodash-es
+npm install w-fetch-web
 # 其中 fetch-youtube-transcript 需 playwright wsemi lodash-es
-
-# fetch-web-by-curl（系統 curl）
-npm install wsemi lodash-es        # （+ 系統 curl）
 
 # 百度網盤 PDF（download-baidu-pdf）
 npm install playwright pdfkit wsemi lodash-es

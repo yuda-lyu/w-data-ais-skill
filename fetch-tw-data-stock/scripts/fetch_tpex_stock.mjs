@@ -12,7 +12,7 @@ function _guardPath(p) {
 /**
  * TPEX (櫃買中心) 股價抓取 CLI
  * 目的：抓取上櫃個股收盤資料 (全市場)
- * 依賴：axios (via fetchTpexStock)
+ * 依賴：w-dwdata-hub (via fetchTpexStock)
  *
  * 用法:
  * node fetch_tpex_stock.mjs [stockCode] [date] [outputPath]

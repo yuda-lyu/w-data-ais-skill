@@ -1,139 +1,15 @@
-// fetchTwDataHoliday.mjs — 核心函式：取得台灣國定假日清單，可查詢指定日期是否為假日
+// fetchTwDataHoliday.mjs — 取得台灣國定假日清單，可查詢指定日期是否為假日
 //
-// 輸出：{ dataYear, totalHolidays, holidays, checkDate?, isHoliday?, holidayName? }
+// 本檔為 w-dwdata-hub 套件之轉發層：實作已抽出至該套件統一維護，
+// 此處僅保留技能既有的匯入路徑與函式名稱，故既有呼叫端無須改動。
+//
+// fetchTwDataHoliday(year, opt) → { dataYear, holidays, totalHolidays }
+// 完整 API 見 https://yuda-lyu.github.io/w-dwdata-hub/global.html
+//
+// 注意：w-dwdata-hub 為 UMD 套件，只能 default import，named import 取不到函式。
 
-import https from 'https';
-import w from 'wsemi';
+import hub from 'w-dwdata-hub';
 
-// ---------- 常數 ----------
-const API_URL = 'https://openapi.twse.com.tw/v1/holidaySchedule/holidaySchedule';
-const MAX_RETRIES = 10;
-const BASE_DELAY_MS = 5000;
-const MAX_DELAY_MS = 30000;
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+export const fetchTwDataHoliday = hub.fetchTwDataHoliday;
 
-// ---------- 工具函式 ----------
-function httpGet(urlStr) {
-    return new Promise((resolve, reject) => {
-        const req = https.get(urlStr, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-        }, (res) => {
-            const status = res.statusCode;
-            if (status < 200 || status >= 300) {
-                const err = new Error(`HTTP ${status}`);
-                err.statusCode = status;
-                res.resume();
-                reject(err);
-                return;
-            }
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => resolve(data));
-        });
-        req.on('error', reject);
-        req.setTimeout(30000, () => {
-            // 設 .code='ETIMEDOUT' 使逾時錯誤落入 isRetryable 的 ETIMEDOUT 分支，與其他網路錯誤一致
-            const err = new Error('Request timeout after 30s');
-            err.code = 'ETIMEDOUT';
-            req.destroy(err);
-        });
-    });
-}
-
-function isRetryable(error) {
-    const status = error.statusCode;
-    if (status) return status >= 500 || status === 429;
-    const code = error.code;
-    return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(code);
-}
-
-/**
- * 民國日期 YYYMMDD → 西元日期 YYYYMMDD
- */
-function rocToWestern(rocDate) {
-    const rocYear = parseInt(rocDate.substring(0, rocDate.length - 4));
-    const mmdd = rocDate.substring(rocDate.length - 4);
-    return `${rocYear + 1911}${mmdd}`;
-}
-
-/**
- * 判斷條目是否為非假日條目（應排除）：
- * - 交易日標記：「國曆新年開始交易日」「農曆春節前最後交易日」「農曆春節後開始交易日」
- * - 結算作業日：「市場無交易，僅辦理結算交割作業」
- */
-function isNonHolidayEntry(entry) {
-    return /交易日/.test(entry.Name) ||
-           /市場無交易/.test(entry.Name) ||
-           /開始交易/.test(entry.Description) ||
-           /最後交易/.test(entry.Description);
-}
-
-// ---------- 主要函式 ----------
-export async function fetchTwDataHoliday(checkDate) {
-    let body;
-    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-        try {
-            body = await httpGet(API_URL);
-            break;
-        } catch (e) {
-            const attemptsLeft = MAX_RETRIES + 1 - attempt;
-            if (!isRetryable(e) || attemptsLeft <= 0) throw e;
-            const delay = Math.min(BASE_DELAY_MS * attempt, MAX_DELAY_MS);
-            console.warn(`[fetch-tw-data-holiday] 重試 ${attempt}/${MAX_RETRIES}: ${e.message} — 等待 ${delay / 1000}s ...`);
-            await sleep(delay);
-        }
-    }
-
-    let raw;
-    try {
-        raw = JSON.parse(body);
-    } catch (e) {
-        // API 維護時可能回 HTTP 200 + HTML（非 JSON）→ 產生文件記載之友善訊息，而非裸 SyntaxError
-        throw new Error('API 回傳非 JSON 格式（可能為維護頁面或網路中介），請稍後再試');
-    }
-    if (!Array.isArray(raw) || raw.length === 0) {
-        throw new Error('API 回傳空陣列或格式異常');
-    }
-
-    // 轉換為結構化假日清單（排除交易日標記與結算作業日）
-    const holidays = raw
-        .filter(entry => !isNonHolidayEntry(entry))
-        .map(entry => ({
-            date: rocToWestern(entry.Date),
-            rocDate: entry.Date,
-            name: entry.Name,
-            weekday: entry.Weekday,
-            description: (entry.Description || '').replace(/<br\s*\/?>/gi, '').trim()
-        }));
-
-    // 去重（同一天可能有多筆同名條目）
-    const seen = new Set();
-    const uniqueHolidays = holidays.filter(h => {
-        if (seen.has(h.date)) return false;
-        seen.add(h.date);
-        return true;
-    });
-    uniqueHolidays.sort((a, b) => a.date.localeCompare(b.date));
-
-    const dataYear = uniqueHolidays.length > 0
-        ? uniqueHolidays[0].date.substring(0, 4)
-        : null;
-
-    const result = {
-        dataYear,
-        totalHolidays: uniqueHolidays.length,
-        holidays: uniqueHolidays
-    };
-
-    // checkDate 為 opt：僅當為合法 YYYYMMDD 字串才做單日假日比對；無效則略過（不誤標 isHoliday）
-    if (w.isestr(checkDate) && /^\d{8}$/.test(checkDate)) {
-        result.checkDate = checkDate;
-        const match = uniqueHolidays.find(h => h.date === checkDate);
-        result.isHoliday = !!match;
-        result.holidayName = match ? match.name : null;
-    }
-
-    return result;
-}
+export default fetchTwDataHoliday;

@@ -12,7 +12,7 @@ function _guardPath(p) {
 /**
  * MOPS 資料抓取 CLI
  * 目的：抓取今日重大公告 (上市, 上櫃, 興櫃, 公開發行)
- * 依賴：./fetchMops.mjs (核心模組), playwright
+ * 依賴：./fetchMops.mjs (核心模組) → w-dwdata-hub（其內部使用 playwright）
  *
  * 用法:
  * node fetch_mops.mjs [outputPath]

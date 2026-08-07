@@ -2,7 +2,7 @@
 // test_fetch_guancha.mjs — fetch-guancha 回歸測試
 //
 // 直接匯入 fetchGuancha.mjs 的純邏輯函式做斷言（不經 CLI、不寫檔）。
-// 整合測試：會打 guancha.cn 真網路（透過 fetch-web-by-curl）。
+// 整合測試：會打 guancha.cn 真網路（透過 w-fetch-web 的 fetchWebByCurl）。
 //
 // 設計：
 //   - 單一 top-level test，內部用 t.test 串行子測試（避免並行打爆站方）

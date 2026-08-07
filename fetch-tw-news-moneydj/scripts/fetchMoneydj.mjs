@@ -1,121 +1,15 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
-import w from 'wsemi';
-import _ from 'lodash-es';
+// fetchMoneydj.mjs — 抓取 MoneyDJ 理財網新聞並回傳統一格式陣列
+//
+// 本檔為 w-dwdata-hub 套件之轉發層：實作已抽出至該套件統一維護，
+// 此處僅保留技能既有的匯入路徑與函式名稱，故既有呼叫端無須改動。
+//
+// fetchMoneydj(opt) → [{ url, time, title, description, from }]
+// 完整 API 見 https://yuda-lyu.github.io/w-dwdata-hub/global.html
+//
+// 注意：w-dwdata-hub 為 UMD 套件，只能 default import，named import 取不到函式。
 
-/**
- * MoneyDJ 新聞抓取核心模組
- * 抓取 MoneyDJ 台股新聞 (MB06) 前 N 頁（預設 50 頁）
- * 依賴：axios, cheerio
- *
- * @param {object} [options]
- * @param {number} [options.totalPages=50]  要抓取的頁數
- * @param {number} [options.maxRetries=10]  每頁最大重試次數
- * @param {number} [options.baseDelayMs=5000]  重試基礎延遲（毫秒）
- * @param {number} [options.maxDelayMs=30000]  重試最大延遲（毫秒）
- * @param {function} [options.onPageDone]  每頁完成時的回呼 (pageIndex, itemCount, totalPages)
- * @returns {Promise<Array<{time: string, title: string, link: string}>>}
- * @throws {Error} 若抓取到 0 筆新聞或發生不可重試的網路錯誤
- */
-export async function fetchMoneydj(options = {}) {
+import hub from 'w-dwdata-hub';
 
-    let totalPages = _.get(options, 'totalPages', null);
-    if (!w.ispint(totalPages)) totalPages = 50; else totalPages = w.cint(totalPages);
-
-    let maxRetries = _.get(options, 'maxRetries', null);
-    if (!w.ispint(maxRetries)) maxRetries = 10; else maxRetries = w.cint(maxRetries);
-
-    let baseDelayMs = _.get(options, 'baseDelayMs', null);
-    if (!w.ispint(baseDelayMs)) baseDelayMs = 5000; else baseDelayMs = w.cint(baseDelayMs);
-
-    let maxDelayMs = _.get(options, 'maxDelayMs', null);
-    if (!w.ispint(maxDelayMs)) maxDelayMs = 30000; else maxDelayMs = w.cint(maxDelayMs);
-
-    let onPageDone = _.get(options, 'onPageDone', null);
-    if (!w.isfun(onPageDone)) onPageDone = () => {};
-
-    const domain  = 'https://www.moneydj.com';
-    const baseUrl = 'https://www.moneydj.com/kmdj/news/newsreallist.aspx?a=mb06&index1=';
-
-    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-    function isRetryable(error) {
-        const status = error.response?.status;
-        if (status) return status >= 500 || status === 403 || status === 429;
-        return ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNABORTED'].includes(error.code);
-    }
-
-    async function fetchPage(pageIndex) {
-        const url = `${baseUrl}${pageIndex}`;
-        for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-            try {
-                const response = await axios.get(url, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
-                    },
-                    responseType: 'arraybuffer',
-                    timeout: 30000,
-                });
-
-                // NOTE: MoneyDJ 已確認使用 UTF-8 編碼（多次實測結果正確），無需 Big5 解碼。
-                const decoder = new TextDecoder('utf-8');
-                const html = decoder.decode(response.data);
-                const $ = cheerio.load(html);
-                const newsItems = [];
-
-                $('tr').each((i, el) => {
-                    const $row = $(el);
-                    const timeText = $row.find('td').eq(0).text().trim();
-                    const $link = $row.find('td').eq(1).find('a');
-
-                    if (timeText && /^(\d{2}\/\d{2}\s+\d{2}:\d{2}|\d{2}:\d{2}|昨\s*\d{2}:\d{2})$/.test(timeText) && $link.length > 0) {
-                        const title = $link.attr('title') || $link.text().trim();
-                        const linkRel = $link.attr('href');
-                        if (linkRel) {
-                            const link = linkRel.startsWith('http') ? linkRel : domain + linkRel;
-                            newsItems.push({ time: timeText, title, link });
-                        }
-                    }
-                });
-
-                return newsItems;
-            } catch (error) {
-                const attemptsLeft = maxRetries + 1 - attempt;
-                if (!isRetryable(error) || attemptsLeft <= 0) throw error;
-                const retryDelay = Math.min(baseDelayMs * attempt, maxDelayMs);
-                console.warn(`[Page ${pageIndex}][Retry ${attempt}/${maxRetries}] ${error.message} — 等待 ${retryDelay / 1000}s 後重試...`);
-                await delay(retryDelay);
-            }
-        }
-    }
-
-    let allNewsItems = [];
-
-    for (let i = 1; i <= totalPages; i++) {
-        let items;
-        try {
-            items = await fetchPage(i);
-        } catch (error) {
-            console.warn(`[Page ${i}] 抓取失敗，已跳過：${error.message}`);
-            continue;
-        }
-        allNewsItems = allNewsItems.concat(items);
-
-        if (typeof onPageDone === 'function') {
-            onPageDone(i, items.length, totalPages);
-        }
-
-        if (i < totalPages) {
-            const waitTime = Math.floor(Math.random() * 2000) + 1000;
-            await delay(waitTime);
-        }
-    }
-
-    if (allNewsItems.length === 0) {
-        throw new Error('抓取到 0 筆新聞，可能是頁面結構改變或 selector 失效，請確認 MoneyDJ 頁面是否正常。');
-    }
-
-    return allNewsItems;
-}
+export const fetchMoneydj = hub.fetchMoneydj;
 
 export default fetchMoneydj;

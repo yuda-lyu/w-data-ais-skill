@@ -12,7 +12,7 @@ function _guardPath(p) {
 /**
  * TWSE (證交所) 股價抓取 CLI
  * 目的：抓取上市個股日成交資訊或全市場收盤資料
- * 依賴：axios (via fetchTwseStock)
+ * 依賴：w-dwdata-hub (via fetchTwseStock)
  *
  * 用法:
  * node fetch_twse_stock.mjs [stockCode] [date] [outputPath]

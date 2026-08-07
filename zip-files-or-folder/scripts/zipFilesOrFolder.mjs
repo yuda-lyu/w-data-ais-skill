@@ -37,7 +37,9 @@ async function _loadWZip() {
     }
 }
 
-// @zip.js/zip.js 為 w-zip 的依賴，亦於本技能 package.json 明確宣告（避免 phantom dependency）。
+// @zip.js/zip.js 由 w-zip 帶入（w-zip 的相依），本技能 package.json 不再重複宣告，
+// 依賴版本統一交由 w-zip 管理。故此處以動態 import + 明確錯誤訊息保護：
+// 若 w-zip 未來改用其他壓縮實作，此路徑會拋出可辨識的錯誤而非靜默失敗。
 async function _loadZipJs() {
     let mod
     try {

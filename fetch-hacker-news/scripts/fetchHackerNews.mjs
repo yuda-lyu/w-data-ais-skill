@@ -1,96 +1,15 @@
-// fetchHackerNews.mjs — 核心函式：取得 Hacker News 最新文章並轉換為統一格式
+// fetchHackerNews.mjs — 取得 Hacker News 最新文章並轉換為統一格式
 //
-// 輸出欄位：{ url, time, title, description, from }
+// 本檔為 w-dwdata-hub 套件之轉發層：實作已抽出至該套件統一維護，
+// 此處僅保留技能既有的匯入路徑與函式名稱，故既有呼叫端無須改動。
+//
+// fetchHackerNews(opt) → [{ url, time, title, description, from }]
+// 完整 API 見 https://yuda-lyu.github.io/w-dwdata-hub/global.html
+//
+// 注意：w-dwdata-hub 為 UMD 套件，只能 default import，named import 取不到函式。
 
-import axios from "axios";
-import w from "wsemi";
+import hub from 'w-dwdata-hub';
 
-const API_BASE = "https://hacker-news.firebaseio.com/v0";
-const TIMEOUT = 30000;
-const TZ_OFFSET = 8; // UTC+8
-const MAX_RETRIES = 5;
-const INITIAL_WAIT = 3000;   // ms
-const MAX_WAIT = 15000;      // ms
-const DEFAULT_LIMIT = 30;
-const CONCURRENCY = 10;
+export const fetchHackerNews = hub.fetchHackerNews;
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function isRetryable(error) {
-  const status = error.response?.status;
-  if (status) return status >= 500 || status === 429;
-  return ["ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "ECONNREFUSED", "ECONNABORTED"].includes(error.code);
-}
-
-function toUTC8(unixSeconds) {
-  if (!unixSeconds) return "";
-  const d = new Date(unixSeconds * 1000);
-  if (isNaN(d.getTime())) return "";
-  const utc8 = new Date(d.getTime() + TZ_OFFSET * 60 * 60 * 1000);
-  const pad = (n) => String(n).padStart(2, "0");
-  return (
-    `${utc8.getUTCFullYear()}-${pad(utc8.getUTCMonth() + 1)}-${pad(utc8.getUTCDate())} ` +
-    `${pad(utc8.getUTCHours())}:${pad(utc8.getUTCMinutes())}:${pad(utc8.getUTCSeconds())}`
-  );
-}
-
-async function fetchWithRetry(url) {
-  let lastError;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-    try {
-      const { data } = await axios.get(url, { timeout: TIMEOUT });
-      return data;
-    } catch (err) {
-      lastError = err;
-
-      const attemptsLeft = MAX_RETRIES + 1 - attempt;
-      if (!isRetryable(err) || attemptsLeft <= 0) {
-        throw err;
-      }
-
-      const waitMs = Math.min(INITIAL_WAIT * attempt, MAX_WAIT);
-      console.warn(
-        `[fetch-hacker-news] 重試 ${attempt}/${MAX_RETRIES}: ${err.message} — 等待 ${waitMs / 1000}s ...`
-      );
-      await sleep(waitMs);
-    }
-  }
-
-  throw lastError;
-}
-
-export async function fetchHackerNews(limit = DEFAULT_LIMIT) {
-  // 正規化 limit：非正整數（如 NaN / <= 0）時改用預設值，避免 slice(0, NaN) 靜默回傳空陣列
-  limit = w.ispint(limit) ? w.cint(limit) : DEFAULT_LIMIT;
-
-  // 1. 取得最新文章 ID 列表
-  const ids = await fetchWithRetry(`${API_BASE}/newstories.json`);
-  const selected = (ids || []).slice(0, limit);
-
-  // 2. 批次取得文章詳情（控制併發數）
-  const items = [];
-  for (let i = 0; i < selected.length; i += CONCURRENCY) {
-    const batch = selected.slice(i, i + CONCURRENCY);
-    // allSettled：單一 item 重試耗盡而 reject 時，不丟失整批其他已成功的文章
-    const results = await Promise.allSettled(
-      batch.map((id) => fetchWithRetry(`${API_BASE}/item/${id}.json`))
-    );
-    for (const r of results) {
-      if (r.status === 'fulfilled') items.push(r.value);
-    }
-  }
-
-  // 3. 轉換為統一格式
-  return items
-    .filter((item) => item && item.type === "story")
-    .map((item) => ({
-      url: (item.url || `https://news.ycombinator.com/item?id=${item.id}`).trim(),
-      time: toUTC8(item.time),
-      title: (item.title || "").trim(),
-      description: "",
-      from: "Hacker News",
-    }));
-}
+export default fetchHackerNews;
