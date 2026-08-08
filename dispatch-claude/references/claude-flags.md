@@ -1,6 +1,9 @@
 # Claude Code CLI 旗標完整參考
 
-來源：`claude --help`（v2.1.214 實測確認，2026-07-19）＋ 官方 model-config 文件
+來源：`claude --help`（**v2.1.224 實測確認，2026-08-07**＝npm 最新）＋ 官方 model-config 文件
+
+> 2.1.224 複查：`--model`（`fable`/`opus`/`sonnet` 別名、`claude-fable-5` 完整名）與
+> `--effort`（`low`/`medium`/`high`/`xhigh`/`max`）**皆與 2.1.214 相同，無變動**。
 
 ## 基本語法
 
@@ -182,6 +185,7 @@ claude -p --agents '{"reviewer":{"description":"程式碼審查","prompt":"你�
 
 | 選項 | 說明 |
 |------|------|
+| `--environment <environment_id>` | 於指定的 self-hosted environment 建立 cloud session（2.1.22x 實測存在；派工至本機子進程時不需要） |
 | `--debug [filter]` | 除錯模式，可選分類過濾（例：`"api,hooks"`） |
 | `--debug-file <path>` | 將除錯日誌寫入檔案 |
 | `--chrome` | 啟用 Chrome 瀏覽器整合 |

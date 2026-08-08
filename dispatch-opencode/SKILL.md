@@ -71,7 +71,7 @@ node dispatch-cli/scripts/run_cli.mjs \
 ### 模組匯入
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
+import { runCli } from './dispatch-cli/scripts/runCli.mjs';
 
 const result = await runCli('opencode', [
     'run', '--agent', 'build',
@@ -90,9 +90,9 @@ if (result.ok) {
 
 ## 模型選擇
 
-> **型錄實證（2026-07-28，CLI v1.18.13 跑 `opencode models`）**：共 107 個模型，分屬三個 provider ——
+> **型錄實證（2026-08-07，CLI v1.18.15 跑 `opencode models`）**：共 107 個模型，分屬三個 provider ——
 > `opencode`（8，Zen 免費層）、`cline`（3）、`nvidia`（96）。
-> **型錄由伺服器決定，不隨 CLI 版本變動**（1.17.11 與 1.18.13 實測完全相同），故會隨時間增減：
+> **型錄由伺服器決定，不隨 CLI 版本變動**（1.17.11 / 1.18.13 / 1.18.15 三版實測完全相同），故會隨時間增減：
 > **動工前請一律先跑 `opencode models` 對照**，勿直接沿用本表。
 
 ### Zen 免費模型（`opencode/` 前綴，推薦日常使用）
@@ -145,9 +145,7 @@ OpenCode 自家策劃的免費層，**point-and-use、不需自備 API key**（`
 
 ### 各參數說明
 
-| 參數 | 必要 | 說明 |
-|------|------|------|
-> 以下旗標皆經 v1.18.13 之 `opencode run --help` 實測確認。
+> 以下旗標皆經 v1.18.15 之 `opencode run --help` 實測確認。
 
 | 參數 | 必要 | 說明 |
 |------|------|------|
@@ -219,7 +217,7 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 > 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
 
 ```bash
-opencode --version   # 確認 opencode 已安裝（本技能實測 v1.18.13）
+opencode --version   # 確認 opencode 已安裝（本技能實測 v1.18.15＝npm 最新）
 opencode auth list   # 確認已登入的 provider（opencode/ 免費層不需憑證）
 opencode models      # 查看可用模型列表（型錄會變動，動工前務必對照）
 ```

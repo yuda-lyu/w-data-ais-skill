@@ -1,6 +1,6 @@
 # OpenCode CLI 旗標完整參考
 
-來源：`opencode --help`、`opencode run --help`、`opencode models`（**v1.18.13 實測確認，2026-07-28**；npm 套件名 `opencode-ai`）
+來源：`opencode --help`、`opencode run --help`、`opencode models`（**v1.18.15 實測確認，2026-08-07**；npm 套件名 `opencode-ai`）
 
 ## 基本語法
 
@@ -19,7 +19,7 @@ opencode run [message..]   ← 非互動模式（headless）
 | `web` | 啟動 server 並開啟 Web 介面 |
 | `attach <url>` | 連接到運行中的 server |
 | `models [provider]` | 列出所有可用模型 |
-| `providers`（別名 `auth`） | 管理 AI provider 與憑證（login / logout / list）。**v1.18.13 起主名為 `providers`**，`auth` 仍為別名 |
+| `providers`（別名 `auth`） | 管理 AI provider 與憑證（login / logout / list）。**v1.18.1x 起主名為 `providers`**，`auth` 仍為別名 |
 | `agent` | 管理 agent（create / list） |
 | `session` | 管理 session |
 | `export [sessionID]` | 匯出 session 為 JSON |
@@ -61,7 +61,7 @@ opencode run [message..]   ← 非互動模式（headless）
 | `--port` | — | 本地 server 端口（預設隨機） |
 | `--print-logs` / `--log-level` | — | 除錯：log 印至 stderr；等級 `DEBUG`/`INFO`/`WARN`/`ERROR` |
 
-> ⚠ 舊版本文所列的 `run --prompt` 於 v1.18.13 之 `opencode run --help` **已不存在**（prompt 直接以 positional `message` 傳入）。
+> ⚠ 舊版本文所列的 `run --prompt` 於 v1.18.15 之 `opencode run --help` **已不存在**（prompt 直接以 positional `message` 傳入）。
 >
 > ⚠ `-p` 在 `run` 之下是 `--password` **而非 prompt**，勿與 Claude / Copilot CLI 的 `-p` 混淆。
 

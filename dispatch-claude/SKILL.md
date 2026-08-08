@@ -64,7 +64,7 @@ node dispatch-cli/scripts/run_cli.mjs \
 ### 模組匯入
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
+import { runCli } from './dispatch-cli/scripts/runCli.mjs';
 
 const result = await runCli('claude', [
     '-p', '--dangerously-skip-permissions',
@@ -230,7 +230,7 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 > 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
 
 ```bash
-claude --version   # 確認 claude code 已安裝；Fable 5 需 ≥ v2.1.170（實測 2.1.214＝npm 最新），過舊先 claude update
+claude --version   # 確認 claude code 已安裝；Fable 5 需 ≥ v2.1.170（實測 2.1.224＝npm 最新），過舊先 claude update
 claude auth        # 確認認證狀態
 ```
 

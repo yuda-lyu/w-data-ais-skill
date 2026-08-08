@@ -1,6 +1,6 @@
 ---
 name: dispatch-cli
-description: Generic CLI subprocess runner with timeout, process-tree cleanup, output validation, and structured error handling. Core invocation layer for dispatch-claude, dispatch-codex, dispatch-opencode and any external CLI.
+description: Generic CLI subprocess runner with timeout, process-tree cleanup, output validation, and structured error handling. Core invocation layer for dispatch-claude, dispatch-codex, dispatch-antigravity, dispatch-opencode, dispatch-agents and any external CLI.
 ---
 
 # dispatch-cli — 通用 CLI 子進程調用技能
@@ -28,6 +28,19 @@ node --version   # 需要 Node.js >= 18
 # 入口參數驗證所需依賴
 npm install wsemi lodash-es
 ```
+
+## 檔案結構
+
+| 檔案 | 角色 |
+|---|---|
+| `scripts/runCli.mjs` | **核心模組**：轉發至 **wsemi 的 `execCli`**（spawn、timeout、進程樹清理、輸出驗證、重試皆由其實作）；匯出 `runCli()` |
+| `scripts/run_cli.mjs` | **CLI 包裝（僅調用層）**：argv 解析 → 環境變數讀取 → 呼叫 `runCli()` → JSONL log → JSON 輸出 → exit code |
+
+> 程式化呼叫請直接匯入 **`runCli.mjs`**（核心）；命令列則跑 `run_cli.mjs`。
+>
+> **實作已抽出至 `wsemi`**：底層為 `wsemi` 的 `execCli`（v1.8.68 起提供），函式簽章與回傳格式與先前完全一致，既有呼叫端無須改動。
+> 亦可直接用 `import w from 'wsemi'; await w.execCli(...)`；本檔存在的意義是維持技能既有匯入路徑與命名。
+> ⚠ `wsemi` 為 UMD 套件，只能 default import，named import 取不到函式。
 
 ## 使用方式
 
@@ -88,7 +101,7 @@ CLI_INPUT_FILE=prompt.txt CLI_TIMEOUT_MS=180000 \
 ### 方式二：作為模組匯入
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
+import { runCli } from './dispatch-cli/scripts/runCli.mjs';
 
 // 基本呼叫
 const result = await runCli('claude', ['-p', '--output-format', 'json', '請分析程式碼'], {
@@ -195,6 +208,8 @@ CLI_TIMEOUT_MS=180000 \
 
 | 技能 | 關係 |
 |------|------|
-| `dispatch-claude` | 使用本技能調用 `claude -p` |
-| `dispatch-codex` | 使用本技能調用 `codex exec` |
-| `dispatch-opencode` | 使用本技能調用 `opencode run` |
+| `dispatch-claude` | 使用本技能調用 `claude -p`（預設 `--model claude-fable-5 --effort max`） |
+| `dispatch-codex` | 使用本技能調用 `codex exec`（預設 `-m gpt-5.6-sol` + `model_reasoning_effort="max"`） |
+| `dispatch-antigravity` | 使用本技能調用 `agy --print`（預設 `--model gemini-3.1-pro-high`） |
+| `dispatch-opencode` | 使用本技能調用 `opencode run`（預設 `-m opencode/deepseek-v4-flash-free`） |
+| `dispatch-agents` | 使用本技能**平行**調用 Claude 與 Codex，再彙整雙方結果 |

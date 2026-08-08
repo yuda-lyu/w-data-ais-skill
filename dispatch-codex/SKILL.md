@@ -59,7 +59,7 @@ CLI_TIMEOUT_MS=180000 \
 ### 模組匯入
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
+import { runCli } from './dispatch-cli/scripts/runCli.mjs';
 
 const result = await runCli('codex', [
     'exec', '--sandbox', 'workspace-write', '--skip-git-repo-check',
@@ -86,11 +86,13 @@ if (result.ok) {
 | `gpt-5.6-terra` | 均衡日常主力（priority 2）；Sol 不可用時的第一備援；同樣支援至 `ultra` |
 | `gpt-5.6-luna` | 快速低成本（priority 3）；明確、可重複的量產型工作；支援至 `max`（**不支援 `ultra`**） |
 | `gpt-5.5` | 前代（priority 7，仍在型錄且列於清單）；最深僅到 `xhigh` |
-| `gpt-5.4` / `gpt-5.4-mini` | 更前代（priority 16 / 23，型錄標 `visibility: hide`——預設不列於選單但仍可用）；最深僅到 `xhigh` |
+| `gpt-5.4` / `gpt-5.4-mini` | 更前代（priority 16 / 23，**0.147.0 起由 hide 改為 list**）；最深僅到 `xhigh` |
 
 指定模型：`-m gpt-5.6-sol`（本 skill 預設；備援依序 `-m gpt-5.6-terra` → `-m gpt-5.6-luna`）
 
-> 型錄實證（2026-07-20，讀本機 `~/.codex/models_cache.json`——此為 CLI 實際生效的型錄快取，比 GitHub 上的 bundled JSON 更貼近執行期真相）：
+> ⚠ 型錄另有 `gpt-5.6-sol-wm`（0.147.0 新增，`visibility: hide`，與 Sol 同 priority）——用途未見官方說明，**勿在派工中指定**。
+
+> 型錄實證（2026-08-07，CLI v0.147.0，讀本機 `~/.codex/models_cache.json`——此為 CLI 實際生效的型錄快取，比 GitHub 上的 bundled JSON 更貼近執行期真相）：
 > - gpt-5.6 三階 `visibility: list`、`supported_in_api: true`；`ultra` 為 **Sol 與 Terra** 支援，Luna 只到 `max`。
 > - **各模型的原廠預設推理檔不同**：Sol＝`low`（官方 nux 提示 Sol 在低檔就很強，建議由低往上加），Terra / Luna＝`medium`。故要最深推理**務必顯式傳 `--config model_reasoning_effort='"max"'`**。
 > - 舊型號未如先前所記「全數移除」：`gpt-5.5` 仍列於清單、`gpt-5.4` 系列僅被隱藏（hide）仍可指定；真正消失的是 `gpt-5.3-codex` / `gpt-5.2`。
@@ -98,6 +100,8 @@ if (result.ok) {
 > ✅ **ChatGPT Plus 可用 gpt-5.6-sol + `max`**（2026-07-20 於 Plus 帳號實測：`-m gpt-5.6-sol --config model_reasoning_effort='"max"'` → exit 0，session header 顯示 `model: gpt-5.6-sol` / `reasoning effort: max`）。官方對 Plus 的推理檔限制（Sol 僅 Medium/High）**只作用於 ChatGPT 標準對話介面**，Codex 不受此限。
 >
 > ⚠ **務必顯式帶 `-m`**：CLI 若因型錄快取 schema 不相容而載入失敗，會退回 bundled 型錄，**預設模型掉回 `gpt-5.5 + high`**（實測見「常見錯誤與處理」）。顯式指定 model slug 可完全繞過此問題。
+>
+> ✅ **該快取不相容問題於 0.147.0 已不復現**（2026-08-07 查核：快取內 `client_version` 與 CLI 版本同為 0.147.0，`codex --help` 已無 `failed to load models cache` 錯誤）。此為 CLI 與 IDE 端版本落差所致，兩端同版即消失。
 
 ## 推理等級（model_reasoning_effort）
 
@@ -113,7 +117,7 @@ if (result.ok) {
 
 指定推理等級：`--config model_reasoning_effort='"max"'`
 
-> 本 skill 預設使用 `max` 最深單任務推理。Codex CLI v0.144.3 的 `ReasoningEffort` enum 為八階＋自訂（`None`/`Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`/`Ultra`/`Custom(String)`，原始碼 `codex-rs/protocol/src/openai_models.rs` @ rust-v0.144.3 確認）；bundled 型錄 `models.json` 標注 gpt-5.6 全系支援至 `max`、`ultra` 為 Sol 專屬。若需加速可降級為 `xhigh` / `high`。
+> 本 skill 預設使用 `max` 最深單任務推理。`ReasoningEffort` enum 為八階＋自訂（`None`/`Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`/`Ultra`/`Custom(String)`，原始碼 `codex-rs/protocol/src/openai_models.rs` 確認）；本機型錄（v0.147.0）標注 gpt-5.6 全系支援至 `max`，`ultra` 為 **Sol 與 Terra** 支援（Luna 不支援）。若需加速可降級為 `xhigh` / `high`。
 > `ultra` 屬「執行模式」而非單純更深思考——會自動展開子代理平行派工；官方文件另註記 Max/Ultra 在部分入口需於 app 設定啟用。headless `codex exec` 下若 `ultra` 不生效，退回 `max` 即可（此點未實跑驗證，僅依官方文件與原始碼標注，需實測確認）。
 >
 > **跨 shell 差異提醒**：本節命令列範例（含上方各 `node dispatch-cli/...` 範例）皆以 bash／zsh／Git Bash 語法書寫，含兩處需依 shell 調整的寫法：「引號跳脫」與「環境變數前綴」。Windows 使用者照抄會失敗，請改用對應寫法。
@@ -167,7 +171,7 @@ if (result.ok) {
 | npm install 網路失敗 | 沙箱預設封鎖網路 | 加上 `--config sandbox_workspace_write.network_access=true` |
 | `--full-auto is deprecated` 警告 | v0.144.x 起 `--full-auto` 轉為隱藏相容旗標 | 改用 `--sandbox workspace-write`（本 skill 範例已更新） |
 | 模型找不到 / 拒收 `-m` 值 | 模型 ID 拼錯，或 CLI 過舊（bundled 型錄尚無該模型） | 對照 `~/.codex/models_cache.json` 的 slug；CLI 過舊先升級 |
-| **「感覺用不到 gpt-5.6」／預設落到 gpt-5.5** | **型錄快取 schema 不相容（2026-07-20 實測確認）**：較新客戶端（Codex IDE 擴充／桌面版，`client_version` 0.145.0）寫入 `~/.codex/models_cache.json`，較舊的 CLI（0.144.6）解析失敗 → stderr 出現 `ERROR codex_models_manager::cache: failed to load models cache: missing field 'supports_reasoning_summaries'` → **退回 CLI bundled 型錄，其中最新僅到 gpt-5.5**，故不指定 `-m` 時預設變成 `gpt-5.5 + high`，互動 TUI 選單也看不到 gpt-5.6 | **本技能不受影響——範例一律顯式帶 `-m gpt-5.6-sol`，model slug 直送伺服器不經型錄驗證，實測 exit 0 正常回應**。若要讓「預設模型／TUI 選單」也有 gpt-5.6，需把 CLI 升到與 IDE 端同版（0.145.0；截至 2026-07-20 npm stable 仍是 0.144.6，0.145.0 僅 alpha）。**刪除快取無效**——實測刪掉後 1 分鐘內即被 0.145.0 客戶端以同樣 schema 重寫，錯誤重現 |
+| **「感覺用不到 gpt-5.6」／預設落到 gpt-5.5**（**0.147.0 起已不復現**） | **型錄快取 schema 不相容**：CLI 與 IDE／桌面版版本落差時，較新客戶端寫入的 `~/.codex/models_cache.json` 會讓較舊 CLI 解析失敗（stderr 出現 `ERROR codex_models_manager::cache: failed to load models cache: missing field ...`）→ **退回 bundled 型錄，最新僅到 gpt-5.5**，故不指定 `-m` 時預設變成 `gpt-5.5 + high`，TUI 選單也看不到 gpt-5.6。<br>2026-07 實測情境：CLI 0.144.6 vs 客戶端 0.145.0 | **① 兩端升到同版即消失**（2026-08-07 查核 0.147.0：快取 `client_version` 與 CLI 同版，已無此錯誤）。**② 本技能本就不受影響**——範例一律顯式帶 `-m gpt-5.6-sol`，model slug 直送伺服器不經型錄驗證。<br>**刪除快取無效**——實測刪掉後 1 分鐘內即被較新客戶端以同樣 schema 重寫 |
 | 型錄有 gpt-5.6 但實跑被拒 | 帳號層面：額度用罄、token 過期、方案未涵蓋 | 查 `~/.codex/auth.json` 的 `auth_mode`；重跑 `codex login` 刷新；或改用 API key（`OPENAI_API_KEY`）。註：**ChatGPT Plus 在 Codex 可用 gpt-5.6 三階與 `max` 推理檔（2026-07-20 實測確認）**；官方對 Plus 的推理檔限制（僅 Medium/High）只作用於 ChatGPT 標準對話介面，不影響 Codex |
 
 ## dispatch-cli 建議參數
@@ -216,7 +220,7 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 > 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
 
 ```bash
-codex --version   # 確認 codex-cli 已安裝（建議 v0.144.x+ 以使用 gpt-5.6 型錄與 max/ultra 推理；實測 0.144.6＝npm 最新）
+codex --version   # 確認 codex-cli 已安裝（建議 v0.147.0+；實測 0.147.0＝npm 最新）
 ```
 
 若未安裝或版本過舊，請依執行環境自行決定安裝方式。安裝**位置**由執行 AI 自行決定，只要最終 `codex` 指令可被執行即可：

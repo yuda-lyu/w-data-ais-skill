@@ -26,18 +26,18 @@ description: This skill should be used when the user asks to "run antigravity as
 ### 命令列
 
 ```bash
-# 基本呼叫（推薦預設組合：最強模型 Gemini 3.1 Pro (High) + 非互動 + 自動核准 + 10 分鐘 timeout）
+# 基本呼叫（推薦預設組合：最強模型 gemini-3.1-pro-high + 非互動 + 自動核准 + 10 分鐘 timeout）
 CLI_TIMEOUT_MS=600000 CLI_CWD="/path/to/project" \
   node dispatch-cli/scripts/run_cli.mjs \
   agy --dangerously-skip-permissions --print-timeout 10m \
-  --model "Gemini 3.1 Pro (High)" \
+  --model gemini-3.1-pro-high \
   --print "請動用最強推理能力深度思考此任務後再作答。任務描述：分析此專案架構並產出報告"
 
 # 加 workspace 目錄（讓 agy 可讀寫該專案下檔案）
 CLI_TIMEOUT_MS=600000 CLI_CWD="/path/to/project" \
   node dispatch-cli/scripts/run_cli.mjs \
   agy --dangerously-skip-permissions --print-timeout 10m \
-  --model "Gemini 3.1 Pro (High)" \
+  --model gemini-3.1-pro-high \
   --add-dir /path/to/project \
   --print "請動用最強推理能力深度思考此任務後再作答。任務描述：..."
 
@@ -45,7 +45,7 @@ CLI_TIMEOUT_MS=600000 CLI_CWD="/path/to/project" \
 CLI_TIMEOUT_MS=600000 CLI_CWD="/path/to/project" \
   node dispatch-cli/scripts/run_cli.mjs \
   agy --dangerously-skip-permissions --print-timeout 10m \
-  --model "Gemini 3.1 Pro (High)" \
+  --model gemini-3.1-pro-high \
   --continue \
   --print "繼續修改剛剛那段程式碼，加上錯誤處理"
 ```
@@ -55,12 +55,12 @@ CLI_TIMEOUT_MS=600000 CLI_CWD="/path/to/project" \
 ### 模組匯入
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/run_cli.mjs';
+import { runCli } from './dispatch-cli/scripts/runCli.mjs';
 
 const result = await runCli('agy', [
     '--dangerously-skip-permissions',
     '--print-timeout', '10m',
-    '--model', 'Gemini 3.1 Pro (High)',
+    '--model', 'gemini-3.1-pro-high',
     '--add-dir', '/path/to/project',
     '--print', '請動用最強推理能力深度思考此任務後再作答。任務描述：分析此專案架構並產出報告',
 ], {
@@ -81,28 +81,43 @@ if (result.ok) {
 |------|-------|
 | `--print "..."` (`-p`) | 必加，否則進入互動 TUI 模式無法 subprocess 控制 |
 | `--dangerously-skip-permissions` | 必加，否則工具操作會 prompt 等人工確認，CI / 後台跑會卡住 |
-| `--model "Gemini 3.1 Pro (High)"` | **指定最強模型＋最深思考檔**（agy 1.0.5 起支援 `--model`；思考深度內嵌於模型變體名，見下節）；名稱含空格與括號，**必須整段加引號** |
+| `--model gemini-3.1-pro-high` | **指定最強模型＋最深思考檔**（agy 1.0.5 起支援 `--model`；1.1.11 起傳 `agy models` 第一欄之 slug，不含空格故無須引號） |
 | `--print-timeout 10m` | agy 預設 5m，但 deep reasoning + 大型任務可能超時；建議拉到 10 分鐘以上 |
 | `--add-dir <path>` | 將指定目錄加入 workspace，讓 agy 能讀寫；多目錄可重複加 |
 | `--continue` (`-c`) | 接續對話；首次呼叫不加 |
 
 ## 「預設使用最強的模型 + 最深的思考程度」實作說明
 
-**agy 1.0.5 起有 `--model` 旗標、`models` 子命令**（2026-07 之 agy 1.1.4 隔離 binary 實測；舊版 1.0.2 及以前無此旗標）。`agy models` 實測回傳之可用模型清單：
+> **型錄與旗標實證：agy 1.1.11（2026-08-07 本機 `agy models` / `agy --help`）**。
+> agy 改版頻繁（1.1.4 → 1.1.11 期間模型清單與旗標皆有變動），**動工前請一律先跑 `agy models` 對照**。
 
-| 模型（`--model` 傳入值） | 說明 |
-|---|---|
-| **`Gemini 3.1 Pro (High)`** | **本 skill 預設：最強 Gemini（Pro 級旗艦）＋最深思考檔（High）** |
-| `Gemini 3.1 Pro (Low)` | Pro 級、淺思考 |
-| `Gemini 3.5 Flash (High)` / `(Medium)` / `(Low)` | 速度型 Flash 家族（agy 原廠預設落在 Flash） |
-| `Claude Sonnet 4.6 (Thinking)` / `Claude Opus 4.6 (Thinking)` | 第三方 Claude 後端（需 Claude 級能力請優先改用 dispatch-claude 的 Fable 5，不在本技能繞路） |
-| `GPT-OSS 120B (Medium)` | 開源模型後端 |
+`agy models` 於 1.1.11 起輸出**兩欄：`<slug>` TAB `<顯示名稱>`**（舊版僅輸出顯示名稱）：
 
-**思考深度內嵌於模型變體名**（`(High)` / `(Thinking)` 等），**沒有**獨立的 `--reasoning` / `--thinking` / `--effort` 旗標——要最深思考就選 `(High)` 變體。
+| `--model` 傳入值（slug） | 顯示名稱 | 說明 |
+|---|---|---|
+| **`gemini-3.1-pro-high`** | Gemini 3.1 Pro (High) | **本 skill 預設：Pro 級旗艦＋最深思考檔** |
+| `gemini-3.1-pro-low` | Gemini 3.1 Pro (Low) | Pro 級、淺思考 |
+| `gemini-3.6-flash-high` / `-medium` / `-low` | Gemini 3.6 Flash | 最新 Flash 家族（1.1.11 新增） |
+| `gemini-3.5-flash-high` / `-medium` / `-low` | Gemini 3.5 Flash | 前代 Flash（agy 原廠預設落在 Flash） |
+| `claude-sonnet-4-6` / `claude-opus-4-6-thinking` | Claude Sonnet／Opus 4.6 (Thinking) | 第三方 Claude 後端（需 Claude 級能力請優先改用 dispatch-claude 的 Fable 5，不在本技能繞路） |
+| `gpt-oss-120b-medium` | GPT-OSS 120B (Medium) | 開源模型後端 |
+
+> ⚠ **Gemini 3.1 Pro 只有 high／low 兩檔，沒有 medium**。
+
+### 思考深度：兩個管道並存（1.1.11 起）
+
+1. **模型變體名內嵌檔位**（如 `gemini-3.1-pro-high`）— 本 skill 預設採此，選 `-high` 即最深。
+2. **`--effort <low|medium|high>`** — **1.1.11 新增的獨立旗標**（早前版本沒有，舊文件記載「無 effort 旗標」已不成立）。
+
+> ⚠ **兩者同時給定時的優先順序未經實證**（本庫規範禁止實跑 dispatch-* 技能）。
+> 本 skill 預設**只用模型名內嵌檔位**（`-high`），不額外帶 `--effort`，以免兩者衝突產生非預期結果。
+> 若要顯式加上 `--effort high` 做雙重保險，請先自行驗證實際生效的檔位。
 
 **輔助手段（保留）**：範例仍在 prompt 前綴加上「請動用最強推理能力深度思考此任務後再作答。任務描述：」，由 Gemini 後端在該檔位內自行配置 thinking budget；不要此前綴直接拿掉即可，技能不強制注入。
 
-> `--model` 值以 `agy models` 輸出之顯示名稱傳入（含空格與括號須加引號）。若名稱無法解析：**1.1.2 起 print 模式會硬性失敗（非零 exit）並在錯誤訊息列出可用模型**，照列出的名稱修正即可（1.1.1 及以前會靜默降回預設模型，難以察覺，故建議升級）。
+> `--model` 值請傳 **`agy models` 輸出的第一欄 slug**（如 `gemini-3.1-pro-high`），不含空格故無須引號。
+> 顯示名稱（`Gemini 3.1 Pro (High)`）為第二欄，供人辨識用；**1.1.11 起是否仍接受顯示名稱未經實證**，請以 slug 為準。
+> 若名稱無法解析：**1.1.2 起 print 模式會硬性失敗（非零 exit）並在錯誤訊息列出可用模型**，照列出的值修正即可。
 
 ## 各參數說明
 
@@ -111,21 +126,27 @@ if (result.ok) {
 | `CLI_CWD`（dispatch-cli） | 建議 | 子進程工作目錄；agy 預設以 cwd 為起點 |
 | `--dangerously-skip-permissions` | ✅ | 自動核准所有工具請求 |
 | `--print "prompt"` (`-p`) | ✅ | 非互動模式，跑完即退出 |
-| `--model "<名稱>"` | ✅（本 skill 預設） | 指定模型（1.0.5+）；本 skill 預設 `"Gemini 3.1 Pro (High)"`；合法值見 `agy models` |
+| `--model <slug>` | ✅（本 skill 預設） | 指定模型（1.0.5+）；本 skill 預設 `gemini-3.1-pro-high`；合法值見 `agy models` 第一欄 |
 | `--print-timeout <duration>` | 建議 | 預設 5m，深思考任務建議 10m+ |
+| `--effort <level>` | 視情況 | 推理深度 `low`/`medium`/`high`（**1.1.11 新增**）；與模型名內嵌檔位的優先順序未實證，本 skill 預設不帶 |
+| `--output-format <fmt>` | 視情況 | print 模式輸出格式：`text`（預設）/`json`/`stream-json`（**1.1.11 新增**） |
+| `--json-schema <schema>` | 視情況 | 以 JSON schema 字串或檔案路徑強制結構化輸出（**1.1.11 新增**；`stream-json` 下僅套用於最終結果） |
 | `--add-dir <path>` | 視情況 | 將目錄加入 agy workspace |
 | `--continue` (`-c`) | 視情況 | 接續對話 |
 | `--mode <mode>` | 視情況 | 執行模式：`accept-edits` / `plan`（1.1.x；headless 搭配 `--dangerously-skip-permissions` 時通常不需指定） |
-| `--agent <name>` / `--project <id>` / `--new-project` | 視情況 | 指定自訂 agent（1.1.1+）／指定・新建 project（1.1.4 help 實測） |
+| `--agent <name>` / `--project <id>` / `--new-project` | 視情況 | 指定自訂 agent（1.1.1+）／指定・新建 project |
+| `--disable-slash-commands` | 視情況 | 停用 print 模式的 slash command 與 skill 展開（**1.1.11 新增**） |
 | `--log-file <path>` | 視情況 | 自訂 log 檔位置 |
 | `--sandbox` | ❌ 避免 | 會限制 terminal，可能擋住部分操作 |
 
 > **與舊版 Gemini CLI 的差異**：
 > 1. 命令名 `agy` 不是 `antigravity`
-> 2. 模型旗標為 `--model`（**1.0.5 起才有**，無 `-m` 短旗；值為 `agy models` 列出的顯示名稱，非 gemini 的模型 slug）
-> 3. **沒有** `-o json` 結構化輸出旗標（1.1.4 實測仍無；只能 parse plain text stdout）
-> 4. 自動核准旗標叫 `--dangerously-skip-permissions`，不是 gemini 的 `--approval-mode=yolo` / `--yolo`
-> 5. timeout 旗標 `--print-timeout` 為 CLI 內建（gemini 仰賴外部 timeout）
+> 2. 模型旗標為 `--model`（**1.0.5 起才有**，無 `-m` 短旗；1.1.11 起值為 `agy models` 第一欄之 slug）
+> 3. 自動核准旗標叫 `--dangerously-skip-permissions`，不是 gemini 的 `--approval-mode=yolo` / `--yolo`
+> 4. timeout 旗標 `--print-timeout` 為 CLI 內建（gemini 仰賴外部 timeout）
+>
+> ⚠ **1.1.11 起已有結構化輸出**：`--output-format json|stream-json` 搭配 `--json-schema`，
+> 舊版文件所述「沒有 `-o json`、只能 parse plain text」**已不成立**。需要機器可解析輸出時優先用這組旗標。
 
 ## 認證
 
@@ -147,9 +168,10 @@ if (result.ok) {
 | 現象 | 原因 | 解法 |
 |------|------|------|
 | 命令找不到（`agy: command not found`） | 安裝後 PATH 未生效 | 重開 shell 或用絕對路徑 `%LOCALAPPDATA%\agy\bin\agy.exe` |
-| `--model` 不被認得（unknown flag） | agy 版本 ≤ 1.0.4（`--model` 於 1.0.5 加入） | 先 `agy update` 升級（最新 1.1.4） |
-| print 模式非零 exit 並列出模型清單 | `--model` 名稱無法解析（拼字／引號漏加）；1.1.2+ 之硬性報錯行為 | 照錯誤訊息列出的合法名稱修正；名稱含空格與括號須整段加引號 |
+| `--model` / `--effort` 不被認得（unknown flag） | 版本過舊：`--model` 於 1.0.5 加入、`--effort` 於 1.1.11 加入 | 先 `agy update` 升級（實測 1.1.11＝GitHub 最新） |
+| print 模式非零 exit 並列出模型清單 | `--model` 值無法解析；1.1.2+ 之硬性報錯行為 | 照錯誤訊息列出的合法值修正；1.1.11 起請用 `agy models` **第一欄 slug**（如 `gemini-3.1-pro-high`），非顯示名稱 |
 | 指定的模型疑似沒生效 | 1.1.1 及以前：`--model` 解析失敗時 print 模式會**靜默降回預設模型** | 升級至 1.1.2+ 讓失敗顯性化 |
+| 模型清單與文件對不上 | agy 改版頻繁，型錄由伺服器決定（1.1.4→1.1.11 期間即有增減） | 以 `agy models` 實際輸出為準，勿沿用文件表格 |
 | 卡住數分鐘無回應 | 首次未登入觸發 OAuth 但 print 模式無法互動 | 先在桌面跑 `agy`（不加 `-p`）完成登入 |
 | 任務在錯誤目錄執行 | 未設定 `CLI_CWD` / `cwd` | 設環境變數 `CLI_CWD` 或 `runCli` 的 `cwd` 選項 |
 | 工具請求等人工確認 | 缺 `--dangerously-skip-permissions` | 加上此旗標 |
@@ -169,7 +191,7 @@ prompt: "... 寫入 result_dispatcher.txt"
 command: CLI_TIMEOUT_MS=600000 CLI_CWD=/path/to/project \
          node dispatch-cli/scripts/run_cli.mjs \
          agy --dangerously-skip-permissions --print-timeout 10m \
-         --model "Gemini 3.1 Pro (High)" \
+         --model gemini-3.1-pro-high \
          --add-dir /path/to/project \
          --print "請動用最強推理能力深度思考此任務後再作答。任務描述：... 寫入 result_agy.txt"
 ```

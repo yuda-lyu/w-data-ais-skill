@@ -5,12 +5,12 @@
 - https://developers.openai.com/codex/noninteractive
 - https://developers.openai.com/codex/config-reference
 
-來源（原始碼確認 @ rust-v0.144.3；本機 `codex exec --help` 實測 v0.144.6，2026-07-19）：
-- `codex-rs/exec/src/cli.rs`（@ rust-v0.144.3）
-- `codex-rs/protocol/src/openai_models.rs`（@ rust-v0.144.3）
-- `codex-rs/models-manager/models.json`（@ rust-v0.144.3）
+來源（本機 `codex exec --help` 與 `~/.codex/models_cache.json` 實測 v0.147.0，2026-08-07）：
+- 旗標：本機 `codex exec --help`
+- 型錄：本機 `~/.codex/models_cache.json`（CLI 執行期實際生效者，非 GitHub bundled JSON）
+- enum 定義：`codex-rs/protocol/src/openai_models.rs`
 
-> npm 最新發佈版 0.144.6（2026-07-19 查核）。
+> 本機與 npm 最新皆為 **0.147.0**（2026-08-07 查核）。
 
 ## codex exec 子命令
 
@@ -125,17 +125,23 @@ codex exec review --uncommitted
 | 模型 ID | priority | visibility | 原廠預設推理 | 支援推理檔 |
 |---------|---|---|---|---|
 | `gpt-5.6-sol` | 1 | list | **`low`** | low / medium / high / xhigh / max / **ultra** |
+| `gpt-5.6-sol-wm` | 1 | hide | `low` | low / medium / high / xhigh / max / ultra |
 | `gpt-5.6-terra` | 2 | list | medium | low / medium / high / xhigh / max / **ultra** |
 | `gpt-5.6-luna` | 3 | list | medium | low / medium / high / xhigh / max |
 | `gpt-5.5` | 7 | list | medium | low / medium / high / xhigh |
-| `gpt-5.4` | 16 | hide | medium | low / medium / high / xhigh |
-| `gpt-5.4-mini` | 23 | hide | medium | low / medium / high / xhigh |
-| `codex-auto-review` | 43 | hide | medium | low / medium / high / xhigh |
+| `gpt-5.4` | 16 | list | medium | low / medium / high / xhigh |
+| `gpt-5.4-mini` | 23 | list | medium | low / medium / high / xhigh |
+| `codex-auto-review` | 43 | hide | medium | low / medium / high / xhigh / max |
 
-> 型錄來源：**本機 `~/.codex/models_cache.json`（2026-07-20 實讀，CLI v0.144.6 執行期實際生效的型錄）**。
+> 型錄來源：**本機 `~/.codex/models_cache.json`（2026-08-07 實讀，CLI v0.147.0 執行期實際生效的型錄）**。
 > 此表取代先前依 GitHub bundled JSON 摘要所寫的內容——該摘要有兩處失真，已於此更正：
 > - ❌「`ultra` 為 Sol 專屬」→ ✅ **Sol 與 Terra 皆支援 `ultra`**，僅 Luna 不支援。
-> - ❌「舊型號已全數自型錄移除」→ ✅ `gpt-5.5` 仍列於清單、`gpt-5.4` 系列僅 `visibility: hide`（不列選單但可指定）；真正消失的是 `gpt-5.3-codex` / `gpt-5.2`。
+> - ❌「舊型號已全數自型錄移除」→ ✅ `gpt-5.5` / `gpt-5.4` 系列仍在型錄；真正消失的是 `gpt-5.3-codex` / `gpt-5.2`。
+>
+> **0.147.0 相對 0.144.6 之型錄變動**：
+> - 新增 `gpt-5.6-sol-wm`（`visibility: hide`，與 Sol 同 priority 1；用途未見官方說明，**勿在派工中指定**）
+> - `gpt-5.4` / `gpt-5.4-mini` 由 `hide` 改為 **`list`**（重新列入選單）
+> - `codex-auto-review` 支援檔位新增 `max`
 >
 > 另注意 **Sol 的原廠預設推理檔是 `low`**（非 medium），不顯式傳 `--config model_reasoning_effort='"max"'` 就不會是最深推理。
 >

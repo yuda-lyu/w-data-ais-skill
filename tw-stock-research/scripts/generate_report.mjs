@@ -537,8 +537,11 @@ function verifyPriceAction(code, keyword, pm) {
 /** Clickbait 判斷 */
 const isClickbaitReason = (reason) => CLICKBAIT_RE.test(reason);
 
-/** 字串截斷 */
-const truncate = (str, maxLen) => str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
+/** 字串截斷（超長裁切並補刪節號；未超長原樣回傳）
+ *  委派 wsemi 之 strTruncate（1.8.70+）；不帶 funWithMsg 即僅補「...」，
+ *  與先前本地實作行為一致（報告內容用，不附技術性長度訊息）
+ */
+const truncate = (str, maxLen) => w.strTruncate(str, maxLen);
 
 /** 找出新聞中提及特定股票+關鍵字的新聞日期 */
 function findNewsDateForStock(stockName, stockCode, keyword, newsItems) {
