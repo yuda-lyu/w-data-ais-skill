@@ -10,7 +10,7 @@ description: This skill should be used when the user asks to "run claude as an a
 此 skill 教導調度 AI 如何將 Claude Code CLI (`claude -p`) 作為獨立 agent 執行，
 實現調度 AI ＋ Claude agent 混合的多 agent 工作流程。
 
-**核心調用層：** 使用 `dispatch-cli` 技能執行，自動處理超時、進程樹清理、輸出驗證與錯誤回報。
+**核心調用層：** 使用 **`w-dispatch-ai`** 套件的 `dispatchClaude()`，自動處理超時、進程樹清理、輸出驗證、重試與錯誤回報（底層為 `wsemi` 之 `execCli`）。
 
 > 📖 完整 CLI 旗標參考請見 [references/claude-flags.md](references/claude-flags.md)
 
@@ -20,69 +20,69 @@ description: This skill should be used when the user asks to "run claude as an a
 - 需要利用 Claude 進行程式碼分析、重構、除錯等高階推理工作
 - 建立 multi-agent pipeline，各 agent 各司其職寫入不同輸出檔案
 
-## 透過 dispatch-cli 調用（推薦）
-
-### 命令列
-
-```bash
-# 基本呼叫（預設 Fable 5 + max 推理深度）
-node dispatch-cli/scripts/run_cli.mjs \
-  claude -p --dangerously-skip-permissions \
-  --model claude-fable-5 --effort max \
-  "你的任務描述"
-
-# 完整防護：超時 + JSON 驗證 + 回合限制 + 重試
-CLI_TIMEOUT_MS=120000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 \
-  node dispatch-cli/scripts/run_cli.mjs \
-  claude -p --dangerously-skip-permissions \
-  --model claude-fable-5 --effort max \
-  --output-format json \
-  "你的任務描述"
-
-# 從檔案傳入 prompt（取代 shell pipe，避免 stdin 問題）
-CLI_TIMEOUT_MS=180000 CLI_INPUT_FILE=prompt.txt \
-  node dispatch-cli/scripts/run_cli.mjs \
-  claude -p --dangerously-skip-permissions \
-  --model claude-fable-5 --effort max \
-  --output-format json
-
-# 只核准特定工具（更安全的替代方案）
-node dispatch-cli/scripts/run_cli.mjs \
-  claude -p --allowedTools "Bash,Read,Edit,Write,Glob,Grep" \
-  --model claude-fable-5 --effort max \
-  "你的任務描述"
-```
-
-> 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
->
-> ⚠ **跨 shell 環境變數寫法**：上述 `CLI_TIMEOUT_MS=120000 ... node ...`（在命令前以 `VAR=value` 設定環境變數的前綴寫法）為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫：
-> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=120000 CLI_VALIDATE=json CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='120000'; $env:CLI_VALIDATE='json'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=120000 && set CLI_VALIDATE=json && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **程式化呼叫不受影響**：改用下方「模組匯入」段的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 120_000 }`）時，不經 shell、無此差異。
-
-### 模組匯入
+## 透過 w-dispatch-ai 調用（推薦）
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/runCli.mjs';
+import wda from 'w-dispatch-ai';
 
-const result = await runCli('claude', [
-    '-p', '--dangerously-skip-permissions',
-    '--model', 'claude-fable-5', '--effort', 'max',
-    '--output-format', 'json',
-    '請分析這段程式碼的安全性問題',
-], {
+// 基本呼叫（預設 Fable 5 + max 推理深度）
+const r = await wda.dispatchClaude('請分析這段程式碼的安全性問題', {
+    model: 'claude-fable-5',
+    extraArgs: ['--effort', 'max'],
     timeoutMs: 120_000,
-    validate: 'json',
 });
 
-if (result.ok) {
-    const data = JSON.parse(result.stdout);
-    console.log(data.result);
+if (r.ok) {
+    console.log(r.stdout);
 } else {
-    console.error(`Claude 呼叫失敗: ${result.error}`);
+    console.error(`Claude 呼叫失敗: ${r.error}`);
 }
 ```
+
+### 常用組合
+
+```javascript
+// 完整防護：超時 + JSON 驗證 + 重試
+await wda.dispatchClaude(prompt, {
+    model: 'claude-fable-5',
+    extraArgs: ['--effort', 'max', '--output-format', 'json'],
+    timeoutMs: 120_000,
+    validate: 'json',
+    maxRetries: 1,
+});
+
+// 只核准特定工具（比全開更安全）
+await wda.dispatchClaude(prompt, {
+    model: 'claude-fable-5',
+    skipPermissions: false,                      // 關閉 --dangerously-skip-permissions
+    extraArgs: ['--effort', 'max', '--allowedTools', 'Bash,Read,Edit,Write,Glob,Grep'],
+});
+
+// 指定工作目錄與串流輸出
+await wda.dispatchClaude(prompt, {
+    model: 'claude-fable-5',
+    extraArgs: ['--effort', 'max'],
+    cwd: '/path/to/project',
+    onStdout: (chunk) => process.stdout.write(chunk),
+});
+```
+
+### API 重點
+
+| opt | 預設 | 說明 |
+|---|---|---|
+| `exe` | `'claude'` | 執行檔名稱或絕對路徑；給名稱時由 execCli 自 PATH 解析 |
+| `model` | `''`（不帶旗標） | 模型別名或完整 ID；**本 skill 建議 `claude-fable-5`** |
+| `skipPermissions` | `true` | 是否帶 `--dangerously-skip-permissions`；`false` 則保留 CLI 權限閘門 |
+| `extraArgs` | `[]` | **額外旗標陣列——`--effort max` 走這裡**（套件無 effort 專屬選項） |
+| `timeoutMs` | `120000` | 逾時後強制關閉子進程及其子孫 |
+| `cwd` / `validate` / `maxRetries` / `onStdout` / `maxBuffer` … | — | 其餘鍵**原樣轉傳 `execCli`**，可用其全部設定 |
+
+**回傳**：`{ ok, stdout, stderr, code, error, durationMs, attempts }`；本函式**不 reject**，失敗以 `ok:false` + `error` 回報。
+
+> ⚠ **prompt 一律以 stdin 傳入**（非命令列參數）。故含換行、引號、特殊字元的長 prompt 皆可直接傳，不需跳脫，也不再需要舊版的 `CLI_INPUT_FILE` 手法。
+>
+> ⚠ `w-dispatch-ai` 為 UMD 套件，**只能 default import**（`import wda from 'w-dispatch-ai'`），named import 取不到函式。
 
 ## 模型選擇
 
@@ -187,14 +187,16 @@ Claude Code v2.1.154+ 的 `claude -p` headless 模式**預設掛載 Workflow too
 | 花費超預期 | 任務過於複雜 | 加上 `--max-budget-usd 5.00` 設定上限 |
 | WebFetch hang | pipe 模式下 WebFetch 約 30-50% crash | 調度層自行抓取網頁，不依賴 Claude 的 WebFetch |
 
-## dispatch-cli 建議參數
+## 建議 opt 值
 
-| 環境變數 | 建議值 | 說明 |
+| opt | 建議值 | 說明 |
 |----------|--------|------|
-| `CLI_TIMEOUT_MS` | `120000`～`300000` | Claude 推理較慢，建議至少 2 分鐘 |
-| `CLI_VALIDATE` | `json`（搭配 `--output-format json`） | 確保回傳可解析的 JSON |
-| `CLI_MAX_RETRIES` | `1` | API 暫時性錯誤可重試一次（含初始請求最多執行 2 次） |
-| `CLI_INPUT_FILE` | prompt 檔案路徑 | 大量輸入用檔案傳入，避免 stdin pipe 問題 |
+| `timeoutMs` | `120_000`～`300_000` | Claude 推理較慢，建議至少 2 分鐘 |
+| `validate` | `'json'`（搭配 `--output-format json`） | 確保回傳可解析的 JSON |
+| `maxRetries` | `1` | API 暫時性錯誤可重試一次（含初始請求最多執行 2 次） |
+| `cwd` | 專案絕對路徑 | 需在特定目錄下操作時指定 |
+
+> 長 prompt 直接傳入第一參數即可（走 stdin），無須另存檔案。
 
 ## 多 Agent 工作流程範例
 
@@ -206,11 +208,12 @@ Claude Code v2.1.154+ 的 `claude -p` headless 模式**預設掛載 Workflow too
 # 調度 AI 自身的 subagent（依平台而異，例如 Agent tool / run_in_background）
 prompt: "... 寫入 result_dispatcher.txt"
 
-# Claude agent — 透過 dispatch-cli（背景執行）
-command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
-         claude -p --dangerously-skip-permissions \
-         --model claude-fable-5 --effort max \
-         "... 寫入 result_claude.txt"
+# Claude agent — 透過 w-dispatch-ai（背景執行）
+await wda.dispatchClaude('... 寫入 result_claude.txt', {
+    model: 'claude-fable-5',
+    extraArgs: ['--effort', 'max'],
+    timeoutMs: 180_000,
+});
 ```
 
 ### Step 2: 等待兩者完成後讀取結果
@@ -227,7 +230,12 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-> 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
+所需 npm 套件：**`w-dispatch-ai`**（其內部相依 `wsemi` 會隨之自動安裝）
+
+```bash
+npm install w-dispatch-ai
+node -e "import('w-dispatch-ai').then(m=>console.log('OK:', typeof m.default.dispatchClaude))"
+```
 
 ```bash
 claude --version   # 確認 claude code 已安裝；Fable 5 需 ≥ v2.1.170（實測 2.1.224＝npm 最新），過舊先 claude update

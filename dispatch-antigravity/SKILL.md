@@ -11,7 +11,7 @@ description: This skill should be used when the user asks to "run antigravity as
 
 **Antigravity CLI 是什麼**：Google 於 2026-05-19 Google I/O 公告，將取代 Gemini CLI；於 **2026-06-18** 起對「Free / Google AI Pro / Google AI Ultra」用戶停用 Gemini CLI；持有 Gemini Code Assist Standard / Enterprise 授權者繼續可用 Gemini CLI。
 
-**核心調用層**：使用 `dispatch-cli` 技能執行，自動處理超時、進程樹清理、輸出驗證與錯誤回報。
+**核心調用層**：使用 **`w-dispatch-ai`** 套件的 `dispatchAntigravity()`（v1.0.2 起提供），自動處理超時、進程樹清理、輸出驗證、重試與錯誤回報（底層為 `wsemi` 之 `execCli`）。
 
 > 📖 完整 CLI 旗標參考（含「不支援」項目逐條對照）見 [references/agy-flags.md](references/agy-flags.md)
 
@@ -21,59 +21,70 @@ description: This skill should be used when the user asks to "run antigravity as
 - 需要 Gemini 系列模型的後端推理能力（gemini CLI 已停服，`agy` 為官方後繼）
 - 需要 Antigravity 多 agent 平台的能力（共用 Antigravity 2.0 desktop 的 agent harness）
 
-## 透過 dispatch-cli 調用（推薦）
-
-### 命令列
-
-```bash
-# 基本呼叫（推薦預設組合：最強模型 gemini-3.1-pro-high + 非互動 + 自動核准 + 10 分鐘 timeout）
-CLI_TIMEOUT_MS=600000 CLI_CWD="/path/to/project" \
-  node dispatch-cli/scripts/run_cli.mjs \
-  agy --dangerously-skip-permissions --print-timeout 10m \
-  --model gemini-3.1-pro-high \
-  --print "請動用最強推理能力深度思考此任務後再作答。任務描述：分析此專案架構並產出報告"
-
-# 加 workspace 目錄（讓 agy 可讀寫該專案下檔案）
-CLI_TIMEOUT_MS=600000 CLI_CWD="/path/to/project" \
-  node dispatch-cli/scripts/run_cli.mjs \
-  agy --dangerously-skip-permissions --print-timeout 10m \
-  --model gemini-3.1-pro-high \
-  --add-dir /path/to/project \
-  --print "請動用最強推理能力深度思考此任務後再作答。任務描述：..."
-
-# 接續先前對話
-CLI_TIMEOUT_MS=600000 CLI_CWD="/path/to/project" \
-  node dispatch-cli/scripts/run_cli.mjs \
-  agy --dangerously-skip-permissions --print-timeout 10m \
-  --model gemini-3.1-pro-high \
-  --continue \
-  --print "繼續修改剛剛那段程式碼，加上錯誤處理"
-```
-
-> 路徑為相對範例，實際執行時請依執行環境調整。
-
-### 模組匯入
+## 透過 w-dispatch-ai 調用（推薦）
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/runCli.mjs';
+import wda from 'w-dispatch-ai';
 
-const result = await runCli('agy', [
-    '--dangerously-skip-permissions',
-    '--print-timeout', '10m',
-    '--model', 'gemini-3.1-pro-high',
-    '--add-dir', '/path/to/project',
-    '--print', '請動用最強推理能力深度思考此任務後再作答。任務描述：分析此專案架構並產出報告',
-], {
+const PROMPT_PREFIX = '請動用最強推理能力深度思考此任務後再作答。任務描述：';
+
+// 基本呼叫（推薦預設組合：最強模型 gemini-3.1-pro-high + 10 分鐘 timeout）
+const r = await wda.dispatchAntigravity(PROMPT_PREFIX + '分析此專案架構並產出報告', {
+    model: 'gemini-3.1-pro-high',
     timeoutMs: 600_000,
     cwd: '/path/to/project',
 });
 
-if (result.ok) {
-    console.log(result.stdout);
+if (r.ok) {
+    console.log(r.stdout);
 } else {
-    console.error(`agy 呼叫失敗: ${result.error}`);
+    console.error(`agy 呼叫失敗: ${r.error}`);
 }
 ```
+
+### 常用組合
+
+```javascript
+// 加 workspace 目錄（讓 agy 可讀寫該專案下檔案；可多個）
+await wda.dispatchAntigravity(PROMPT_PREFIX + '...', {
+    model: 'gemini-3.1-pro-high',
+    addDirs: ['/path/to/project', '/path/to/other'],
+    timeoutMs: 600_000,
+});
+
+// 接續先前對話
+await wda.dispatchAntigravity('繼續修改剛剛那段程式碼，加上錯誤處理', {
+    model: 'gemini-3.1-pro-high',
+    extraArgs: ['--continue'],
+});
+
+// 結構化輸出（agy 1.1.11+）
+await wda.dispatchAntigravity(prompt, {
+    model: 'gemini-3.1-pro-high',
+    extraArgs: ['--output-format', 'json'],
+    validate: 'json',
+});
+```
+
+### API 重點
+
+| opt | 預設 | 說明 |
+|---|---|---|
+| `exe` | `'agy'` | **命令名是 `agy`，不是 `antigravity`** |
+| `model` | `''`（不帶旗標） | `agy models` **第一欄 slug**；**本 skill 建議 `gemini-3.1-pro-high`** |
+| `effort` | `''`（不帶） | `low`/`medium`/`high`（需 agy ≥ 1.1.11）；**與帶檔位 slug 併用有衝突規則，見下節** |
+| `skipPermissions` | `true` | 是否帶 `--dangerously-skip-permissions` |
+| `printTimeout` | 由 `timeoutMs` 推導 | agy 自身等待上限（如 `'10m'`）；**未給時自動＝`timeoutMs` 扣 30 秒緩衝**（下限 30 秒），令 CLI 先於外層逾時以保留錯誤訊息 |
+| `addDirs` | `[]` | 目錄字串陣列，逐項展為 `--add-dir` |
+| `extraArgs` | `[]` | 額外旗標，接於固定旗標之後、**`--print` 之前**（`--continue`／`--output-format`／`--json-schema`／`--mode` 走這裡） |
+| `timeoutMs` | **`300000`** | agy 為 agent 型 CLI，**預設較其他三支長**（對齊 agy 自身 `--print-timeout` 預設 5m） |
+| `cwd` / `validate` / `maxRetries` / `onStdout` … | — | 其餘鍵**原樣轉傳 `execCli`** |
+
+**回傳**：`{ ok, stdout, stderr, code, error, durationMs, attempts }`；本函式**不 reject**。
+
+> ⚠ **prompt 長度上限 30000 字元**——這是 agy 特有的限制。因其 prompt 走 **`--print` 旗標而非 stdin**（與 claude／codex／opencode 不同），受 Windows 命令列 32767 上限約束（扣除 exe 路徑與旗標後之保守值）。超過會直接回錯誤結果物件。**長文請改以檔案傳遞，於 prompt 內引用路徑並用 `addDirs` 開放該目錄。**
+>
+> ⚠ `w-dispatch-ai` 為 UMD 套件，**只能 default import**。
 
 ## 預設旗標說明（為何這樣設）
 
@@ -107,11 +118,19 @@ if (result.ok) {
 ### 思考深度：兩個管道並存（1.1.11 起）
 
 1. **模型變體名內嵌檔位**（如 `gemini-3.1-pro-high`）— 本 skill 預設採此，選 `-high` 即最深。
-2. **`--effort <low|medium|high>`** — **1.1.11 新增的獨立旗標**（早前版本沒有，舊文件記載「無 effort 旗標」已不成立）。
+2. **`--effort <low|medium|high>`**（`dispatchAntigravity` 的 `effort` opt）— **1.1.11 新增的獨立旗標**。
 
-> ⚠ **兩者同時給定時的優先順序未經實證**（本庫規範禁止實跑 dispatch-* 技能）。
-> 本 skill 預設**只用模型名內嵌檔位**（`-high`），不額外帶 `--effort`，以免兩者衝突產生非預期結果。
-> 若要顯式加上 `--effort high` 做雙重保險，請先自行驗證實際生效的檔位。
+**兩者併用的規則（`w-dispatch-ai` 作者實測，v1.0.2 原始碼載明）**：
+
+| 組合 | 結果 |
+|---|---|
+| 帶檔位 slug ＋ effort **不一致**（`gemini-3.1-pro-high` ＋ `effort:'low'`） | ❌ **agy 拒絕**：`conflicts with --effort=low`，exit 1 |
+| 帶檔位 slug ＋ effort **一致**（`gemini-3.1-pro-high` ＋ `effort:'high'`） | ✅ 放行（但多此一舉） |
+| **基礎 slug ＋ effort**（`gemini-3.1-pro` ＋ `effort:'high'`） | ✅ 放行——**要用 `effort` 時的正確組合** |
+
+> 本 skill 預設**只用模型名內嵌檔位**（`gemini-3.1-pro-high`）、不帶 `effort`，此組合安全無衝突。
+> 若偏好以 `effort` 控制檔位，請改用**不帶檔位的基礎 slug**（如 `gemini-3.1-pro`）。
+> 轉接器**不預判 slug 格式**（模型清單會演進），衝突時直接由 agy 回報錯誤。
 
 **輔助手段（保留）**：範例仍在 prompt 前綴加上「請動用最強推理能力深度思考此任務後再作答。任務描述：」，由 Gemini 後端在該檔位內自行配置 thinking budget；不要此前綴直接拿掉即可，技能不強制注入。
 
@@ -123,7 +142,7 @@ if (result.ok) {
 
 | 參數 | 必要 | 說明 |
 |------|------|------|
-| `CLI_CWD`（dispatch-cli） | 建議 | 子進程工作目錄；agy 預設以 cwd 為起點 |
+| `cwd`（dispatchAntigravity opt） | 建議 | 子進程工作目錄；agy 預設以 cwd 為起點 |
 | `--dangerously-skip-permissions` | ✅ | 自動核准所有工具請求 |
 | `--print "prompt"` (`-p`) | ✅ | 非互動模式，跑完即退出 |
 | `--model <slug>` | ✅（本 skill 預設） | 指定模型（1.0.5+）；本 skill 預設 `gemini-3.1-pro-high`；合法值見 `agy models` 第一欄 |
@@ -154,14 +173,14 @@ if (result.ok) {
 - 對策：先以**桌面互動模式**跑一次 `agy` 完成 OAuth 登入（憑證會快取，後續 print 模式直接用）
 - 已使用 **Antigravity 2.0 desktop IDE** 的使用者，agy CLI 通常**自動沿用同一份 OAuth**，不需另登入
 
-## dispatch-cli 建議參數
+## 建議 opt 值
 
-| 環境變數 | 建議值 | 說明 |
+| opt | 建議值 | 說明 |
 |----------|--------|------|
-| `CLI_TIMEOUT_MS` | `600000`（10 分鐘）以上 | agy 含深度思考可能耗時，至少 10 分鐘 |
-| `CLI_CWD` | 專案絕對路徑 | 建議設定，agy 依賴 cwd 定位專案脈絡 |
-| `CLI_VALIDATE` | `nonempty` | 確保有實際輸出 |
-| `CLI_MAX_RETRIES` | `1` | OAuth token 過期等暫時錯誤可重試（含初始最多執行 2 次） |
+| `timeoutMs` | `600_000`（10 分鐘）以上 | agy 含深度思考可能耗時，至少 10 分鐘 |
+| `cwd` | 專案絕對路徑 | 建議設定，agy 依賴 cwd 定位專案脈絡 |
+| `validate` | `'nonempty'` | 確保有實際輸出 |
+| `maxRetries` | `1` | OAuth token 過期等暫時錯誤可重試（含初始最多執行 2 次） |
 
 ## 常見錯誤與處理
 
@@ -173,7 +192,7 @@ if (result.ok) {
 | 指定的模型疑似沒生效 | 1.1.1 及以前：`--model` 解析失敗時 print 模式會**靜默降回預設模型** | 升級至 1.1.2+ 讓失敗顯性化 |
 | 模型清單與文件對不上 | agy 改版頻繁，型錄由伺服器決定（1.1.4→1.1.11 期間即有增減） | 以 `agy models` 實際輸出為準，勿沿用文件表格 |
 | 卡住數分鐘無回應 | 首次未登入觸發 OAuth 但 print 模式無法互動 | 先在桌面跑 `agy`（不加 `-p`）完成登入 |
-| 任務在錯誤目錄執行 | 未設定 `CLI_CWD` / `cwd` | 設環境變數 `CLI_CWD` 或 `runCli` 的 `cwd` 選項 |
+| 任務在錯誤目錄執行 | 未設定 `cwd` | 傳入 `cwd` opt，或以 `addDirs` 加入 workspace |
 | 工具請求等人工確認 | 缺 `--dangerously-skip-permissions` | 加上此旗標 |
 | 超時 timeout | 大型任務或深度思考超過 5 分鐘預設 | `--print-timeout 10m` 或更長 |
 
@@ -187,13 +206,13 @@ if (result.ok) {
 # 調度 AI 自身的 subagent（依平台而異）
 prompt: "... 寫入 result_dispatcher.txt"
 
-# agy agent — 透過 dispatch-cli（背景執行）
-command: CLI_TIMEOUT_MS=600000 CLI_CWD=/path/to/project \
-         node dispatch-cli/scripts/run_cli.mjs \
-         agy --dangerously-skip-permissions --print-timeout 10m \
-         --model gemini-3.1-pro-high \
-         --add-dir /path/to/project \
-         --print "請動用最強推理能力深度思考此任務後再作答。任務描述：... 寫入 result_agy.txt"
+# agy agent — 透過 w-dispatch-ai（背景執行）
+await wda.dispatchAntigravity(PROMPT_PREFIX + '... 寫入 result_agy.txt', {
+    model: 'gemini-3.1-pro-high',
+    addDirs: ['/path/to/project'],
+    timeoutMs: 600_000,
+    cwd: '/path/to/project',
+});
 ```
 
 ### Step 2: 等待兩者完成後讀取結果
@@ -210,7 +229,12 @@ command: CLI_TIMEOUT_MS=600000 CLI_CWD=/path/to/project \
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-> 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
+所需 npm 套件：**`w-dispatch-ai`** ≥ 1.0.2（`dispatchAntigravity` 自該版提供；內部相依 `wsemi` 會隨之自動安裝）
+
+```bash
+npm install w-dispatch-ai
+node -e "import('w-dispatch-ai').then(m=>console.log('OK:', typeof m.default.dispatchAntigravity))"
+```
 
 ```bash
 agy --version   # 確認 agy 已安裝；建議 ≥ 1.1.2（--model 需 1.0.5+、解析失敗硬報錯需 1.1.2+；最新 1.1.4），過舊先 agy update

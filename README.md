@@ -3,15 +3,15 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（44 個）
+## 技能總覽（46 個）
 
 | 分類 | 技能數 |
 |------|:------:|
-| [開發工作流](#開發工作流類) | 1 |
+| [開發工作流](#開發工作流類) | 3 |
 | [角色定位](#角色定位類) | 4 |
 | [綜合分析](#綜合分析類) | 2 |
-| [Multi-Agent 協作](#multi-agent-協作類) | 7 |
-| [網頁與媒體抓取](#網頁與媒體抓取類) | 9 |
+| [Multi-Agent 協作](#multi-agent-協作類) | 5 |
+| [網頁與媒體抓取](#網頁與媒體抓取類) | 5 |
 | [台股數據抓取](#台股數據抓取類) | 5 |
 | [台股新聞抓取](#台股新聞抓取類) | 4 |
 | [AI / 科技新聞](#ai--科技新聞類) | 4 |
@@ -26,7 +26,8 @@
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
 | `do-loop` | 自主循環開發：以 Planner→Executor→Auditor 三角色驅動完整開發迴圈，持久化 `state.json` 支援跨 session 斷點續接 | 無（純工作流協議） |
-| `oper-schedule-for-windows` | Windows 工作排程（Task Scheduler）設定要點：先判任務型態（一次性 job／常駐行程）→ 挑 ExecutionTimeLimit／MultipleInstances／LogonType → schtasks 或 XML 配方建立 → 讀回驗證；含 TimeTrigger vs LogonTrigger、PowerShell 5.1 編碼陷阱、日常管理（免提權） | 無（純操作指引，需 Windows + PowerShell 5.1） |
+| `role-setup-scheduler-for-windows` | Windows 工作排程（Task Scheduler）設定要點：先判任務型態（一次性 job／常駐行程）→ 挑 ExecutionTimeLimit／MultipleInstances／LogonType → schtasks 或 XML 配方建立 → 讀回驗證；含**不彈 cmd 視窗的唯一正解（session 0）**、Password vs S4U 選擇判準（密碼輪換與靜默失敗）、TimeTrigger vs LogonTrigger、PowerShell 5.1 編碼陷阱、日常管理（免提權） | 無（純操作指引，需 Windows + PowerShell 5.1） |
+| `role-setup-scheduler-for-session` | 以 Claude session 排程（CronCreate）做定時巡檢並自主診斷修復：三個硬限制（session-only／僅閒置觸發／7 天到期）與 jitter 行為、CronCreate vs Monitor vs 作業系統排程之選擇、自足 prompt 六項必備、巡檢紀錄該記什麼（含「決定不處理」）、升降級判準與已知常態白名單 | 無（純操作指引，需 Claude Code 之 CronCreate 工具） |
 
 - 三角色迴圈：規劃（拆解任務 + 驗收條件）→ 執行（逐一實作）→ 審計（品質檢查）→ 修正（若未通過）→ 結案
 - 6 個中止條件：成功結案、需求不明、技術阻塞、單任務修正 ≥ 3 次、整體迴圈 > 5 輪、使用者中斷
@@ -100,14 +101,13 @@ node tw-stock-post-market/scripts/generate_report.mjs [YYYYMMDD] [baseOutputDir]
 
 | 技能 | 說明 | 前置需求 |
 |------|------|----------|
-| `dispatch-cli` | 通用 CLI 子進程執行器（核心層），提供超時控制、進程樹清理、輸出驗證、結構化錯誤回報與自動重試，供其他 dispatch 技能調用 | Node.js ≥ 18，需 `wsemi`、`lodash-es` |
-| `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | 需安裝 `@anthropic-ai/claude-code`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
-| `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | 需安裝 `@openai/codex`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
-| `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | 需安裝 `opencode-ai`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
-| `dispatch-antigravity` | 以 Antigravity CLI (`agy`) 作為獨立 agent 驅動 | 需安裝 `agy` CLI（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
-| `dispatch-agents` | 同時派出 Claude / Codex 兩大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整雙方結果 | 兩者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`（位置由執行 agent 決定，詳見 SKILL.md）+ dispatch-cli 之 `wsemi`、`lodash-es` |
+| `dispatch-claude` | 以 Claude Code CLI (`claude -p`) 作為獨立 agent 驅動，支援 `--allowedTools` 細粒度工具控制與 `--max-budget-usd` 預算限制 | 需安裝 `@anthropic-ai/claude-code` CLI + npm 套件 `w-dispatch-ai` |
+| `dispatch-codex` | 以 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 驅動，需啟用沙箱網路 | 需安裝 `@openai/codex` CLI + npm 套件 `w-dispatch-ai` |
+| `dispatch-opencode` | 以 OpenCode CLI (`opencode run`) 作為獨立 agent 驅動，支援多 provider/model（GPT、Claude、Gemini、Nemotron 等），含免費模型 | 需安裝 `opencode-ai` CLI + npm 套件 `w-dispatch-ai` |
+| `dispatch-antigravity` | 以 Antigravity CLI (`agy`) 作為獨立 agent 驅動 | 需安裝 `agy` CLI + npm 套件 `w-dispatch-ai` ≥1.0.2 |
+| `dispatch-agents` | 同時派出 Claude / Codex 兩大 agent 平行執行（最強模型 + 最強思考深度），由調度 AI 彙整雙方結果 | 兩者皆需安裝：`@anthropic-ai/claude-code`、`@openai/codex`（詳見 SKILL.md）+ npm 套件 `w-dispatch-ai` |
 
-- `dispatch-cli` 為核心調用層，提供 `run_cli.mjs` 腳本（非同步+自動重試），其餘技能透過它執行
+- **核心調用層已抽出為套件**：四支技能統一改用 **`w-dispatch-ai`**（`dispatchClaude` / `dispatchCodex` / `dispatchOpencode` / `dispatchAntigravity`，後者需 ≥1.0.2）。原 `dispatch-cli` 技能已移除
 - 調度 AI 與被派遣 agent 以背景方式平行執行，各自寫入不同輸出檔案後再彙整
 - `dispatch-agents` 為多 agent 共識整合層，適用於高重要性任務需多方觀點交叉驗證
 
@@ -310,10 +310,6 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 │   ├── SKILL.md
 │   └── references/
 │       └── claude-flags.md
-├── dispatch-cli/
-│   ├── SKILL.md
-│   └── scripts/
-│       └── run_cli.mjs
 ├── dispatch-codex/
 │   ├── SKILL.md
 │   └── references/
@@ -423,7 +419,9 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 │   └── scripts/
 │       ├── fetchYoutubeTranscript.mjs
 │       └── fetch_youtube_transcript.mjs
-├── oper-schedule-for-windows/
+├── role-setup-scheduler-for-session/
+│   └── SKILL.md
+├── role-setup-scheduler-for-windows/
 │   └── SKILL.md
 ├── role-design-web-for-magazine/
 │   ├── SKILL.md
@@ -498,7 +496,7 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 
 ## 依賴安裝
 
-> 本庫核心函數入口統一以 `wsemi` 做參數驗證、部分技能用 `lodash-es` 取 opt 值，故多數技能依賴含 `wsemi`（部分含 `lodash-es`）；純文件型技能（do-loop / oper-schedule-for-windows / role-* / dispatch-claude/codex/opencode/antigravity/agents）無 npm 依賴。各技能確切依賴見其 SKILL.md，或執行 `node _audit/dep_recon.mjs` 對帳。
+> 本庫核心函數入口統一以 `wsemi` 做參數驗證、部分技能用 `lodash-es` 取 opt 值，故多數技能依賴含 `wsemi`（部分含 `lodash-es`）；純文件型技能（do-loop / role-* / dispatch-claude/codex/opencode/antigravity/agents）無 npm 依賴。各技能確切依賴見其 SKILL.md，或執行 `node _audit/dep_recon.mjs` 對帳。
 
 ```bash
 # 台股研究全套（盤前調研 + 盤後總結 + 新聞抓取）

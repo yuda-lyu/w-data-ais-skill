@@ -10,7 +10,7 @@ description: This skill should be used when the user asks to "run codex as an ag
 此 skill 教導調度 AI 如何將 OpenAI Codex CLI (`codex exec`) 作為獨立 agent 執行，
 實現調度 AI ＋ Codex agent 混合的多 agent 工作流程。
 
-**核心調用層：** 使用 `dispatch-cli` 技能執行，自動處理超時、進程樹清理、輸出驗證與錯誤回報。
+**核心調用層：** 使用 **`w-dispatch-ai`** 套件的 `dispatchCodex()`，自動處理超時、進程樹清理、輸出驗證、重試與錯誤回報（底層為 `wsemi` 之 `execCli`）。
 
 > 📖 完整 CLI 旗標參考請見 [references/codex-flags.md](references/codex-flags.md)
 
@@ -20,63 +20,65 @@ description: This skill should be used when the user asks to "run codex as an ag
 - 需要利用 Codex 進行程式碼生成、npm/pip 安裝等需要網路的工作
 - 建立 multi-agent pipeline，各 agent 各司其職寫入不同輸出檔案
 
-## 透過 dispatch-cli 調用（推薦）
-
-### 命令列
-
-```bash
-# 基本呼叫（預設最強模型 + 最強推理）
-node dispatch-cli/scripts/run_cli.mjs \
-  codex exec --sandbox workspace-write --skip-git-repo-check \
-  -m gpt-5.6-sol \
-  --config sandbox_workspace_write.network_access=true \
-  --config model_reasoning_effort='"max"' \
-  "你的任務描述"
-
-# 完整防護：超時 + 重試
-CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 \
-  node dispatch-cli/scripts/run_cli.mjs \
-  codex exec --sandbox workspace-write --skip-git-repo-check \
-  -m gpt-5.6-sol \
-  --config sandbox_workspace_write.network_access=true \
-  --config model_reasoning_effort='"max"' \
-  "你的任務描述"
-
-# 回退到均衡模型（Sol 過載 / 429 / 額度受限時）
-CLI_TIMEOUT_MS=180000 \
-  node dispatch-cli/scripts/run_cli.mjs \
-  codex exec --sandbox workspace-write --skip-git-repo-check \
-  -m gpt-5.6-terra \
-  --config sandbox_workspace_write.network_access=true \
-  --config model_reasoning_effort='"max"' \
-  "你的任務描述"
-```
-
-> 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
->
-> ⚠ 上述範例中的 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node ...` 環境變數前綴寫法為 **bash／zsh／Git Bash 專用**。Windows（PowerShell／cmd）請見下方「[推理等級](#推理等級model_reasoning_effort) → 跨 shell 差異提醒」的環境變數對應寫法。
-
-### 模組匯入
+## 透過 w-dispatch-ai 調用（推薦）
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/runCli.mjs';
+import wda from 'w-dispatch-ai';
 
-const result = await runCli('codex', [
-    'exec', '--sandbox', 'workspace-write', '--skip-git-repo-check',
-    '-m', 'gpt-5.6-sol',
-    '--config', 'sandbox_workspace_write.network_access=true',
-    '--config', 'model_reasoning_effort="max"',
-    '重構此模組並撰寫單元測試',
-], {
+// 基本呼叫（預設最強模型 + 最深推理）
+const r = await wda.dispatchCodex('重構此模組並撰寫單元測試', {
+    model: 'gpt-5.6-sol',
+    extraArgs: [
+        '--skip-git-repo-check',
+        '--config', 'sandbox_workspace_write.network_access=true',
+        '--config', 'model_reasoning_effort="max"',
+    ],
     timeoutMs: 180_000,
 });
 
-if (result.ok) {
-    console.log(result.stdout);
+if (r.ok) {
+    console.log(r.stdout);
 } else {
-    console.error(`Codex 呼叫失敗: ${result.error}`);
+    console.error(`Codex 呼叫失敗: ${r.error}`);
 }
 ```
+
+### 常用組合
+
+```javascript
+// 完整防護：超時 + 重試
+await wda.dispatchCodex(prompt, {
+    model: 'gpt-5.6-sol',
+    extraArgs: ['--skip-git-repo-check', '--config', 'sandbox_workspace_write.network_access=true', '--config', 'model_reasoning_effort="max"'],
+    timeoutMs: 180_000,
+    maxRetries: 1,
+});
+
+// 回退到均衡模型（Sol 過載 / 429 / 額度受限時）
+await wda.dispatchCodex(prompt, { model: 'gpt-5.6-terra', /* 其餘同上 */ });
+
+// 唯讀沙箱（只分析不改檔）
+await wda.dispatchCodex(prompt, { model: 'gpt-5.6-sol', sandbox: 'read-only' });
+```
+
+### API 重點
+
+| opt | 預設 | 說明 |
+|---|---|---|
+| `exe` | `'codex'` | 執行檔名稱或絕對路徑 |
+| `model` | `''`（不帶旗標） | 模型 ID；**本 skill 建議 `gpt-5.6-sol`** |
+| `sandbox` | `'workspace-write'` | 沙箱模式：`read-only` / `workspace-write` / `danger-full-access`（**套件已預設帶上，不需自行加 `--sandbox`**） |
+| `extraArgs` | `[]` | 額外旗標陣列——**`--skip-git-repo-check` 與各 `--config` 走這裡** |
+| `timeoutMs` | `120000` | 逾時後強制關閉子進程及其子孫 |
+| `cwd` / `validate` / `maxRetries` / `onStdout` … | — | 其餘鍵**原樣轉傳 `execCli`** |
+
+**回傳**：`{ ok, stdout, stderr, code, error, durationMs, attempts }`；本函式**不 reject**。
+
+> ⚠ **prompt 一律以 stdin 傳入**，故含換行、引號的長 prompt 可直接傳，不需跳脫。
+>
+> ⚠ **`--config model_reasoning_effort="max"` 的引號問題消失了**：以陣列元素直傳、不經 shell，故不再需要舊版依 shell 而異的跳脫寫法（bash 的 `'"max"'` vs PowerShell 的 `'\"max\"'`）。
+>
+> ⚠ `w-dispatch-ai` 為 UMD 套件，**只能 default import**。
 
 ## 模型選擇
 
@@ -120,17 +122,7 @@ if (result.ok) {
 > 本 skill 預設使用 `max` 最深單任務推理。`ReasoningEffort` enum 為八階＋自訂（`None`/`Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`/`Ultra`/`Custom(String)`，原始碼 `codex-rs/protocol/src/openai_models.rs` 確認）；本機型錄（v0.147.0）標注 gpt-5.6 全系支援至 `max`，`ultra` 為 **Sol 與 Terra** 支援（Luna 不支援）。若需加速可降級為 `xhigh` / `high`。
 > `ultra` 屬「執行模式」而非單純更深思考——會自動展開子代理平行派工；官方文件另註記 Max/Ultra 在部分入口需於 app 設定啟用。headless `codex exec` 下若 `ultra` 不生效，退回 `max` 即可（此點未實跑驗證，僅依官方文件與原始碼標注，需實測確認）。
 >
-> **跨 shell 差異提醒**：本節命令列範例（含上方各 `node dispatch-cli/...` 範例）皆以 bash／zsh／Git Bash 語法書寫，含兩處需依 shell 調整的寫法：「引號跳脫」與「環境變數前綴」。Windows 使用者照抄會失敗，請改用對應寫法。
->
-> **(1) 引號跳脫**：上述 `'"max"'`（外層單引號包雙引號）為 bash／zsh 寫法，需讓 codex CLI 收到帶雙引號的 TOML 字面值。
-> - **PowerShell**：使用 `--config model_reasoning_effort='\"max\"'`（外層單引號內以反斜線跳脫雙引號），或改用程式化呼叫（推薦）：`spawn('codex', ['--config', 'model_reasoning_effort="max"'])`，以陣列直傳參數可繞過 shell escaping 問題。
-> - **cmd.exe**：使用 `--config "model_reasoning_effort=\"max\""`。
->
-> **(2) 環境變數前綴**：上述 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node ...`（在命令前以 `VAR=value` 設定環境變數）為 bash／zsh／Git Bash 專用語法。PowerShell 會 parse error、cmd 不適用，須改寫：
-> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='180000'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=180000 && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **程式化呼叫不受影響**：改用「模組匯入」段的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 180_000 }`）時，不經 shell、無此差異。
+> ✅ **跨 shell 引號問題已不存在**：改用 `w-dispatch-ai` 後，`--config model_reasoning_effort="max"` 以陣列元素直傳、不經 shell，故不再需要依 shell 而異的跳脫寫法（舊版 bash 要 `'"max"'`、PowerShell 要 `'\"max\"'`、cmd 又是另一套）。JS 字串怎麼寫就怎麼傳。
 
 ### 各參數說明
 
@@ -174,13 +166,13 @@ if (result.ok) {
 | **「感覺用不到 gpt-5.6」／預設落到 gpt-5.5**（**0.147.0 起已不復現**） | **型錄快取 schema 不相容**：CLI 與 IDE／桌面版版本落差時，較新客戶端寫入的 `~/.codex/models_cache.json` 會讓較舊 CLI 解析失敗（stderr 出現 `ERROR codex_models_manager::cache: failed to load models cache: missing field ...`）→ **退回 bundled 型錄，最新僅到 gpt-5.5**，故不指定 `-m` 時預設變成 `gpt-5.5 + high`，TUI 選單也看不到 gpt-5.6。<br>2026-07 實測情境：CLI 0.144.6 vs 客戶端 0.145.0 | **① 兩端升到同版即消失**（2026-08-07 查核 0.147.0：快取 `client_version` 與 CLI 同版，已無此錯誤）。**② 本技能本就不受影響**——範例一律顯式帶 `-m gpt-5.6-sol`，model slug 直送伺服器不經型錄驗證。<br>**刪除快取無效**——實測刪掉後 1 分鐘內即被較新客戶端以同樣 schema 重寫 |
 | 型錄有 gpt-5.6 但實跑被拒 | 帳號層面：額度用罄、token 過期、方案未涵蓋 | 查 `~/.codex/auth.json` 的 `auth_mode`；重跑 `codex login` 刷新；或改用 API key（`OPENAI_API_KEY`）。註：**ChatGPT Plus 在 Codex 可用 gpt-5.6 三階與 `max` 推理檔（2026-07-20 實測確認）**；官方對 Plus 的推理檔限制（僅 Medium/High）只作用於 ChatGPT 標準對話介面，不影響 Codex |
 
-## dispatch-cli 建議參數
+## 建議 opt 值
 
-| 環境變數 | 建議值 | 說明 |
+| opt | 建議值 | 說明 |
 |----------|--------|------|
-| `CLI_TIMEOUT_MS` | `180000`～`300000` | Codex 含沙箱啟動時間，建議至少 3 分鐘 |
-| `CLI_VALIDATE` | `nonempty` | 確保有實際輸出 |
-| `CLI_MAX_RETRIES` | `1` | 沙箱啟動偶爾失敗可重試（含初始請求最多執行 2 次） |
+| `timeoutMs` | `180_000`～`300_000` | Codex 含沙箱啟動時間，建議至少 3 分鐘 |
+| `validate` | `'nonempty'` | 確保有實際輸出 |
+| `maxRetries` | `1` | 沙箱啟動偶爾失敗可重試（含初始請求最多執行 2 次） |
 
 ## 多 Agent 工作流程範例
 
@@ -192,15 +184,16 @@ if (result.ok) {
 # 調度 AI 自身的 subagent（依平台而異，例如 Agent tool / run_in_background）
 prompt: "... 寫入 result_dispatcher.txt"
 
-# Codex agent — 透過 dispatch-cli（背景執行）
-# 註：以下 CLI_TIMEOUT_MS=180000 前綴為 bash／zsh／Git Bash 專用；
-#     Windows（PowerShell／cmd）的環境變數寫法請見「推理等級 → 跨 shell 差異提醒」章節。
-command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
-         codex exec --sandbox workspace-write --skip-git-repo-check \
-         -m gpt-5.6-sol \
-         --config sandbox_workspace_write.network_access=true \
-         --config model_reasoning_effort='"max"' \
-         "... 寫入 result_codex.txt"
+# Codex agent — 透過 w-dispatch-ai（背景執行）
+await wda.dispatchCodex('... 寫入 result_codex.txt', {
+    model: 'gpt-5.6-sol',
+    extraArgs: [
+        '--skip-git-repo-check',
+        '--config', 'sandbox_workspace_write.network_access=true',
+        '--config', 'model_reasoning_effort="max"',
+    ],
+    timeoutMs: 180_000,
+});
 ```
 
 ### Step 2: 等待兩者完成後讀取結果
@@ -217,7 +210,12 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-> 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
+所需 npm 套件：**`w-dispatch-ai`**（其內部相依 `wsemi` 會隨之自動安裝）
+
+```bash
+npm install w-dispatch-ai
+node -e "import('w-dispatch-ai').then(m=>console.log('OK:', typeof m.default.dispatchCodex))"
+```
 
 ```bash
 codex --version   # 確認 codex-cli 已安裝（建議 v0.147.0+；實測 0.147.0＝npm 最新）

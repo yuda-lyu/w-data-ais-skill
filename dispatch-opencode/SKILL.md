@@ -10,7 +10,7 @@ description: This skill should be used when the user asks to "run opencode as an
 此 skill 教導調度 AI 如何將 OpenCode CLI (`opencode run`) 作為獨立 agent 執行，
 實現調度 AI ＋ OpenCode agent 混合的多 agent 工作流程。
 
-**核心調用層：** 使用 `dispatch-cli` 技能執行，自動處理超時、進程樹清理、輸出驗證與錯誤回報。
+**核心調用層：** 使用 **`w-dispatch-ai`** 套件的 `dispatchOpencode()`，自動處理超時、進程樹清理、輸出驗證、重試與錯誤回報（底層為 `wsemi` 之 `execCli`）。
 
 > 📖 完整 CLI 旗標參考請見 [references/opencode-flags.md](references/opencode-flags.md)
 
@@ -21,72 +21,67 @@ description: This skill should be used when the user asks to "run opencode as an
 - 想用**免費模型**跑派工（Zen 免費層不需自備 API key，見「模型選擇」）
 - 建立 multi-agent pipeline，各 agent 各司其職寫入不同輸出檔案
 
-## 透過 dispatch-cli 調用（推薦）
-
-### 命令列
-
-```bash
-# 基本呼叫
-node dispatch-cli/scripts/run_cli.mjs \
-  opencode run --agent build \
-  -m "opencode/deepseek-v4-flash-free" \
-  "你的任務描述"
-
-# 完整防護：超時 + 重試
-CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 \
-  node dispatch-cli/scripts/run_cli.mjs \
-  opencode run --agent build \
-  -m "opencode/deepseek-v4-flash-free" \
-  "你的任務描述"
-
-# 指定其他模型（三段式 ID：需該 provider 已認證）
-CLI_TIMEOUT_MS=180000 \
-  node dispatch-cli/scripts/run_cli.mjs \
-  opencode run --agent build \
-  -m "nvidia/deepseek-ai/deepseek-v4-pro" \
-  "你的任務描述"
-
-# JSON 格式輸出
-CLI_TIMEOUT_MS=180000 CLI_VALIDATE=nonempty \
-  node dispatch-cli/scripts/run_cli.mjs \
-  opencode run --agent build \
-  -m "opencode/deepseek-v4-flash-free" --format json \
-  "你的任務描述"
-
-# 附帶檔案
-node dispatch-cli/scripts/run_cli.mjs \
-  opencode run --agent build \
-  -m "opencode/deepseek-v4-flash-free" \
-  -f ./input.txt "分析這個檔案"
-```
-
-> 上述路徑為相對路徑範例，實際執行時請依執行環境自行調整路徑。
->
-> ⚠ **跨 shell 環境變數寫法**：上述 `CLI_TIMEOUT_MS=180000 ... node ...`（在命令前以 `VAR=value` 設定環境變數的前綴寫法）為 **bash／zsh／Git Bash 專用**。Windows 的 PowerShell 會 parse error、cmd 不適用，須改寫：
-> - **bash／zsh／Git Bash**：維持既有前綴寫法 `CLI_TIMEOUT_MS=180000 CLI_MAX_RETRIES=1 node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **PowerShell**：先以 `$env:` 設定再執行 —— `$env:CLI_TIMEOUT_MS='180000'; $env:CLI_MAX_RETRIES='1'; node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **cmd.exe**：以 `set` 設定再以 `&&` 串接 —— `set CLI_TIMEOUT_MS=180000 && set CLI_MAX_RETRIES=1 && node dispatch-cli/scripts/run_cli.mjs ...`。
-> - **程式化呼叫不受影響**：改用下方「模組匯入」段的 `runCli(...)` + JS options 物件（如 `{ timeoutMs: 180_000 }`）時，不經 shell、無此差異。
-
-### 模組匯入
+## 透過 w-dispatch-ai 調用（推薦）
 
 ```javascript
-import { runCli } from './dispatch-cli/scripts/runCli.mjs';
+import wda from 'w-dispatch-ai';
 
-const result = await runCli('opencode', [
-    'run', '--agent', 'build',
-    '-m', 'opencode/deepseek-v4-flash-free',
-    '撰寫單元測試並確保全部通過',
-], {
+// 基本呼叫（預設免費模型 + build agent）
+const r = await wda.dispatchOpencode('撰寫單元測試並確保全部通過', {
+    model: 'opencode/deepseek-v4-flash-free',
     timeoutMs: 180_000,
 });
 
-if (result.ok) {
-    console.log(result.stdout);
+if (r.ok) {
+    console.log(r.stdout);
 } else {
-    console.error(`OpenCode 呼叫失敗: ${result.error}`);
+    console.error(`OpenCode 呼叫失敗: ${r.error}`);
 }
 ```
+
+### 常用組合
+
+```javascript
+// 完整防護：超時 + 重試
+await wda.dispatchOpencode(prompt, {
+    model: 'opencode/deepseek-v4-flash-free',
+    timeoutMs: 180_000,
+    validate: 'nonempty',
+    maxRetries: 1,
+});
+
+// 指定其他模型（三段式 ID：需該 provider 已認證）
+await wda.dispatchOpencode(prompt, { model: 'nvidia/deepseek-ai/deepseek-v4-pro' });
+
+// 臨時注入 API key（key 與 provider 須成對，且 provider 要與 model 同組）
+await wda.dispatchOpencode(prompt, {
+    model: 'nvidia/deepseek-ai/deepseek-v4-pro',
+    provider: 'nvidia',
+    key: process.env.NVIDIA_API_KEY,
+});
+
+// JSON 事件流輸出 / 附帶檔案
+await wda.dispatchOpencode(prompt, { model: 'opencode/deepseek-v4-flash-free', extraArgs: ['--format', 'json'] });
+await wda.dispatchOpencode('分析這個檔案', { model: 'opencode/deepseek-v4-flash-free', extraArgs: ['-f', './input.txt'] });
+```
+
+### API 重點
+
+| opt | 預設 | 說明 |
+|---|---|---|
+| `exe` | `'opencode'` | 執行檔名稱或絕對路徑 |
+| `model` | `''`（不帶旗標） | 模型 ID；**本 skill 建議 `opencode/deepseek-v4-flash-free`** |
+| `agent` | `'build'` | opencode 代理名稱（**套件已預設帶上，不需自行加 `--agent`**） |
+| `key` / `provider` | `''` | 臨時注入該 provider 的 API key；**兩者須同時給予**才會生效，且 provider 要與 model 同組。不給則沿用 CLI 既有登入狀態 |
+| `extraArgs` | `[]` | 額外旗標陣列——`--format json`、`-f <file>`、`--variant` 等走這裡 |
+| `timeoutMs` | `120000` | 逾時後強制關閉子進程及其子孫 |
+| `cwd` / `validate` / `maxRetries` / `onStdout` … | — | 其餘鍵**原樣轉傳 `execCli`** |
+
+**回傳**：`{ ok, stdout, stderr, code, error, durationMs, attempts }`；本函式**不 reject**。
+
+> ⚠ **prompt 一律以 stdin 傳入**，故含換行、引號的長 prompt 可直接傳，不需跳脫。
+>
+> ⚠ `w-dispatch-ai` 為 UMD 套件，**只能 default import**。
 
 ## 模型選擇
 
@@ -156,7 +151,7 @@ OpenCode 自家策劃的免費層，**point-and-use、不需自備 API key**（`
 | `-f <file>` | ❌ 可選 | 附加檔案給任務（可多個） |
 | `--variant` | ❌ 可選 | 模型變體＝provider 專屬推理強度（如 `high`、`max`、`minimal`） |
 | `--title` | ❌ 可選 | 為 session 命名（不給值則取截斷後的 prompt） |
-| `--dir <path>` | ❌ 可選 | 指定執行目錄（等同 dispatch-cli 的 `CLI_CWD`，兩者擇一即可） |
+| `--dir <path>` | ❌ 可選 | 指定執行目錄（等同 `dispatchOpencode` 的 `cwd` opt，兩者擇一即可） |
 | `--auto` | ❌ 可選 | 自動核准未被明確拒絕的權限（**dangerous**；一般用 `--agent build` 即足夠） |
 | `--thinking` | ❌ 可選 | 顯示 thinking 區塊 |
 | `-c, --continue` / `-s, --session <id>` | ❌ 可選 | 延續上一個／指定 session；`--fork` 可在延續前分叉 |
@@ -176,13 +171,13 @@ OpenCode 自家策劃的免費層，**point-and-use、不需自備 API key**（`
 | 免費模型被限流 | Zen 免費層 100 requests/day 上限 | 降低派工頻率、改用其他免費模型，或改用已認證的付費 provider |
 | 操作外部目錄被拒 | `external_directory` 權限為 ask | 在任務描述中指定寫入專案目錄內的路徑 |
 
-## dispatch-cli 建議參數
+## 建議 opt 值
 
-| 環境變數 | 建議值 | 說明 |
+| opt | 建議值 | 說明 |
 |----------|--------|------|
-| `CLI_TIMEOUT_MS` | `180000`～`300000` | 含模型推理時間，建議至少 3 分鐘 |
-| `CLI_VALIDATE` | `nonempty` | 確保有實際輸出 |
-| `CLI_MAX_RETRIES` | `1` | 免費模型偶爾限流可重試（含初始請求最多執行 2 次） |
+| `timeoutMs` | `180_000`～`300_000` | 含模型推理時間，建議至少 3 分鐘 |
+| `validate` | `'nonempty'` | 確保有實際輸出 |
+| `maxRetries` | `1` | 免費模型偶爾限流可重試（含初始請求最多執行 2 次） |
 
 ## 多 Agent 工作流程範例
 
@@ -194,10 +189,11 @@ OpenCode 自家策劃的免費層，**point-and-use、不需自備 API key**（`
 # 調度 AI 自身的 subagent（依平台而異，例如 Agent tool / run_in_background）
 prompt: "... 寫入 result_dispatcher.txt"
 
-# OpenCode agent — 透過 dispatch-cli（背景執行）
-command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
-         opencode run --agent build -m "opencode/deepseek-v4-flash-free" \
-         "... 寫入 result_opencode.txt"
+# OpenCode agent — 透過 w-dispatch-ai（背景執行）
+await wda.dispatchOpencode('... 寫入 result_opencode.txt', {
+    model: 'opencode/deepseek-v4-flash-free',
+    timeoutMs: 180_000,
+});
 ```
 
 ### Step 2: 等待兩者完成後讀取結果
@@ -214,7 +210,12 @@ command: CLI_TIMEOUT_MS=180000 node dispatch-cli/scripts/run_cli.mjs \
 
 > **[執行AI須先依照技能內說明安裝指定依賴之套件]**
 
-> 本技能透過 dispatch-cli 執行，請先依 dispatch-cli 技能的安裝指引安裝其 npm 依賴（wsemi、lodash-es）。
+所需 npm 套件：**`w-dispatch-ai`**（其內部相依 `wsemi` 會隨之自動安裝）
+
+```bash
+npm install w-dispatch-ai
+node -e "import('w-dispatch-ai').then(m=>console.log('OK:', typeof m.default.dispatchOpencode))"
+```
 
 ```bash
 opencode --version   # 確認 opencode 已安裝（本技能實測 v1.18.15＝npm 最新）

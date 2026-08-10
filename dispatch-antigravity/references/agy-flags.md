@@ -68,8 +68,14 @@ gpt-oss-120b-medium         GPT-OSS 120B (Medium)
 | 模型變體名內嵌檔位 | 如 `gemini-3.1-pro-high`；本 skill 預設採此 |
 | `--effort <low\|medium\|high>` | **1.1.11 新增之獨立旗標** |
 
-> ⚠ **兩者同時給定時的優先順序未經實證**（本庫規範禁止實跑 dispatch-* 技能）。
-> 本 skill 預設只用模型名內嵌檔位，不額外帶 `--effort`。
+**併用規則**（`w-dispatch-ai` v1.0.2 作者實測）：
+
+- 帶檔位 slug ＋ `--effort` **不一致** → agy 拒絕：`--model gemini-3.1-pro-high conflicts with --effort=low`，exit 1
+- 帶檔位 slug ＋ `--effort` **一致** → 放行
+- **基礎 slug**（如 `gemini-3.1-pro`）＋ `--effort` → 放行，此為使用 `--effort` 的正確組合
+
+> 本 skill 預設只用模型名內嵌檔位、不帶 `--effort`（安全無衝突）。
+> 註：基礎 slug（不帶 `-high`/`-low` 後綴）**未列於 `agy models` 輸出**，但 agy 接受。
 
 ## 版本沿革（與派工相關者）
 
@@ -97,7 +103,7 @@ gpt-oss-120b-medium         GPT-OSS 120B (Medium)
 |---------|------|
 | `-m` 短旗 | ❌ 模型旗標只有全名 `--model` |
 | `--temperature` / `--top-p` | ❌ 採樣參數無法調整 |
-| `--workdir <path>` | ❌ 用 `--add-dir` 加 workspace；cwd 透過 dispatch-cli 的 `CLI_CWD` 控制 |
+| `--workdir <path>` | ❌ 用 `--add-dir` 加 workspace；cwd 透過 execCli 的 `cwd` 選項控制 |
 
 ## 認證
 
