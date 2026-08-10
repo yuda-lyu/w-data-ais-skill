@@ -27,7 +27,7 @@
 |------|------|----------|
 | `do-loop` | 自主循環開發：以 Planner→Executor→Auditor 三角色驅動完整開發迴圈，持久化 `state.json` 支援跨 session 斷點續接 | 無（純工作流協議） |
 | `role-setup-scheduler-for-windows` | Windows 工作排程（Task Scheduler）設定要點：先判任務型態（一次性 job／常駐行程）→ 挑 ExecutionTimeLimit／MultipleInstances／LogonType → schtasks 或 XML 配方建立 → 讀回驗證；含**不彈 cmd 視窗的唯一正解（session 0）**、Password vs S4U 選擇判準（密碼輪換與靜默失敗）、TimeTrigger vs LogonTrigger、PowerShell 5.1 編碼陷阱、日常管理（免提權） | 無（純操作指引，需 Windows + PowerShell 5.1） |
-| `role-setup-scheduler-for-session` | 以 Claude session 排程（CronCreate）做定時巡檢並自主診斷修復：三個硬限制（session-only／僅閒置觸發／7 天到期）與 jitter 行為、CronCreate vs Monitor vs 作業系統排程之選擇、自足 prompt 六項必備、巡檢紀錄該記什麼（含「決定不處理」）、升降級判準與已知常態白名單 | 無（純操作指引，需 Claude Code 之 CronCreate 工具） |
+| `role-setup-scheduler-for-session` | 以 Claude session 排程（CronCreate）做定時巡檢並自主診斷修復：執行模型（排的是 prompt 不是任務、共用同一 context）、四個硬限制與 jitter 實測、**如何查證 cron 真的有在跑（nonce 探針）**、cron 完全不送達時的兩條備援（Monitor 推送／管線內建巡檢）、三機制取捨總表、自足 prompt 六項必備、巡檢紀錄該記什麼、白名單漏列會讓自適應機制卡死 | 無（純操作指引，需 Claude Code 之 CronCreate／Monitor 工具） |
 
 - 三角色迴圈：規劃（拆解任務 + 驗收條件）→ 執行（逐一實作）→ 審計（品質檢查）→ 修正（若未通過）→ 結案
 - 6 個中止條件：成功結案、需求不明、技術阻塞、單任務修正 ≥ 3 次、整體迴圈 > 5 輪、使用者中斷
