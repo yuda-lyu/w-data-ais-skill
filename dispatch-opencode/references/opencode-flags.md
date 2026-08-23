@@ -1,149 +1,108 @@
-# OpenCode CLI 旗標完整參考
+# OpenCode CLI 派工參考
 
-來源：`opencode --help`、`opencode run --help`、`opencode models`（**v1.18.15 實測確認，2026-08-07**；npm 套件名 `opencode-ai`）
+以下內容於 2026-08-23 透過這些來源驗證：
 
-## 基本語法
+- `opencode-ai`／`opencode` 1.18.21
+- 本機 `opencode run --help` 與重新整理後的詳細模型型錄
+- [OpenCode 官方 CLI 文件](https://opencode.ai/docs/cli/)
+- [OpenCode 官方模型與 variant 文件](https://opencode.ai/docs/models/)
 
+## 非互動語法
+
+```text
+opencode run [message..]
 ```
-opencode [options] [command]
-opencode run [message..]   ← 非互動模式（headless）
+
+未提供位置 message 時，目前版本的 OpenCode 會從 stdin 讀取內容。`dispatchOpencode()` 使用 stdin，因此長篇與多行提示詞不會遇到命令列長度與引號問題。
+
+## 必要模型與 variant
+
+```text
+--model nvidia/deepseek-ai/deepseek-v4-flash --variant max
 ```
 
-## 主要子命令
+重新整理後的 OpenCode 型錄顯示：
 
-| 子命令 | 說明 |
-|--------|------|
-| `run [message..]` | **非互動模式**，執行任務後退出（多 agent 使用此命令） |
-| `[project]` | 啟動 TUI 互動介面（預設） |
-| `serve` | 啟動 headless server |
-| `web` | 啟動 server 並開啟 Web 介面 |
-| `attach <url>` | 連接到運行中的 server |
-| `models [provider]` | 列出所有可用模型 |
-| `providers`（別名 `auth`） | 管理 AI provider 與憑證（login / logout / list）。**v1.18.1x 起主名為 `providers`**，`auth` 仍為別名 |
-| `agent` | 管理 agent（create / list） |
-| `session` | 管理 session |
-| `export [sessionID]` | 匯出 session 為 JSON |
-| `import <file>` | 匯入 session JSON（支援檔案或 URL） |
-| `pr <number>` | 取得 GitHub PR 分支並啟動 opencode |
-| `github` | 管理 GitHub agent |
-| `mcp` | 管理 MCP（Model Context Protocol）伺服器 |
-| `acp` | 啟動 ACP（Agent Client Protocol）伺服器 |
-| `plugin <module>`（別名 `plug`） | 安裝 plugin 並更新設定 |
-| `db` | 資料庫工具 |
-| `completion` | 產生 shell 補全腳本 |
-| `debug` | 除錯工具（config / lsp / agent / paths 等） |
-| `stats` | 顯示 token 用量與成本統計 |
-| `upgrade [target]` | 升級 opencode（亦可用 `npm install -g opencode-ai@latest`） |
-| `uninstall` | 移除 opencode 及所有相關檔案 |
+```text
+供應商／模型：nvidia/deepseek-ai/deepseek-v4-flash
+名稱：DeepSeek V4 Flash
+支援推理：true
+variant：none、high、max
+```
 
-## `opencode run` 選項
+`max` 是此供應商／模型項目提供的最深推理 variant。
 
-| 選項 | 縮寫 | 說明 |
-|------|------|------|
-| `--model` | `-m` | 指定模型：Zen 兩段 `provider/model`（例：`opencode/deepseek-v4-flash-free`）；cline / nvidia 三段 `provider/vendor/model`（例：`nvidia/deepseek-ai/deepseek-v4-pro`） |
-| `--agent` | — | 指定 agent（例：`build` = 權限全開） |
-| `--format` | — | 輸出格式：`default`（人類可讀）、`json`（JSONL 事件流） |
-| `--file` | `-f` | 附加檔案（可多次指定） |
-| `--variant` | — | 模型變體＝provider 專屬推理強度（例：`high`、`max`、`minimal`） |
-| `--dir` | — | 指定執行目錄；若 `--attach` 連遠端 server 則為遠端路徑 |
-| `--auto` | — | 自動核准未被明確拒絕的權限（**dangerous**；一般用 `--agent build` 即足夠） |
-| `--thinking` | — | 顯示 thinking 區塊 |
-| `--continue` | `-c` | 延續上次 session |
-| `--session` | `-s` | 指定 session ID 延續 |
-| `--fork` | — | 延續前先分叉 session（需搭配 `--continue` 或 `--session`） |
-| `--title` | — | 為 session 命名（未給值則取截斷後的 prompt） |
-| `--share` | — | 分享 session |
-| `--command` | — | 指定要執行的 command，以 message 作為其引數 |
-| `--pure` | — | 不載入外部 plugin |
-| `--interactive` | `-i` | 以 split-footer 互動模式執行（**headless 派工勿用**） |
-| `--attach` | — | 連接到運行中的 server（例：`http://localhost:4096`） |
-| `--password` / `--username` | `-p` / `-u` | server basic auth（預設取 `OPENCODE_SERVER_PASSWORD` / `OPENCODE_SERVER_USERNAME`） |
-| `--port` | — | 本地 server 端口（預設隨機） |
-| `--print-logs` / `--log-level` | — | 除錯：log 印至 stderr；等級 `DEBUG`/`INFO`/`WARN`/`ERROR` |
+必要預設值不可使用以下項目：
 
-> ⚠ 舊版本文所列的 `run --prompt` 於 v1.18.15 之 `opencode run --help` **已不存在**（prompt 直接以 positional `message` 傳入）。
->
-> ⚠ `-p` 在 `run` 之下是 `--password` **而非 prompt**，勿與 Claude / Copilot CLI 的 `-p` 混淆。
+- `cline/deepseek/deepseek-v4-flash`：目前中繼資料顯示 `reasoning: false`，而且沒有推理變體。
+- `opencode/deepseek-v4-flash-free`：審查日重新整理 OpenCode 供應商型錄後已不存在。
 
-## 全域選項
+型錄會動態變更。應使用 `opencode models <provider> --refresh` 與 `--verbose` 查核，不可猜測模型 ID 或 variant。
 
-| 選項 | 說明 |
-|------|------|
-| `--print-logs` | 將日誌輸出到 stderr |
-| `--log-level` | 日誌等級：`DEBUG`、`INFO`、`WARN`、`ERROR` |
-| `--port` | 監聽端口（預設 0 = 隨機） |
-| `--hostname` | 監聽主機名（預設 `127.0.0.1`） |
-| `--mdns` | 啟用 mDNS 服務發現（hostname 預設改為 `0.0.0.0`） |
-| `--cors` | 額外允許的 CORS 網域 |
+## `opencode run` 旗標
 
-## Agent 管理
+| 旗標 | 用途 |
+|---|---|
+| `-m`、`--model <provider/model>` | 選擇模型；ID 可能包含多個斜線 |
+| `--variant <name>` | 套用供應商／模型專屬的推理 variant |
+| `--agent <name>` | 選擇代理；轉接器預設為 `build` |
+| `--format default|json` | 人類可讀輸出或 JSONL 事件 |
+| `-f`、`--file <file...>` | 附加檔案 |
+| `--dir <path>` | 設定專案目錄 |
+| `--thinking` | 顯示可用的 thinking 區塊 |
+| `--auto` | 自動核准未被明確拒絕的權限；具有風險 |
+| `-c`、`--continue` | 延續上一個工作階段 |
+| `-s`、`--session <id>` | 延續指定工作階段 |
+| `--fork` | 延續前先分叉工作階段 |
+| `--title <text>` | 設定工作階段標題 |
+| `--pure` | 不載入外部 plugin |
+| `--attach <url>` | 連接正在執行的 OpenCode server |
+| `--print-logs` | 將 log 印至 stderr |
+| `--log-level <level>` | `DEBUG`、`INFO`、`WARN` 或 `ERROR` |
+
+在 `opencode run` 中，`-p` 代表 `--password`，不是提示詞。不可套用 Claude 的 `-p` 用法。
+
+## 模型與 variant
+
+模型選擇優先順序如下：
+
+1. `--model`／`-m`
+2. 設定檔中的 `model`
+3. 上次使用的模型
+4. 內部優先順序
+
+variant 是型錄定義的請求覆寫。不可假設每個推理模型都有 `high` 或 `max`；使用前應檢查 `opencode models <provider> --verbose`。
+
+## 認證
 
 ```bash
-# 列出所有 agent
-opencode agent list
-
-# 建立新 agent
-opencode agent create
-
-# 查看 agent 詳細設定
-opencode debug agent <name>
-```
-
-### `build` agent 權限設定
-
-`build` agent 預設為全自動模式，關鍵權限：
-
-| 權限 | 動作 | 說明 |
-|------|------|------|
-| `*` | allow | 所有操作預設允許 |
-| `doom_loop` | ask | 防止無限迴圈時詢問 |
-| `external_directory` | ask | 存取外部目錄時詢問 |
-| `question` | deny | 不會停下來問問題 |
-| `plan_enter` / `plan_exit` | deny | 不會進入規劃模式 |
-
-## 認證管理
-
-```bash
-# 登入 provider
-opencode auth login [url]
-
-# 登出
-opencode auth logout
-
-# 列出已認證的 provider
+opencode auth login
 opencode auth list
+opencode auth logout
 ```
 
-認證資料儲存於：`~/.local/share/opencode/auth.json`
+NVIDIA 模型需要 NVIDIA 供應商憑證。`dispatchOpencode()` 也能透過 `provider: 'nvidia'` 與 `key`，僅為當次程序注入 `OPENCODE_AUTH_CONTENT`，不會修改已保存的認證檔案。
 
-## 除錯工具
+第三方供應商定義可透過轉接器的 `config` 選項注入為 `OPENCODE_CONFIG_CONTENT`。供應商、模型、base URL 與憑證來源必須互相對應。
+
+## 輸出與工作階段
+
+```text
+opencode run --format json --model nvidia/deepseek-ai/deepseek-v4-flash --variant max
+opencode run --continue "繼續"
+opencode run --session <SESSION_ID> "後續指令"
+```
+
+`--format json` 是每行一個 JSON 值的事件流，必須當成 JSONL 解析。
+
+## 執行期驗證
 
 ```bash
-# 查看完整解析後的設定
-opencode debug config
-
-# 查看 agent 設定
-opencode debug agent <name>
-
-# 查看全域路徑
-opencode debug paths
-
-# 查看可用技能
-opencode debug skill
+opencode --version
+opencode run --help
+opencode models nvidia --refresh
+opencode models nvidia --verbose
+npm view opencode-ai version
 ```
 
-## Session 管理（多階段 pipeline）
-
-```bash
-# 延續上次 session
-opencode run -c "繼續上次任務"
-
-# 延續指定 session
-opencode run -s <sessionID> "追加指令"
-
-# 匯出 session
-opencode export <sessionID>
-
-# 匯入 session
-opencode import <file>
-```
+若指定模型或 `max` variant 已消失，應明確回報失敗並要求選擇新的模型／供應商，不可靜默改派其他模型。

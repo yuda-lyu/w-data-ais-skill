@@ -1,219 +1,88 @@
-# Claude Code CLI 旗標完整參考
+# Claude Code CLI 派工參考
 
-來源：`claude --help`（**v2.1.224 實測確認，2026-08-07**＝npm 最新）＋ 官方 model-config 文件
+以下內容於 2026-08-23 透過這些來源驗證：
 
-> 2.1.224 複查：`--model`（`fable`/`opus`/`sonnet` 別名、`claude-fable-5` 完整名）與
-> `--effort`（`low`/`medium`/`high`/`xhigh`/`max`）**皆與 2.1.214 相同，無變動**。
+- `@anthropic-ai/claude-code`／`claude` 2.1.240
+- 本機 `claude --help`
+- [Claude Code 官方 CLI 參考](https://code.claude.com/docs/en/cli-usage)
+- [Claude Code 官方模型設定指南](https://code.claude.com/docs/en/model-config)
 
-## 基本語法
+若公開文件尚未納入新發布的模型別名，以已安裝 CLI 的實際 help 為執行期依據。
 
+## 非互動語法
+
+```text
+claude -p [options]
 ```
-claude [options] [prompt]
-claude -p "task prompt"   ← 非互動模式（headless）
+
+`dispatchClaude()` 會建立此命令，並透過 stdin 傳入提示詞。直接從 shell 使用時，也可以把提示詞作為位置參數。
+
+## 必要模型與推理強度
+
+```text
+--model claude-fable-5 --effort max
 ```
 
-Claude CLI 不使用子命令進入 headless 模式，而是透過 `-p` / `--print` 旗標。
+Claude Code 2.1.240 的 help 已明確支援 `fable` 別名與完整名稱 `claude-fable-5`。`--effort` 可選值如下：
 
-## 非互動模式核心旗標
+| 等級 | 說明 |
+|---|---|
+| `low` | 最低延遲與推理消耗 |
+| `medium` | 適合一般輕量工作 |
+| `high` | 深度推理 |
+| `xhigh` | 延伸推理 |
+| `max` | 最大推理深度；僅作用於目前工作階段 |
 
-| 選項 | 縮寫 | 說明 |
-|------|------|------|
-| `--print` | `-p` | **非互動模式**，輸出回應後退出（多 agent 使用此旗標） |
-| `--dangerously-skip-permissions` | — | 跳過所有權限確認，全自動執行 |
-| `--allow-dangerously-skip-permissions` | — | 啟用跳過權限的選項（搭配 `--permission-mode` 使用） |
-| `--allowedTools` | `--allowed-tools` | 預先核准特定工具，不彈出確認（例：`"Bash,Read,Edit"`） |
-| `--disallowedTools` | `--disallowed-tools` | 封鎖特定工具（例：`"Bash(rm *)"` 禁止刪除） |
-| `--tools` | — | 限制可用工具集（`"default"` 全部、`""` 禁用全部） |
+本技能的必要預設值是 `max`。也可以設定 `CLAUDE_CODE_EFFORT_LEVEL=max`，但逐次明確傳入旗標更容易稽核。持久化的 `effortLevel` 設定不接受 `max`。
 
-## 模型與效能
+## 派工相關旗標
 
-| 選項 | 縮寫 | 說明 |
-|------|------|------|
-| `--model` | — | 指定模型：別名（`fable`/`best`/`opus`/`sonnet`/`haiku`）或完整 ID（`claude-fable-5`） |
-| `--effort` | — | 自適應推理深度：`low`、`medium`、`high`、`xhigh`、`max`（見下方說明） |
-| `--fallback-model` | — | 主模型過載時的備援模型（僅 `-p` 模式） |
+| 旗標 | 用途 |
+|---|---|
+| `-p`、`--print` | 非互動執行，完成後離開 |
+| `--model <model>` | 選擇模型別名或完整名稱 |
+| `--effort <level>` | 設定本次工作階段的推理強度 |
+| `--dangerously-skip-permissions` | 略過權限檢查；只可用於強化隔離環境 |
+| `--allowedTools <tools...>` | 預先核准有限的工具集合 |
+| `--disallowedTools <tools...>` | 禁止指定工具 |
+| `--tools <tools...>` | 選擇要暴露的內建工具集合 |
+| `--permission-mode <mode>` | `acceptEdits`、`auto`、`bypassPermissions`、`manual`、`dontAsk` 或 `plan` |
+| `--output-format <format>` | print 模式可用 `text`、`json`、`stream-json` |
+| `--input-format <format>` | print 模式可用 `text` 或 `stream-json` |
+| `--json-schema <schema>` | 驗證最終結構化回應 |
+| `--fallback-model <models>` | 主模型不可用時依序嘗試備援模型 |
+| `--max-budget-usd <amount>` | 達到 API 預算後停止 |
+| `--no-session-persistence` | 不保存列印模式的工作階段 |
+| `--add-dir <dirs...>` | 增加允許存取的工作目錄 |
+| `--mcp-config <configs...>` | 載入 MCP 設定 |
+| `--append-system-prompt <text>` | 在預設系統提示詞後追加內容 |
+| `--system-prompt <text>` | 取代預設系統提示詞 |
+| `--bare` | 最小化啟動模式；實際略過項目以目前版本 help 為準 |
 
-### 可用模型
+不要沿用舊版技能文件中已移除或未記載的旗標。不確定時，先用 `claude --help` 確認，再放入 `extraArgs`。
 
-| 模型 ID | 別名 | 說明 |
-|---------|------|------|
-| `claude-fable-5` | `fable` | **最強模型**（Mythos 級，Claude 5 家族，位階高於 Opus；需 CLI v2.1.170+）；任何帳號都不是原廠預設，須顯式指定；Anthropic API 上原生 1M context；cyber/bio 域觸發安全分類器時自動 fallback 至 Opus 4.8 |
-| — | `best` | 組織有 Fable 5 存取權→解析為 Fable 5，否則→最新 Opus |
-| `claude-opus-4-8` | `opus` | 旗艦 Opus（CLI v2.1.154 起 `opus` 別名指向此） |
-| `claude-opus-4-7` / `claude-opus-4-6` | — | 前代 Opus |
-| `claude-sonnet-5` | `sonnet` | Sonnet 5（`sonnet` 別名現指向此），API 上原生 1M context |
-| `claude-haiku-4-5` | `haiku` | 最快速、最低成本 |
-| `opusplan` | — | 混合：plan 階段用 Opus，執行階段用 Sonnet |
-| `opus[1m]` / `sonnet[1m]` / `claude-fable-5[1m]` | — | `[1m]` 後綴＝1M token context 變體，通用於別名與完整模型名 |
+## 輸出組合
 
-> 環境變數：`ANTHROPIC_MODEL=<id-or-alias>` 全域指定；`ANTHROPIC_DEFAULT_FABLE_MODEL` / `ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL` / `ANTHROPIC_DEFAULT_HAIKU_MODEL` 固定各家族別名指向的版本。
+```javascript
+// 單一 JSON 文件
+extraArgs: ['--effort', 'max', '--output-format', 'json']
 
-### `--effort` 推理深度說明
+// JSONL 事件流
+extraArgs: [
+    '--effort', 'max',
+    '--output-format', 'stream-json',
+    '--verbose',
+]
+```
 
-| 等級 | 說明 | 適用場景 |
-|------|------|----------|
-| `low` | 最低推理，快速便宜 | 簡單查詢、格式轉換 |
-| `medium` | 中等推理 | 日常編碼任務 |
-| `high` | 較深推理（**Fable 5 / Opus 4.8 原廠預設**） | 除錯、架構分析 |
-| `xhigh` | **延伸推理（v2.1.111+；Fable 5 / Opus 4.7 / 4.8 支援，Opus 4.7 原廠預設）** | 長時程 agentic、大型編碼任務 |
-| `max` | **絕對最深推理，無 token 花費限制；Fable 5 / Opus 4.6 / 4.7 / 4.8 支援** | 高階推理、複雜除錯、安全審計、前沿問題 |
-| `ultracode` | v2.1.203+ 合法值；非模型 effort 等級——以 `xhigh` 啟動並讓 Claude 自動編排 dynamic workflows | 需要自動 workflow 編排的互動/IDE 場景；headless 建議改在 prompt 顯式要求 Workflow |
+只有單一文件的 `json` 格式可搭配 `validate: 'json'`。使用 `stream-json` 時，須逐行解析 stdout。
 
-> **注意**：`max` 不會跨 session 保留，每次呼叫需明確傳入；settings 檔 `effortLevel` 不接受 `max` / `ultracode`。
-> 也可透過環境變數 `CLAUDE_CODE_EFFORT_LEVEL=max` 設定（優先級最高）。
-> 在 prompt 中加入 `ultrathink` 關鍵字＝要求該回合多想的 in-context 指示，不改變送 API 的 effort 等級。
-> 傳入模型不支援的等級會退到該模型支援的最高等級（例：Opus 4.6 收到 `xhigh` 以 `high` 執行）。
-
-## 輸出控制
-
-| 選項 | 說明 |
-|------|------|
-| `--output-format text` | 純文字輸出（預設） |
-| `--output-format json` | 結構化 JSON，含 `result`、`session_id` 等 metadata |
-| `--output-format stream-json` | 即時串流 JSONL 事件流 |
-| `--json-schema '{...}'` | 強制回應符合 JSON Schema（需搭配 `--output-format json`） |
-| `--verbose` | 顯示完整逐回合輸出 |
-| `--include-partial-messages` | 含部分串流事件（需搭配 `stream-json`） |
-
-### JSON 輸出解析
+## 版本與模型檢查
 
 ```bash
-# 取得回應內容
-claude -p --output-format json "查詢" | jq -r '.result'
-
-# 取得 session ID（用於後續 resume）
-claude -p --output-format json "查詢" | jq -r '.session_id'
-
-# 結構化輸出
-claude -p --output-format json \
-  --json-schema '{"type":"object","properties":{"items":{"type":"array"}},"required":["items"]}' \
-  "列出所有函式" | jq '.structured_output'
+claude --version
+claude --help
+npm view @anthropic-ai/claude-code version
 ```
 
-## 系統提示
-
-| 選項 | 說明 |
-|------|------|
-| `--system-prompt "..."` | 完全替換預設系統提示 |
-| `--system-prompt-file <path>` | 從檔案載入替換系統提示 |
-| `--append-system-prompt "..."` | 追加到預設系統提示 |
-| `--append-system-prompt-file <path>` | 從檔案載入追加系統提示 |
-
-## Session 管理
-
-| 選項 | 縮寫 | 說明 |
-|------|------|------|
-| `--continue` | `-c` | 延續最近一次對話 |
-| `--resume <id>` | `-r` | 以 session ID 或名稱延續 |
-| `--session-id <uuid>` | — | 指定特定 UUID 作為 session ID |
-| `--name` | `-n` | 為 session 命名（可用名稱 resume） |
-| `--fork-session` | — | resume 時建立新 session（不覆蓋原始） |
-| `--no-session-persistence` | — | 不儲存 session（僅 `-p` 模式） |
-
-### Session 使用範例
-
-```bash
-# 命名 session
-claude -p -n "security-audit" --dangerously-skip-permissions "開始安全審計"
-
-# 以名稱延續
-claude -p --resume security-audit --dangerously-skip-permissions "繼續審計"
-
-# 以 JSON 取得 session ID 後延續
-sid=$(claude -p --output-format json "第一階段" | jq -r '.session_id')
-claude -p --resume "$sid" "第二階段"
-
-# 一次性任務（不儲存）
-claude -p --no-session-persistence "一次性查詢"
-```
-
-## 控制與限制
-
-| 選項 | 說明 |
-|------|------|
-| `--max-budget-usd <n>` | 最大花費上限（美元），超過自動停止 |
-| `--max-turns <n>` | 限制 agentic 回合數上限（`-p` 模式） |
-| `--permission-mode <mode>` | 權限模式：`default`、`plan`、`auto`、`bypassPermissions`、`dontAsk`（`--enable-auto-mode` 已於 v2.1.111 移除，請改用 `--permission-mode auto`） |
-
-## 上下文與環境
-
-| 選項 | 說明 |
-|------|------|
-| `--add-dir <path>` | 允許存取額外目錄（可多次指定） |
-| `--bare` | 精簡模式：跳過 hooks/skills/plugins/MCP/auto-memory/CLAUDE.md（v2.1.81+） |
-| `--exclude-dynamic-system-prompt-sections` | 將動態系統提示段落移至首個 user message，提升跨用戶 prompt cache 命中率（v2.1.98+） |
-| `--mcp-config <path>` | 載入 MCP 伺服器設定（JSON 檔案或字串） |
-| `--strict-mcp-config` | 僅使用 `--mcp-config` 指定的 MCP，忽略其他 |
-| `--plugin-dir <path>` | 載入指定目錄的 plugins |
-| `--settings <file-or-json>` | 載入額外設定檔 |
-| `--disable-slash-commands` | 禁用所有 skills |
-
-## 輸入處理
-
-| 選項 | 說明 |
-|------|------|
-| `--input-format text` | 純文字輸入（預設） |
-| `--input-format stream-json` | 即時串流 JSON 輸入 |
-
-### Pipe 輸入
-
-```bash
-# 管道輸入檔案內容
-cat logs.txt | claude -p "分析並找出錯誤"
-
-# 管道 git diff
-gh pr diff 123 | claude -p "審查安全問題"
-```
-
-## Agent 功能
-
-| 選項 | 說明 |
-|------|------|
-| `--agent <name>` | 使用指定 agent |
-| `--agents <json>` | 動態定義 agent（JSON 格式） |
-
-```bash
-# 使用自訂 agent
-claude -p --agent my-reviewer "審查程式碼"
-
-# 動態定義 agent
-claude -p --agents '{"reviewer":{"description":"程式碼審查","prompt":"你是程式碼審查專家"}}' \
-  --agent reviewer "審查 src/"
-```
-
-## 其他選項
-
-| 選項 | 說明 |
-|------|------|
-| `--environment <environment_id>` | 於指定的 self-hosted environment 建立 cloud session（2.1.22x 實測存在；派工至本機子進程時不需要） |
-| `--debug [filter]` | 除錯模式，可選分類過濾（例：`"api,hooks"`） |
-| `--debug-file <path>` | 將除錯日誌寫入檔案 |
-| `--chrome` | 啟用 Chrome 瀏覽器整合 |
-| `--worktree [name]` | 在 git worktree 中執行（隔離環境） |
-| `--ide` | 自動連接 IDE |
-| `--betas <headers>` | 傳入 beta headers（API key 使用者） |
-
-## 子命令
-
-| 子命令 | 說明 |
-|--------|------|
-| `claude auth` | 管理認證 |
-| `claude setup-token` | 設定 long-lived token |
-| `claude mcp` | 管理 MCP 伺服器 |
-| `claude agents` | 列出已設定的 agents |
-| `claude doctor` | 檢查健康狀態 |
-| `claude update` | 檢查並安裝更新 |
-| `claude install [target]` | 安裝指定版本 |
-| `claude plugin` | 管理 plugins |
-
-## 與其他 CLI 工具的關鍵差異
-
-| 特性 | Codex | Gemini | OpenCode | Claude CLI |
-|------|-------|--------|----------|------------|
-| Headless 入口 | `codex exec` | `-p` 旗標 | `run` 子命令 | **`-p` 旗標** |
-| 全自動核准 | `--sandbox workspace-write`（`--full-auto` 已棄用） | `--approval-mode=yolo` | `--agent build` | **`--dangerously-skip-permissions`** |
-| 細粒度工具控制 | ❌ | ❌ | ❌ | **✅ `--allowedTools` / `--disallowedTools`** |
-| 預算限制 | ❌ | ❌ | ❌ | **✅ `--max-budget-usd`** |
-| 結構化輸出 | `--output-schema` | ❌ | ❌ | **✅ `--json-schema`** |
-| 精簡模式 | ❌ | ❌ | ❌ | **✅ `--bare`** |
-| 備援模型 | ❌ | ❌ | ❌ | **✅ `--fallback-model`** |
+若目前版本仍拒絕 `claude-fable-5`，可能是帳號沒有存取權。除非使用者已明確接受備援模型，否則應回報錯誤，不可靜默替換模型。

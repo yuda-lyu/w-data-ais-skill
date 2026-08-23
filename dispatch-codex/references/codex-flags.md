@@ -1,159 +1,107 @@
-# Codex CLI 旗標完整參考
+# Codex CLI 派工參考
 
-來源（官方文件）：
-- https://developers.openai.com/codex/config-advanced
-- https://developers.openai.com/codex/noninteractive
-- https://developers.openai.com/codex/config-reference
+以下內容於 2026-08-23 透過這些來源驗證：
 
-來源（本機 `codex exec --help` 與 `~/.codex/models_cache.json` 實測 v0.147.0，2026-08-07）：
-- 旗標：本機 `codex exec --help`
-- 型錄：本機 `~/.codex/models_cache.json`（CLI 執行期實際生效者，非 GitHub bundled JSON）
-- enum 定義：`codex-rs/protocol/src/openai_models.rs`
+- `@openai/codex`／`codex-cli` 0.149.0
+- 本機 `codex exec --help` 與 `codex debug models`
+- [Codex 官方開發者命令參考](https://learn.chatgpt.com/docs/developer-commands?surface=cli)
+- [Codex 官方設定參考](https://learn.chatgpt.com/docs/config-file/config-reference)
+- [GPT-5.6 Sol 官方模型頁面](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
 
-> 本機與 npm 最新皆為 **0.147.0**（2026-08-07 查核）。
+## 非互動語法
 
-## codex exec 子命令
-
-`codex exec` 是專為非互動/自動化設計的入口點，與直接執行 `codex` 不同。
-
-```
-codex exec [OPTIONS] "task prompt"
+```text
+codex exec [OPTIONS] [PROMPT]
 ```
 
-### 主要選項
+省略 `PROMPT` 或傳入 `-` 時，Codex 會從 stdin 讀取提示詞。`dispatchCodex()` 會省略位置提示詞並提供 stdin。
 
-| 選項 | 說明 |
-|------|------|
-| `-m, --model <MODEL>` | 指定模型（例：`gpt-5.6-sol`。本 skill 預設使用 `gpt-5.6-sol`） |
-| `-s, --sandbox <MODE>` | 沙箱模式：`read-only` / `workspace-write` / `danger-full-access`；**headless 自動寫檔用 `--sandbox workspace-write`（取代已棄用之 `--full-auto`）** |
-| `--full-auto` | **已棄用（v0.144.x）**：原始碼標為 hidden「Legacy compatibility trap」，執行印警告 `--full-auto is deprecated; use --sandbox workspace-write instead`；勿再使用 |
-| `--dangerously-bypass-approvals-and-sandbox` | 跳過所有核准且停用沙箱（危險；`--yolo` 別名已不在 v0.144.x help 列出） |
-| `--dangerously-bypass-hook-trust` | 免 hook 信任確認直接執行 hooks（危險，僅限已自行審核 hook 來源的自動化） |
-| `--strict-config` | config.toml 含本版不認得的欄位時直接報錯 |
-| `--skip-git-repo-check` | 跳過 git repo 信任目錄檢查 |
-| `--json` | 以 JSONL 格式輸出事件流，適合 script 解析（舊名 `--experimental-json` 仍為別名） |
-| `--ephemeral` | 不儲存 session 到磁碟，適合暫時性任務 |
-| `--ignore-user-config` | 不載入 `$CODEX_HOME/config.toml`（認證仍會讀取） |
-| `--ignore-rules` | 跳過 user/project 的 execpolicy 規則 |
-| `--enable <FEATURE>` / `--disable <FEATURE>` | v0.124.0+：啟/停特定功能（可重複），等同 `-c features.<name>=true/false` |
-| `-o, --output-last-message <FILE>` | 將最終訊息寫入檔案 |
-| `--output-schema <FILE>` | 強制最終回應符合 JSON Schema |
-| `-C, --cd <DIR>` | 指定工作目錄 |
-| `--add-dir <DIR>` | 額外可寫入目錄（可重複） |
-| `-i, --image <FILE>` | 附加圖片（可重複或逗號分隔） |
-| `-p, --profile <NAME>` | 載入 `~/.codex/config.toml` 中的 profile |
-| `-c, --config <key=value>` | 覆蓋任意設定（可重複；RHS 以 TOML 解析，失敗退為字串） |
-| `--oss` / `--local-provider <lmstudio\|ollama>` | 使用本地模型 |
-| `--color <always\|never\|auto>` | 顏色輸出控制 |
+## 必要模型與推理強度
 
-### --config 旗標（點記法覆蓋設定）
-
-```bash
-# 啟用網路存取（允許 npm install 等）
---config sandbox_workspace_write.network_access=true
-
-# 指定模型（本 skill 預設使用最新旗艦 gpt-5.6-sol）
---config model='"gpt-5.6-sol"'
-
-# 推理等級（預設使用最深 max；ultra 為 Sol 專屬 max+自動子代理模式）
---config model_reasoning_effort='"max"'
-
-# 推理摘要輸出格式
---config model_reasoning_summary='"concise"'
-
-# 回應詳細程度
---config model_verbosity='"medium"'
-
-# 值以 TOML 格式解析；包含空格時需加引號
+```text
+-m gpt-5.6-sol --config model_reasoning_effort="max"
 ```
 
-### 推理相關設定
+官方模型頁面列出 GPT-5.6 Sol 支援 `none`、`low`、`medium`、`high`、`xhigh`、`max`。Codex 0.149.0 的執行期型錄列出這些派工相關等級：
 
-| 設定 | 可選值 | 說明 |
-|------|--------|------|
-| `model_reasoning_effort` | `none` / `minimal` / `low` / `medium` / `high` / `xhigh` / `max` / `ultra`（另接受自訂字串） | 推理深度：`max` 為最深單任務推理（gpt-5.6 全系支援）；`ultra` 為 Sol 專屬「max 推理＋自動子代理派工」執行模式（部分入口需於 app 設定啟用）。enum 出處 `openai_models.rs` @ rust-v0.144.3 |
-| `plan_mode_reasoning_effort` | 同上 | Plan mode 預設推理深度 |
-| `model_reasoning_summary` | `auto` / `concise` / `detailed` / `none` | 推理摘要輸出格式 |
-| `model_verbosity` | `low` / `medium` / `high` | 回應長度控制 |
+| 推理強度 | 執行期說明 |
+|---|---|
+| `low` | 較快、較少推理；也是 Sol 的 CLI 預設值 |
+| `medium` | 平衡速度與推理深度 |
+| `high` | 適合複雜問題的較深推理 |
+| `xhigh` | 額外高強度推理 |
+| `max` | 最大推理深度；本技能預設值 |
+| `ultra` | 最大推理加上自動任務委派 |
 
-### --profile 命名設定檔（v0.144.x 為 v2 檔案制）
+「最深思考」應使用 `max`。只有在明確需要巢狀自動委派時才使用 `ultra`。
 
-```bash
-# 使用命名設定檔（疊加 $CODEX_HOME/<name>.config.toml 於基礎設定之上）
-codex exec --profile deep "你的任務描述"
+部分設定參考頁面的表格可能落後於 GPT-5.6 即時型錄，仍只列到 `xhigh`；GPT-5.6 官方模型頁面與目前 Codex 執行期型錄都已確認支援 `max`。
+
+## `codex exec` 旗標
+
+| 旗標 | 用途 |
+|---|---|
+| `-m`、`--model <model>` | 覆寫設定中的模型 |
+| `-s`、`--sandbox <mode>` | `read-only`、`workspace-write` 或 `danger-full-access` |
+| `-C`、`--cd <dir>` | 設定工作區根目錄 |
+| `--add-dir <dir>` | 增加可寫入目錄 |
+| `--skip-git-repo-check` | 允許在 Git 儲存庫之外執行 |
+| `-c`、`--config <key=value>` | 可重複使用的 TOML 設定覆寫 |
+| `--json` | 輸出 JSONL 事件 |
+| `-o`、`--output-last-message <file>` | 儲存最終助理訊息 |
+| `--output-schema <file>` | 以 JSON Schema 檔案驗證最終輸出 |
+| `--ephemeral` | 不保存工作階段檔案 |
+| `--ignore-user-config` | 忽略 `$CODEX_HOME/config.toml`；仍會載入認證 |
+| `--ignore-rules` | 忽略使用者／專案 execpolicy 規則 |
+| `--strict-config` | 遇到未知設定欄位時直接失敗 |
+| `--dangerously-bypass-approvals-and-sandbox` | 停用核准與沙箱；只可用於隔離執行器 |
+
+`--full-auto` 在 0.149.0 是已棄用的相容旗標，應改用 `--sandbox workspace-write`。目前官方參考也支援 `--yolo` 作為危險略過旗標的別名，但若確實需要使用，應採完整名稱以清楚表達意圖。
+
+## 常用設定覆寫
+
+設定值會以 TOML 解析。透過 `w-dispatch-ai` 時，每個 `key=value` 都是命令列參數陣列中的獨立元素，因此不需要 shell 專屬跳脫。
+
+```javascript
+extraArgs: [
+    '--config', 'model_reasoning_effort="max"',
+    '--config', 'model_reasoning_summary="concise"',
+    '--config', 'model_verbosity="medium"',
+    '--config', 'sandbox_workspace_write.network_access=true',
+]
 ```
 
-對應獨立檔案 `~/.codex/deep.config.toml`（**v2 profile 為一名一檔，非舊版 config.toml 內 `[profiles.x]` 段落**）：
+只有任務確實需要網路時才可開啟網路權限。
+
+等效的持久化設定如下：
 
 ```toml
 model = "gpt-5.6-sol"
 model_reasoning_effort = "max"
-```
-
-## 對應的 config.toml 設定
-
-`~/.codex/config.toml` 中的等效設定：
-
-```toml
-model = "gpt-5.6-sol"
 sandbox_mode = "workspace-write"
-model_reasoning_effort = "max"
-model_reasoning_summary = "concise"
-model_verbosity = "medium"
 
 [sandbox_workspace_write]
-network_access = true
+network_access = false
 ```
 
-## 多 agent 情境中的 Resume / Review 功能
+## 輸出與延續工作階段
+
+```text
+codex exec --json -
+codex exec --output-last-message ./result.txt -
+codex exec resume --last "繼續任務"
+codex exec resume <SESSION_ID> "後續指令"
+```
+
+`--json` 會輸出 JSONL，須逐行解析。只需要最終自然語言結果時，`--output-last-message` 是最簡單的介面。
+
+## 執行期驗證
 
 ```bash
-# 繼續上次 session
-codex exec resume --last "繼續之前的任務"
-
-# 以 session ID 繼續
-codex exec resume <SESSION_ID> "追加指令"
-
-# 程式碼審查子命令
-codex exec review --base main "審查相對 main 的變更"
-codex exec review --commit <SHA>
-codex exec review --uncommitted
+codex --version
+codex exec --help
+codex debug models
+npm view @openai/codex version
 ```
 
-## 可用模型
-
-| 模型 ID | priority | visibility | 原廠預設推理 | 支援推理檔 |
-|---------|---|---|---|---|
-| `gpt-5.6-sol` | 1 | list | **`low`** | low / medium / high / xhigh / max / **ultra** |
-| `gpt-5.6-sol-wm` | 1 | hide | `low` | low / medium / high / xhigh / max / ultra |
-| `gpt-5.6-terra` | 2 | list | medium | low / medium / high / xhigh / max / **ultra** |
-| `gpt-5.6-luna` | 3 | list | medium | low / medium / high / xhigh / max |
-| `gpt-5.5` | 7 | list | medium | low / medium / high / xhigh |
-| `gpt-5.4` | 16 | list | medium | low / medium / high / xhigh |
-| `gpt-5.4-mini` | 23 | list | medium | low / medium / high / xhigh |
-| `codex-auto-review` | 43 | hide | medium | low / medium / high / xhigh / max |
-
-> 型錄來源：**本機 `~/.codex/models_cache.json`（2026-08-07 實讀，CLI v0.147.0 執行期實際生效的型錄）**。
-> 此表取代先前依 GitHub bundled JSON 摘要所寫的內容——該摘要有兩處失真，已於此更正：
-> - ❌「`ultra` 為 Sol 專屬」→ ✅ **Sol 與 Terra 皆支援 `ultra`**，僅 Luna 不支援。
-> - ❌「舊型號已全數自型錄移除」→ ✅ `gpt-5.5` / `gpt-5.4` 系列仍在型錄；真正消失的是 `gpt-5.3-codex` / `gpt-5.2`。
->
-> **0.147.0 相對 0.144.6 之型錄變動**：
-> - 新增 `gpt-5.6-sol-wm`（`visibility: hide`，與 Sol 同 priority 1；用途未見官方說明，**勿在派工中指定**）
-> - `gpt-5.4` / `gpt-5.4-mini` 由 `hide` 改為 **`list`**（重新列入選單）
-> - `codex-auto-review` 支援檔位新增 `max`
->
-> 另注意 **Sol 的原廠預設推理檔是 `low`**（非 medium），不顯式傳 `--config model_reasoning_effort='"max"'` 就不會是最深推理。
->
-> ⚠ **型錄列出 ≠ 帳號可用**：`visibility` / `supported_in_api` 描述模型本身，實際可用性由伺服器依帳號方案與訂閱狀態裁決。查帳號側：`~/.codex/auth.json` 的 `auth_mode`，以及 `tokens.id_token` payload 內的 `chatgpt_plan_type` / `chatgpt_subscription_active_until`。
-
-## 已棄用／更名
-
-| 舊名 | 現況 | 建議 |
-|------|------|------|
-| `--full-auto` | **v0.144.x 已棄用**：hidden「Legacy compatibility trap」，執行印棄用警告 | 改用 `--sandbox workspace-write` |
-| `--yolo` | 已不在 v0.144.x help 列出 | 如確需 bypass 用全名 `--dangerously-bypass-approvals-and-sandbox`（危險） |
-| `--experimental-json` | 仍為別名 | 改用 `--json` |
-| `experimental_instructions_file`（config） | 已棄用，被忽略 | 改用 `model_instructions_file` |
-| `--enable-auto-mode`（舊 Codex）／ 硬編碼 model presets | 已從原始碼移除 | 使用型錄檔 `models.json` 與 `--profile` |
-| `[profiles.x]` 段落制 profile | v0.144.x 改為 v2 檔案制 | 一名一檔 `$CODEX_HOME/<name>.config.toml` |
+若 `gpt-5.6-sol` 或 `max` 失敗，應檢查 CLI 版本、認證、帳號可用性與即時型錄。不可在使用者明確指定模型時靜默退回其他模型。
