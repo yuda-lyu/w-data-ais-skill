@@ -56,6 +56,8 @@ codex exec [OPTIONS] [PROMPT]
 | `--strict-config` | 遇到未知設定欄位時直接失敗 |
 | `--dangerously-bypass-approvals-and-sandbox` | 停用核准與沙箱；只可用於隔離執行器 |
 
+**Windows 沙箱設定鍵**：`-c 'windows.sandbox="unelevated"'` 可改用不需管理員設定的 unelevated 沙箱（隔離較弱）。預設 elevated 沙箱需先互動跑一次 `codex` 完成一次性 UAC 設定（判別：`~/.codex/.sandbox/setup_marker.json` 是否存在），否則所有命令 `blocked by policy`；詳見 SKILL.md「Windows 前置」。
+
 `--full-auto` 在 0.149.0 是已棄用的相容旗標，應改用 `--sandbox workspace-write`。目前官方參考也支援 `--yolo` 作為危險略過旗標的別名，但若確實需要使用，應採完整名稱以清楚表達意圖。
 
 ## 常用設定覆寫
