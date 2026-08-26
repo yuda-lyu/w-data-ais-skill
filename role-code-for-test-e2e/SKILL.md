@@ -1,7 +1,7 @@
 ---
 name: role-code-for-test-e2e
 description: |
-  E2E 測試規範技能：完整度 rubric（Case 對齊/Act 真實/Assert 完整/多語覆蓋/Cleanup）、標準圖（pixel baseline）管理與重產政策、captureStable 截圖穩定性、timing flake 處置、偵測 driven 步驟、act/assert 須走 user-facing 路徑（L1-L6 操作層級表、Pattern A/B/C/D 文字輸入）、mocha --reporter/--grep 陷阱、127.0.0.1 端點、高頻 API + X-Forwarded-For、w-screenctl 探索、lifecycle 對稱性（spawn server ↔ cleanup）。
+  E2E 測試規範技能：完整度 rubric（Case 對齊/Act 真實/Assert 完整/多語覆蓋/Cleanup）、標準圖（pixel baseline）管理與重產政策、captureStable 截圖穩定性、timing flake 處置、偵測 driven 步驟、act/assert 須走 user-facing 路徑（L1-L6 操作層級表、Pattern A/B/C/D 文字輸入）、mocha --reporter/--grep 陷阱、127.0.0.1 端點、高頻 API + X-Forwarded-For、w-screenctl 探索、lifecycle 對稱性（spawn server ↔ cleanup）、確定性渲染 launch 旗標組（單一 wrapper）、紅框後合成、遮罩三型、baseline 產製/測試同管線 + 重產後認證掃描 + 診斷閘門紀律、pixel mismatch 診斷流程（bbox/剛性平移/位移量=懸出量/launch 級判定/baseline 毒化/LCD 一致性）、調研紀律（姊妹專案先看/追組件到底/negative results/外部 AI 複審讀檔權限）、業主裁示原則、反模式清單。
   觸發條件：凡接觸 e2e 測試檔（檔名含 `e2e-`）的任務——寫/改/審/拆/移除/重構/完整度盤查——必先調用本技能，整篇入 context 逐項比對；不限於描述含「e2e」字眼的任務，看到 e2e 工件即觸發。亦適用：Playwright 測試、mocha e2e、pixel baseline/標準圖產製或重產、e2e flake 排查、e2e audit。
 ---
 
@@ -276,3 +276,125 @@ done
 ```
 
 **規則須 artifact-anchored（本技能自身設計原則，必留）**：同款 hang 曾一個 session 內累犯 3 次，根因是規則標題寫「框架跑完不退」→ 直跑模式時觸發詞沒命中。修法：規則錨定 artifact（「接觸 spawned server 的 script」）、明列兩條觸發來源、Audit 強制掃全部同類檔。行為層教訓：發現 recurring bug，第一動作是 grep 全 repo 找同 pattern 所有檔一起修，不是只修當下檔。
+
+## 確定性渲染：launch 旗標組由單一 wrapper 供給，禁止裸 launch
+
+headless Chromium 預設 GPU 光柵化 + subpixel 字形 AA，在像素比對下**非決定性**：同一版面（DOM 幾何逐輪相同）拉丁字偶發數十像素散落差異（CJK 灰階 AA 較穩，故常只有 eng 中招）。姊妹專案實測「確定性渲染組」把截圖 self-consistency 從 2/4 提升到 5/5；三個同族專案中唯一裸 launch 者，正是唯一持續有位移 flake 者。
+
+```js
+const chromiumLaunchArgs = [
+    '--disable-gpu',                        //改走 CPU Skia（機器本已軟體渲染時為 no-op，仍保留防環境變動）
+    '--force-color-profile=srgb',           //固定色彩管理，消跨機色彩差
+    '--disable-lcd-text',                   //關 LCD 次像素文字 AA → 灰階 AA（跨 session 穩定）
+    '--disable-font-subpixel-positioning',  //關字形次像素定位
+    '--disable-skia-runtime-opts',          //關 Skia runtime 最佳化分支（CPU 特性偵測造成不決定性）
+    '--disable-partial-raster',             //關部分光柵化 → 消 tile 重用造成的殘影/位移
+]
+export async function launchBrowser() { return await chromium.launch({ headless: true, args: chromiumLaunchArgs }) }
+```
+
+- **全專案只能有一處 `chromium.launch`**（wrapper 本體）；測試端、`--baseline` 產製端、探查腳本全部走 wrapper。Audit：`grep -rn "chromium.launch" test/ | grep -v launchBrowser` 應只剩 wrapper。殷鑑：補 wrapper 時發現測試檔內還有 3 處裸 launch，全改完才算覆蓋。
+- **旗標不等價，不可想當然合併**：`--font-render-hinting=none` ≠ `--disable-font-subpixel-positioning`；各專案旗標組可不同（有的四條有的六條），採哪組要有「本專案症狀與哪個先例同族」的依據，不要自創。
+- **不要假設旗標有效，量 GPU 指紋**：CDP `SystemInfo.getInfo` 印 `featureStatus`。曾見 `--disable-gpu` 在該機為 no-op（本已 `gpu_compositing=disabled_software`），位移是**軟體合成器內部**現象，跟 GPU 開關無關；沒量就會誤以為加旗標即解決。
+- **代價**：加/改旗標會改變所有 AA 與顏色像素 → **必須全量重產 baseline**，動手前告知並取得授權。
+- 旗標組與 per-case fresh browser 綁定使用：前者鎖渲染路徑，後者消 glyph atlas / raster cache 跨 case 累積的 cold/warm 差異，兩者缺一都會留 flake。
+
+## 紅框標注：截圖後合成，量測工具不得改動被測頁
+
+- 重點區域紅框（#f26、5px、圓角 4）一律**先截圖、再以影像庫（sharp）把 SVG `<rect>` 合成到 buffer**；不在頁面 `createElement` 再移除。幾何與 DOM 版一致（多目標取聯集 rect ± 邊距、四邊夾在視窗內、補 scrollX/scrollY）。
+- why：「插入後又移除的暫時 DOM」在新版 Chromium 會偶發整頁偏 1px（姊妹專案 toast 殷鑑：因此把成功訊息從 toast 改成停留 modal）；實測同頁同態連拍，注入紅框與不注入兩組**各自穩定但 hash 不同**＝注入改變了該子樹的光柵化。**量測工具本身不該改動被測頁的 DOM/layer tree。**
+- 改合成後先跑一張煙霧截圖**目視確認**（顏色/線寬/圓角/位置/與遮罩疊放順序）再進數十分鐘的全量重產。
+
+## 遮罩三型與 settle 訊號（依誤差種類選機制，不可一律填黑）
+
+| 情境 | 機制 | why |
+|---|---|---|
+| `<img src="data:image/svg+xml...<animate>">` 這類走 image pipeline 的 SMIL 動畫（spinner）| 偵測 bbox → 截圖後 buffer 填黑（`maskRegions`）| `animations:'disabled'` 只凍 CSS；inline `<svg>` 可 `pauseAnimations()+setCurrentTime(0)`，但 `<img>` 內 SVG 不暴露 DOM，只能遮 |
+| canvas 圖表 / 隨日期漂移之統計區 | **貼圖覆蓋**：以預存真實截圖片段（首次自舉存 ref）貼回動態區 | 保留真實視覺、非突兀黑塊；語系文字區仍 live 比對 |
+| 右對齊且寬度隨位數浮動的值（耗時 ms、計數）| **錨右緣 + 固定寬度往左延伸**的遮罩 `{ sel, fixedWidth }` | 依元素自身尺寸遮，邊界會隨位數浮動 → 遮罩邊緣本身 flake |
+| 遮罩範圍 | 不依「圖表/表格」種類分別遮，整個動態 block 一起遮 | 殷鑑：只遮圖表漏了同 block 內 IP 表一列 → diff 307px |
+
+遮罩**唯一合法用途**是 DOM 層凍不到的動態內容；絕不遮 nav/grid 等該被 e2e 偵測的靜態 UI。
+
+**settle 訊號取「元件狀態機」不取「幾何輪詢」**：抽屜類組件讀根節點 `[state]` 屬性（由 `transitionend` 決定性標記 `hidden/opening/opened/hiding`），全部落在穩定態才放行。輪詢 x 座標在高負載尾段會被「減速尾段／階段間 hold」騙到連續兩次相同卻未到終點 → 截到 mid-slide（獨立跑負載低恰好矇對，全套尾段才暴露）。**mutation 後（存檔→store 同步→重建樹）用「內容簽章＋版面幾何」連續 N 筆（~2s）相同才算 settle**：純文字簽章抓不到 1px 次像素位移，且同步瞬間可能有「短暫空白」的 transient 穩定態，任一 stable state 都接受會凍進錯態。
+
+## baseline 產製端與測試端同管線；重產後認證；診斷閘門紀律
+
+- **同管線**：`generateBaseline()` 與 mocha `it()` 的 browser 取得（wrapper）、per-case fresh browser、DB 重置、語系設定、settle、紅框、遮罩逐項對稱。任一分叉都製造「永遠對不起來」的 baseline。殷鑑：探查腳本簡化掉 `setLang` 與 per-case fresh 步驟 → 重現不出 flake、繞兩輪；復刻不全就別下「已重現/未重現」結論，直接 `mocha --grep` 跑真 case 更可靠。
+- **REGEN 會覆寫該輪跑到的所有 baseline（含未變更者）**：重產前確認影響範圍，重產後 `git diff --stat` 檢視變更是否僅限預期。
+- **重產後認證掃描（certify），產完不能當數**：①**渲染設定一致性**——全庫 baseline 不得有 LCD 次像素彩邊（證明與測試端 `--disable-lcd-text` 一致；偵測條件 `|R-B|>60 && |G-(R+B)/2|<40 && !(R>240&&G<80)`，窗口避開彩色 logo 與實色標題列，否則偽陽性）；②**異態凍結掃描**——同 flow 內共通區域（側欄/頁首）固定窗口逐位元 hash 分群，分群須少且**兩語系分群結構對稱**（差異只能來自 modal 遮罩/選單 active 等 UI 態），孤立群或不對稱 → 用 shift 分類器確認；③**交叉驗證**——拿一張帶旗標的實測 capture 與新 baseline 比應 **0 差異**，同時驗證 baseline 與偵測器。殷鑑：5 次重產有 2 次把異態凍進 baseline；LCD 不一致造成整輪 9 個 flow 全紅並差點誤指上游套件回歸。
+- **診斷閘門（env 開關的臨時分支）**：每處標 `//【暫時診斷 XXX，根因鑑別完成後移除】`；收斂後全部移除（含為診斷加的 import 與 hooks）；**regen 路徑絕不可在診斷 env 生效時執行**——診斷對照圖寫 `./tmp/` 或獨立目錄，或 regen 入口硬 guard `if (process.env.E2E_BARE || process.env.E2E_DIAG) throw`。殷鑑：`E2E_BARE=1 --baseline` 覆寫 46 張正式 baseline（無旗標版），上游修好後全套 20/20 全掛，花一輪才查清失敗在自己的 baseline。
+- **不憑記憶斷言 baseline 產製條件**：「這批圖用什麼旗標產的」一律 mtime 分群 + LCD 掃描 + 帶旗標 capture 逐位元比，三者交叉。殷鑑：記憶是「已全量重產」，實際上重產曾被中止只完成 1/9，另一批又被診斷腳本覆寫。
+- **fail-dump 是歷史證據**：三聯組（capture/baseline/diff）+ ms 時間戳 + 永不覆蓋。最關鍵的像素分析（bbox、零失配驗證）常在失敗隔天才做，活體早沒了，全靠 dump；重產前確認被毒化的 baseline 證據已在 dump 內不會滅失。
+- **上游套件改版後跑測失敗，第一件事是確認 baseline 產製條件與測試端一致**，而不是懷疑上游。
+
+## pixel mismatch 診斷流程（超容差真差異，依序提問，不可跳號）
+
+鐵則：**先量後猜**，讀碼推測不得先於量測公布。殷鑑：讀到 `barSize/2` 就公布「奇數 px 造成半像素」，量 6 輪 DOM 全整數，推測作廢。
+
+1. **diff 幾何特徵**：pngjs 逐像素比 RGB（不只看 pixelmatch 總數），輸出 `差異數 / inclusive bbox / maxΔ / avgΔ / 色差分布`。同簽名（同 px 數同 bbox）跨 case 跨日出現＝同一根因，省下多次獨立調查；色差分布集中 01-08＝AA 雜訊（曾把 22px 單 icon 雜訊當線索追兩輪），大量 >100＝真差異。逐欄/逐列直方圖可看出「五個垂直段恰對應五個選單項」＝整個子樹在動。
+2. **是否剛性平移（shift 假說驗證器）**：掃 `d(dx,0)`，dx∈[-2,2]；對最佳 dx 做 `capture(x,y)==baseline(x+dx,y)` **零失配驗證**（連 AA 色階逐位元同）。驟降＋零失配＝**同一份已光柵化 bitmap 被合成到偏移位置**（raster/compositing 層）；位移後仍大量不符＝重新光柵化（字形/hinting/色彩），機制不同。此一實驗單獨排除「字形 subpixel」假說（重畫必有不同 AA 邊緣；SVG icon 一起平移更非字形問題），是效力最強的單一實驗，第一天就該做。
+3. **位移量對應哪個幾何量（位移量＝懸出量方程式）**：確認剛性平移後立刻量「該層與裁切容器的寬度差」——`page.evaluate` 取 `scrollWidth/clientWidth/offsetWidth/getBoundingClientRect().width` 與裁切祖先的寬與 `overflowX`，`overhang = shell.w - wrap.w`，**非零懸出都是嫌疑**。機制：比裁切框寬 N px 的合成層有兩個合法對齊解（左緣貼齊＝正常態；右緣貼齊＝整層左移 N px），軟體合成器於 launch 初始化做一次二選一後鎖死。殷鑑兩例：捲軸面板組件為藏原生捲軸把捲動殼做寬 `calc(100% + (nativeBarWidth+1)px)`，headless 下 overlay 捲軸 `nativeBarWidth=0`，懸出恰 1 = 位移 1；姊妹專案樹狀組件「內容剛好 6px 溢出虛擬渲染邊界 → 偶發整棵樹 ~6px 位移」，6=6。**推廣**：「加寬藏捲軸」「負 margin 藏邊界」「+1px fudge 蓋計算誤差」在 headless（bar 寬 0）下都退化成純懸出；原始碼註解自陳「因瀏覽器計算誤差需 +1px」是最強嫌疑訊號。**bbox 邊界會精確對應某一層的邊界**：容器邊線/收合鈕/頁首零差異、只有捲動內容層在動 → 病灶在那層，用 bbox 反推層級比讀碼快。
+4. **骰子擲在什麼粒度**：「同 launch 連拍 N 張 hash」×「N 次 fresh launch 各拍 1 張」對照。同 launch 全同、跨 launch 分歧＝**launch 級**（行程啟動瞬間決定，launch 內不可變）→ 所有 launch 內治癒（抽屜開合 150 次、動畫中強制重繪、語系重繪、scrollTop 微擾、`transform:none`）注定無效，不可當「機制排除」；同 launch 就分歧＝每拍級 → 往 settle/時序修。**統計單位**：launch 級現象一個 launch = 一個樣本，連拍 10 張只算 n=1（曾以此錯誤「反駁」正確假說，被外部複審指出）。
+5. **baseline 是否已被污染（雙向）**：capture 與 baseline 都可能是壞的一方。產圖時 launch 中獎 → 異態凍進 baseline → 該 case 每輪必敗，「再重產一次」是重擲骰子不收斂。判法：備份 baseline → 同一支產圖程式再跑一次 → 同一張翻面（差數千 px）另一張 0px ＝ 產圖本身在擲硬幣；交叉驗證失敗現場的 capture 全是正常態 → 毒在 baseline 側。用「異態凍結掃描」（上節）全庫抓。
+6. **渲染設定一致性**：取樣像素——baseline 帶彩邊 `[255,186,207]` vs capture 灰階 → baseline 產於無 `--disable-lcd-text` 之時，任何含文字截圖必敗（見上節 LCD 偵測）。
+7. **渲染環境指紋**：CDP GPU featureStatus；A/B 態指紋完全一致本身就是「決定點不在 GPU feature 層」的排除證據。
+
+**實作級陷阱（會讓實驗靜默給錯答案）**：①不可用 inline style 字串找元素——瀏覽器把 `overflow-x:hidden;overflow-y:scroll` 序列化成 `overflow: hidden scroll`，正則永遠落空 → 回傳空陣列看似「假說被否證」；用 `getComputedStyle(e).overflowY`。同族：inline `margin-left:10px` 渲染後變 `margin-left: 10px`，屬性選擇器不命中 → 用 `getByText`。②組件庫按鈕常是 `div` 非 `<button>`，`button:has(svg path[d=...])` 永遠 timeout → 點 SVG 讓事件冒泡；SVG path 一律 `import { mdiXxx } from '@mdi/js'`，手抄＝腦補永不命中。③比對窗口要避開紅框殘影（窗口 `x<198` 撞到紅框左邊框 195..199 → 分類器全程回 `other` 而不報錯），邊界留餘裕並驗證。④選擇器命中數先斷言（`if (n !== 期望) throw`），偵測器上線前先跑一組已知答案樣本，命中時印實際 RGB 判偽陽性。
+
+**根因交付門檻**：能指出**哪個組件、哪一行、什麼幾何條件**觸發；「合成層位移」「渲染問題」是現象定位不是機制，答不到＝還沒查完。**介入性證明優先於一致性證據**：所有間接證據吻合仍只是高信心假說，要有「改了 → 幾何歸零 → 現象消失」對照（暫改 node_modules 驗證可以，但**不是修法**，自有套件走 upstream 統一改版，並附「症狀/已驗證事實（每條標證據等級）/根因/主修法/過渡方案/影響面/驗證清單」建議文件）。觸發外因陣發性、當下召喚不出時，誠實標注「量測證實異常幾何已移除；機制論述屬高信心假說」，比硬拗「已證明」有價值。**遇到無法按需重現的偶發 flake，與其追觸發條件，不如消滅使觸發成為可能的幾何前提**——根因層修法優先於測試層守門；守門（重產側 launch 級異態分類器→作廢重來；測試側 openApp 後偵測→重啟 browser 重試 N 次→仍異態以明確錯誤失敗）是根因無法修時的退路，且是機制對應的確定性檢查，與被禁止的統計重跑本質不同。
+
+## 調研紀律（動手前，不是卡住才做）
+
+- **姊妹專案是第一手證據**：同組織共用同套 UI 組件庫與 e2e 方法論的專案，其 `test/` 註解是已付學費的實驗紀錄。遇截圖不穩第一步 `git grep -n "1px|位移|shift|光柵|raster|subpixel|次像素|flake" -- test`（Grep 工具或 `git grep`，不用 `grep -r`），三專案一起掃。殷鑑：業主質問「其他專案不都有借鏡之處嗎？」——實際上同族方程式（6px=6px）、toast 1px 偏移、六旗標與實測數據、「本專案是唯一裸 launch」的橫向比對全在那裡。
+- **追組件到底**：從外層往內追每層 template style，直到找到帶 `overflow/transform/transition/計算寬度` 的那層；外層零命中就停＝錯誤結論「組件沒問題」（真病灶在往下兩層的捲動核心）。
+- **negative results 明文記錄並帶進下一輪 prompt**：每個被否證假說記「假說＋實驗＋樣本數＋結果」；派工/接手時列「已推翻清單」，否證項與確立項分兩張表各附證據欄。殷鑑：一案否證 7 個觸發假說（滑入擲骰 0/150、滑入中重繪 0/8、雙載入 0/39、完整配方復刻 0/39、CPU 滿載 0/10…），外部複審確實沒重走。
+- **孤立復刻獵捕異態前，先問「已知可靠重現器是什麼」**：整檔 mocha 馬拉松穩定 ~10% 中獎，孤立復刻 207+ 發零命中——永遠差「馬拉松的系統狀態」這一項；有可靠重現器就別自建復刻器。
+- **被禁止的方法**：①統計重跑（多跑 N 輪 0 翻面算過）不得作為 e2e 驗證手段，包裝成「N 次 launch 等同統計門檻」也一樣；②放寬容差 / ±1px 位移回退當 pass 條件——吞掉真實 1px 版面回歸；作為 fail-dump 診斷輸出可以（標「疑似 ±1px 剛性位移」），作為放行條件不行。
+- **派外部 AI 複審：讀檔權限就是可信度**。外部複審者不能自己讀檔＝替你的版本背書，花錢買回音。派工前必讀該派工技能的 flags 參考文件，不憑預設猜；先確認套件安裝位置（可能在 skills 目錄，不要因專案內找不到就 `npm i`）；Windows 下某些沙箱模式會把 shell 一律拒絕，只能靠內建檔案介面讀圖，grep/node 做不了 → 用最寬必要沙箱 + `--add-dir` 掛姊妹專案，唯讀約束改由 prompt 自律 + 事後 `git status` 稽核；掛 Monitor 盯事件流（路徑多一個空格整條失效，掛完要驗）；跑完 `grep -c '"command_execution"'` 看它到底執行了幾條（0 條直接暴露沙箱問題）；prompt 開放式「前輪觀測只是起點，請自行驗證或推翻」，要求每條標「已驗證（file:line）/假說（需實測）」，明令禁止捏造 flag 名與 file:line；外部設計的實驗規模要對照本地架構（共用單 DB + 單後端跑不動平行 worker）。殷鑑：三輪失敗（45 分 timeout + 兩輪沙箱拒絕）約 100 分鐘，派工前讀 3 分鐘文件即可全免。
+- **長批次一律 `run_in_background` + Monitor 逐檔訊號**（filter 涵蓋失敗字樣），等待期立刻做不衝突的事（讀組件原始碼、寫下一階段認證腳本、盤姊妹專案）——最關鍵的線索常在等待空檔找到。
+
+## 業主裁示過的原則（跨專案適用）
+
+1. **驗證門檻必須確定性**：「不能用統計的方法當 e2e 測試」。改用機制對應的確定性檢查——幾何量測（懸出=0）、逐位元交叉驗證（新 baseline vs 帶旗標 capture 差 0）、全庫認證掃描，一次給答案。
+2. **禁止某手段 ≠ 放棄該問題，裁示範圍不外推**：把「不做逐旗標消融」擅自寫成 ADR「已知不修」被明確糾正；Decision 逐字對應業主原話。
+3. **根因要到組件/行/幾何條件，不推給「渲染問題」**：「那你統統不要查都直接說是渲染問題不就好了」——停在現象就不會發現位移量＝懸出量方程式。
+4. **模糊比對須先鑑別誤差種類才能開**：容差對應的是已鑑別的「字形/SVG 邊緣次像素 raster 不決定性」；剛性位移是另一種類，必須繼續 fail。
+5. **介入性證明**：「先去改 +0 證明就是這 1px，要不然只是亂猜」。
+6. **外部複審要能獨立讀檔**。
+7. **等待空檔要利用**：「趁空檔去閱讀組件程式碼查嫌疑」。
+
+## 反模式清單（每條都付過代價）
+
+| 反模式 | 代價 | 避免 |
+|---|---|---|
+| 先讀碼推測後量測 | 一輪 + 誤導方向 | 量測先於任何推測公布 |
+| 探查腳本簡化掉真實 case 步驟 | 兩輪重現不出 | 逐步復刻或直接 `mocha --grep` 跑真 case |
+| 同 launch 連拍當 n=N | 錯誤反駁正確假說 | launch 級：一 launch 一樣本 |
+| 重產當解法 | 一輪 + 錯誤建議 | 先證產圖本身是否確定性 |
+| 派外部 AI 沒讀 flags 文件 | ~100 分鐘 + 三次 token | 先驗它能否執行 shell |
+| 孤立復刻獵捕異態 | 207+ 發零命中 ~90 分鐘 | 用已知可靠重現器 |
+| 診斷 env 下寫正式 baseline | 整輪全套全紅 + 誤判方向 | 診斷 regen 寫獨立目錄 / env guard |
+| 憑記憶斷言 baseline 產製條件 | 差點誤指上游回歸 | mtime + LCD 掃描 + 逐位元比 |
+| 偵測器未自驗就信輸出 | 兩輪調窗口 | 已知答案樣本先跑；命中印 RGB |
+| 選擇器靜默失效 | 四次假「無差異/timeout」 | computed style、真 import path、命中數斷言、窗口留餘裕 |
+| 「禁止某手段」外推成「已知不修」 | 業主震怒 + 修 ADR | 裁示不外推 |
+| 長批次無進度回報 | 業主質問 | 背景跑 + Monitor |
+| 發布流程順序錯（e2e 把語系注入 entry HTML 後才產模板）| 重跑 build | build → 產模板 → 打包一氣呵成，驗佔位符數量 |
+| 懷疑上游前沒先排除自身污染 | 一輪全套 | 先驗 baseline 與測試端一致 |
+
+## 其他跨專案通用機制（三專案共同沉澱）
+
+- **逐檔隔離 runner**：多 e2e 檔塞單一 mocha 進程會共用被前面測試改過狀態的後端（如 RPC 正規化過欄位序）→ grid 列序與 solo 產的 baseline 不符整批 mismatch。解法：每檔獨立 mocha 進程 + 全新後端（純種子），無狀態且啟動慢的前端 dev server 保持暖機共用；檔案清單 `readdirSync` 動態白名單列舉，不寫死。
+- **`startServersOnce` 的 once 旗標依服務分拆**：合併跑批時 api 檔先以 backendOnly 呼叫，單一 `started` 旗標會讓前端永遠沒被 spawn → `chrome-error://` 連環失敗。
+- **restartBackend 殺乾淨**：自身 proc 為 null 但 port 被佔（reuse 場景）時走 OS 層 `netstat`/`taskkill`（posix `lsof`/`kill`），等 port 真釋放再 spawn，否則新實例撞 port 靜默失敗、舊實例續服務舊狀態。
+- **DB 還原走 throwaway page**：在獨立新開 page 上做 store diff 還原、等筆數符合後關 context，不在 case page 上 reset——後端 late 廣播會在 act 之後才到、把已新增列洗掉。setup 層 L4-L6 合法，但 page 生命週期要與 act 切開。
+- **hermetic seed 需刪整個 DB 目錄再重建**（初始化腳本常是 upsert 不清表），偵測子進程完成訊號才視為 ready。
+- **成功訊息用停留 modal 不用自動消失 toast**：toast 無法 pixel baseline 且 insert/remove 會偏頁；多一次點擊換截圖穩定。
+- **server 注入語系之初始畫面測試**三陷阱：打後端 serve 的 build 非 dev server；保留不可變模板或每次冪等還原佔位符；URL 不帶 `?lang=`。連線中畫面用 `page.route` **攔截但不回應**（不 abort，abort 變斷線錯誤畫面）使畫面懸置；難自然觸發的連線狀態以前端狀態 API 強制切換（明文授權的 setup 手法）。
+- **X-Forwarded-For 只對本機 URL 注入**：`newContext({extraHTTPHeaders})` 會套到 CDN 請求（字型 CDN 收到虛擬 IP 回錯 → icon 缺圖 → baseline 缺）；改 `ctx.route('**/*')` 僅 URL 含 `127.0.0.1|localhost` 時加 header。
+- **in-memory 計數（rate limit）之測試側清除通道**：e2e 與 server 為獨立進程，提供僅本機 + token 放行的清除 API。
+- **email round-trip journey**：真打信箱 API 輪詢 `afterTime` 後 subject 含關鍵字之信、正則抓驗證連結；憑證未設 fail-fast 明確拋錯而非默默 401。
+- **需特殊 settings 的 case 以 `try/finally` 包 `restartBackend`**，`finally` 還原預設後端；環境變數覆寫（如 SMTP port=1 製造 ECONNREFUSED）收斂在單一 helper 供 mocha 與 `--baseline` 共用。
+- **UI 元件契約影響截圖**：按鈕視覺鎖（promiseUnlock 類）的 resolve 若 gate 在 await 結果/modal 關閉，e2e 永遠截到 loading 態 button drift；resolve 放 handler 第一行。
+- **spec flow 反面清單**：spec 內不寫 helper 名 / Playwright API / 固定 wait 數字 / selector 字面，spec 與實作解耦。
