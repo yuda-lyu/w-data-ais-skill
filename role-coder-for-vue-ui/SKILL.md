@@ -1,5 +1,5 @@
 ---
-name: role-code-for-vue-ui
+name: role-coder-for-vue-ui
 description: |
   Vue UI 程式規範技能（w-component-vue / Vue 2 系）：非同步提交統一寫法（core() 五段結構、loading 用 finally 統一關、可預期錯誤走 inline 紅字）、Vue 2 template `@event` handler 禁用 async 開頭 inline arrow（compiler 靜默編錯陷阱）、`promiseUnlock` button handler 之 pm.resolve() 第一行 + fire-and-forget 模式。
   觸發條件：凡撰寫或修改 Vue UI 之非同步提交流程（UI 函式呼叫 async 後端函式、loading/錯誤處理）、template `@event` handler、或 `promiseUnlock` 按鈕的任務——寫/改/審/重構——必先調用本技能，整篇入 context 逐項比對後才動工。

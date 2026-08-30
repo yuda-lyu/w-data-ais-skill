@@ -3,12 +3,12 @@
 可重複使用的 AI Agent 技能模組庫，支援多 agent 共用同一技能庫。
 每個技能包含 `SKILL.md` 說明文件與可選的 `scripts/` 腳本或 `references/` 參考資料。
 
-## 技能總覽（46 個）
+## 技能總覽（48 個）
 
 | 分類 | 技能數 |
 |------|:------:|
 | [開發工作流](#開發工作流類) | 3 |
-| [角色定位](#角色定位類) | 4 |
+| [角色定位](#角色定位類) | 6 |
 | [綜合分析](#綜合分析類) | 2 |
 | [Multi-Agent 協作](#multi-agent-協作類) | 5 |
 | [網頁與媒體抓取](#網頁與媒體抓取類) | 5 |
@@ -57,12 +57,15 @@
 | `role-design-web-for-spec` | 在 `role-design-web-for-prototype` 的基礎上加法擴充四項硬性要求：研究前置（Persona / Journey）、WCAG AA 無障礙合規、量化驗收指標、亮／暗／跟隨系統三段式主題標配 | 無（純角色／規範技能，CDN 載入各框架） |
 | `role-design-web-for-magazine` | 將 Agent 定位為設計工程師，以「雜誌風格」（編輯感、紙面墨色、強字級節奏、真實圖片、細緻網格）製作高品質靜態 Web 視覺產物，採 L1（角色）→ L2（主設計）→ L3（主題色）→ L4（骨架）→ L5（必要）五層 references 設計 | 無（純角色／規範技能，CDN 載入各框架） |
 | `role-writer-report` | 將 Agent 定位為受委任之資深技術顧問兼主筆工程師，以繁體中文工程白皮書／標案書面語撰寫服務建議書、服務實施計劃書、期中／期末報告等大型委辦案技術文件，採 L1（角色）→ L2（原則）→ L3（細則）三層 references 設計 | 無（純角色／規範技能） |
+| `role-writer-validate` | 報告／文章撰寫之自檢：基於 Microsoft「Only believe what you can validate」框架，把「報告是否符合需求」「內容是否真的基於程式碼／實測」轉成有產物的檢查——三種失敗模式（漏列／捏造／誤解）、六問定義檢查、報告驗證分層表 L0a 實體存在 → L5 持續一致、實體帳冊／需求對齊矩陣／主張帳冊／覆蓋聲明範本、完整範例；以 Opus 5 為撰寫基準（逐步、附指令、範本與勾選清單） | 無（純自檢規範技能） |
+| `role-coder-for-validate` | 程式開發之自檢：同一框架之程式碼生成階梯改寫為 Node/ESM/Vue 環境——L0a 可編譯 → L0b Lint → L0c 安全依賴 → L0d 實體存在 → L1 單元 → L2 整合 → L3 代表性資料 → L4 效能 → L5 E2E 與使用者視角驗收 → L6 影子運行，需求可追溯矩陣／檢查紀錄／根因紀錄／覆蓋聲明範本，「綠燈≠正確」、失敗修根因並重跑下層、完整範例；以 Opus 5 為撰寫基準（逐步、附指令、範本與勾選清單） | 無（純自檢規範技能） |
 
 - 預設 React 18 + Babel inline JSX，亦支援 Vue 3 Composition API 與 Vue 2 Options API，各框架硬規則與樣板分列於 `references/`
 - 涵蓋裝置外框、Tweaks 面板、`useTime` 動畫引擎、簡報引擎、ECharts/Chart.js、oklch 配色系統等進階模式
 - `role-design-web-for-spec` 相對於 `role-design-web-for-prototype` 的差異：新增 Step 0 研究前置、WCAG AA 硬性合規檢查、量化驗收指標（Lighthouse A11y / 對比值 / 響應式 / 鍵盤全路徑）、主題系統標配
 - `role-design-web-for-magazine` 為獨立的雜誌風格設計分支：強調編輯感版面、強字級節奏、紙面墨色與真實圖片，採 L1–L5 五層 references（角色 / 主設計 / 主題色 / 骨架 / 必要）
 - `role-writer-report` 採三層分檔設計（共用 L1，依報告類型切換 L2/L3），目前已收錄「服務建議書」之 L2/L3，其他類型可在共用 L1 之上新增對應檔組
+- `role-writer-validate` 與 `role-coder-for-validate` 為一組「只相信能驗證的」自檢技能：前者驗報告（文件不能被執行 → 每句主張溯源到 `file:line`／實跑／spec，可執行者真的執行），後者驗程式（編譯過測試綠 ≠ 正確 → 需求先述語化、由低往高跑分層階梯、每層留產物）；兩者皆要求回報附覆蓋聲明，未做的層必須明寫；以 Opus 5 為撰寫基準（步驟明確、每步有產物檔、附完整範例與完成前勾選清單）。原文框架摘要在各自 `references/驗證框架摘要.md`
 
 ---
 
@@ -457,6 +460,18 @@ node share-file/scripts/share_file.mjs <file> [--max-downloads <N>] [--expiratio
 │       ├── L1角色設定.md
 │       ├── L2報告設定-服務建議書.md
 │       └── L3撰寫設定-服務建議書.md
+├── role-writer-validate/
+│   ├── SKILL.md
+│   └── references/
+│       ├── 完整範例.md
+│       ├── 產物範本.md
+│       └── 驗證框架摘要.md
+├── role-coder-for-validate/
+│   ├── SKILL.md
+│   └── references/
+│       ├── 完整範例.md
+│       ├── 產物範本.md
+│       └── 驗證框架摘要.md
 ├── save-news-to-sheet/
 │   ├── SKILL.md
 │   └── scripts/

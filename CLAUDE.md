@@ -181,7 +181,7 @@ production code 一律改用專案既有 DOM 模態元件(grep `WAlert` / `Check
 
 ### 10.4 Vue UI 程式規範(async 提交 / `@event` handler / `promiseUnlock`)
 
-**凡撰寫或修改 Vue UI 之非同步提交流程(loading/錯誤處理),template `@event` handler,或 `promiseUnlock` 按鈕的任務,必先調用 skill[role-code-for-vue-ui],整篇入 context 逐項比對後才動工.**
+**凡撰寫或修改 Vue UI 之非同步提交流程(loading/錯誤處理),template `@event` handler,或 `promiseUnlock` 按鈕的任務,必先調用 skill[role-coder-for-vue-ui],整篇入 context 逐項比對後才動工.**
 
 ### 10.5 展示形式須匹配欄位型別/語義,交付前逐欄自掃,不等使用者抓
 
@@ -473,7 +473,7 @@ assertion 必須是 spec 的可執行翻譯,不是[跟上次跑出來一樣]的�
 
 ### 15.4 E2E 測試
 
-**凡接觸 e2e 測試檔(檔名含 `e2e-`)的任務——寫/改/審/拆/移除/重構/盤查——必先調用 skill[role-code-for-test-e2e],整篇入 context 逐項比對後才動工.**
+**凡接觸 e2e 測試檔(檔名含 `e2e-`)的任務——寫/改/審/拆/移除/重構/盤查——必先調用 skill[role-coder-for-test-e2e],整篇入 context 逐項比對後才動工.**
 
 ### 15.5 測試/樣本數據之連結,引用,外部參考必須真實可驗證,不可捏造
 

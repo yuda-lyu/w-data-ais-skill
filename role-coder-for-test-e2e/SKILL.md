@@ -1,5 +1,5 @@
 ---
-name: role-code-for-test-e2e
+name: role-coder-for-test-e2e
 description: |
   E2E 測試規範技能：完整度 rubric（Case 對齊/Act 真實/Assert 完整/多語覆蓋/Cleanup）、標準圖（pixel baseline）管理與重產政策、captureStable 截圖穩定性、timing flake 處置、偵測 driven 步驟、act/assert 須走 user-facing 路徑（L1-L6 操作層級表、Pattern A/B/C/D 文字輸入）、mocha --reporter/--grep 陷阱、127.0.0.1 端點、高頻 API + X-Forwarded-For、w-screenctl 探索、lifecycle 對稱性（spawn server ↔ cleanup）、確定性渲染 launch 旗標組（單一 wrapper）、紅框後合成、遮罩三型、baseline 產製/測試同管線 + 重產後認證掃描 + 診斷閘門紀律、pixel mismatch 診斷流程（bbox/剛性平移/位移量=懸出量/launch 級判定/baseline 毒化/LCD 一致性）、調研紀律（姊妹專案先看/追組件到底/negative results/外部 AI 複審讀檔權限）、業主裁示原則、反模式清單。
   觸發條件：凡接觸 e2e 測試檔（檔名含 `e2e-`）的任務——寫/改/審/拆/移除/重構/完整度盤查——必先調用本技能，整篇入 context 逐項比對；不限於描述含「e2e」字眼的任務，看到 e2e 工件即觸發。亦適用：Playwright 測試、mocha e2e、pixel baseline/標準圖產製或重產、e2e flake 排查、e2e audit。
