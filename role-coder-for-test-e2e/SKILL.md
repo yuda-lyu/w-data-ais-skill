@@ -229,6 +229,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 - `restartBackend`：先殺自己 spawn 的；port 仍被佔（reuse / 手動啟動之**同專案**後端）走 OS 層 `netstat` / `taskkill`（posix `lsof` / `kill`），等 port 真釋放再 spawn——這是「只重啟自己 PID」規則的明文例外，前提是該 port 專屬本專案（映射表載明）。需特殊 settings 的 case 以 `try/finally` 還原預設；環境變數覆寫收斂在 `envOverride`。
 - 逐檔隔離 runner：多 e2e 檔塞單一 mocha 進程會共用被前面測試改過狀態的後端（RPC 正規化過欄位序 → 列序與 solo 產的 baseline 不符）。每檔獨立 mocha 進程 + 全新後端；無狀態且啟動慢的前端暖機共用；`readdirSync` 動態白名單。無 runner 的專案 e2e 一律單檔跑，`npm test` 不得含 e2e。
 - cwd：以專案根為 cwd 執行，setup 內相對路徑以 `projRoot` 解析；cwd 錯會整檔「標準圖不存在」假紅。
+- **測試中介資料一律落 `test/_tmp/`（gitignore），測完即刪**：臨時 settings、fixture 副本、合成 log 目錄等放 `test/_tmp/<用途>/`，由該測試檔 `after` 或 setup `cleanup()` 刪除（追蹤本進程建立的檔案逐一 `rm`，目錄空了再 `rmdir`）。**絕不可放專案 `./tmp/`**——那是 AI 代理的暫存區，隨時會被整個清除，測試執行途中被刪即假失敗（殷鑑：三專案 `genTempSettings` 原寫 `./tmp/`；golden 產生器留在 `./tmp/` 隨清除佚失）。fixture 資產（golden logs、expected、`_staref`）不是中介資料，放 `test/<fixture>/` 入版控。
 
 ### 9.3 端點一律 `127.0.0.1`
 

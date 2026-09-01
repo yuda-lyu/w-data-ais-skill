@@ -21,7 +21,7 @@
 |---|---|---|
 | C1 launch wrapper | `launchBrowser()`；旗標組：六旗標 / 四旗標（列出） | 例：四旗標含 `--font-render-hinting=none`，依據＝本專案 2026-xx 字形重畫症狀；尚未升級六旗標因需全量重產 |
 | C2 server lifecycle | `startServersOnce({ backendOnly })` / `cleanup()`；root `after` + 直跑顯式 cleanup | |
-| C3 換設定重啟 | `restartBackend(path, envOverride)` / `genTempSettings(overrides)` → `./tmp/settings-e2e-*.json` | |
+| C3 換設定重啟 | `restartBackend(path, envOverride)` / `genTempSettings(overrides)` → `test/_tmp/settings-e2e-*.json`（cleanup 刪除；絕不放 `./tmp/`） | |
 | C4 DB 重置 | `resetToBaseSeed()`（直接 DB）/ `resetDb(browser, seed)`（throwaway page） | |
 | C5 進站與語系 | `openApp(browser)`（`?token=sys`）/ `setLang(page, lang)` | |
 | C6 截圖 | `captureStable(page, { initialWaitMs: 1500 })` | |

@@ -27,7 +27,7 @@
 1. **diff 幾何特徵**：pngjs 逐像素比 RGB，輸出 `差異數 / inclusive bbox / maxΔ / avgΔ / 色差分布`。同簽名跨 case 跨日出現＝同一根因。逐欄 / 逐列直方圖可看出「五個垂直段恰對應五個選單項」＝整個子樹在動。
 2. **是否剛性平移（shift 驗證器）**：掃 `d(dx,0)`，dx∈[-2,2]；對最佳 dx 做 `capture(x,y)==baseline(x+dx,y)` **零失配驗證**。驟降＋零失配＝同一份已光柵化 bitmap 被合成到偏移位置；位移後仍大量不符＝重新光柵化，機制不同。效力最強的單一實驗，第一天就做。
 3. **位移量對應哪個幾何量（位移量＝懸出量方程式）**：量該層與裁切容器的寬度差（`scrollWidth / clientWidth / offsetWidth / getBoundingClientRect().width`、裁切祖先的 `overflowX`），`overhang = shell.w - wrap.w`，非零懸出都是嫌疑。機制：比裁切框寬 N px 的合成層有兩個合法對齊解（左緣貼齊＝正常；右緣貼齊＝整層左移 N px），軟體合成器於 launch 初始化二選一後鎖死。殷鑑：捲軸面板為藏原生捲軸把捲動殼做寬 `calc(100% + (nativeBarWidth+1)px)`，headless 下 overlay 捲軸 `nativeBarWidth=0`，懸出恰 1 = 位移 1（上游 2.5.4 起移除 `+1`，逐版 tarball 比對確認）；樹狀組件 6px 溢出 → ~6px 位移。推廣：「加寬藏捲軸 / 負 margin 藏邊界 / +1px fudge」在 headless 都退化成純懸出；原始碼註解自陳「因瀏覽器計算誤差需 +1px」是最強嫌疑訊號。bbox 邊界精確對應某一層的邊界，用 bbox 反推層級比讀碼快。
-4. **骰子擲在什麼粒度**：「同 launch 連拍 N 張 hash」×「N 次 fresh launch 各拍 1 張」。同 launch 全同、跨 launch 分歧＝launch 級 → 所有 launch 內治癒（開合、重繪、語系重繪、scrollTop 微擾、`transform:none`）注定無效；同 launch 就分歧＝每拍級 → 往 settle / 時序修。統計單位：launch 級一 launch = 一樣本，連拍 10 張只算 n=1。
+4. **骰子擲在什麼粒度**：「同 launch 連拍 N 張 hash」×「N 次 fresh launch 各拍 1 張」。同 launch 全同、跨 launch 分歧＝launch 級 → 所有 launch 內治癒（開合、重繪、語系重繪、scrollTop 微擾）注定無效；同 launch 就分歧＝每拍級 → 往 settle / 時序修。統計單位：launch 級一 launch = 一樣本，連拍 10 張只算 n=1。
 5. **baseline 是否已被污染（雙向）**：產圖時 launch 中獎 → 異態凍進 baseline → 每輪必敗，「再重產一次」是重擲骰子。判法：備份 baseline → 同一支產圖程式再跑一次 → 同一張翻面另一張 0px ＝ 產圖本身在擲硬幣；失敗現場 capture 全是正常態 → 毒在 baseline 側。用 §5 異態凍結掃描全庫抓。
 6. **渲染設定一致性**：baseline 帶彩邊（如 `[255,186,207]`）vs capture 灰階 → baseline 產於無 `--disable-lcd-text` 之時，含文字截圖必敗。
 7. **渲染環境指紋**：CDP `SystemInfo.getInfo` 之 `featureStatus`；A/B 態指紋一致＝決定點不在 GPU feature 層。`--disable-gpu` 在本已 `gpu_compositing=disabled_software` 之機器為 no-op。

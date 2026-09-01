@@ -65,10 +65,16 @@ process.on('exit', cleanup); process.on('SIGINT', () => { cleanup(); process.exi
 ## C3 restartBackend + genTempSettings（條件式）
 
 ```js
+let tmpSettingsFiles = []                                  //本進程建立者, cleanup() 逐一刪除（測完即刪）
 export function genTempSettings(overrides = {}) {
     const base = JSON5.parse(fs.readFileSync(join(projRoot, 'settings.json'), 'utf8'))   //原檔含註解/單引號
-    const p = join(projRoot, 'tmp', `settings-e2e-${process.pid}-${seq++}.json`)
-    fs.mkdirSync(dirname(p), { recursive: true }); fs.writeFileSync(p, JSON.stringify({ ...base, ...overrides }, null, 2)); return p
+    const p = join(__dir, '_tmp', `settings-e2e-${process.pid}-${seq++}.json`)          //test/_tmp/（gitignore）, 絕不放專案 ./tmp/（AI 暫存區隨時清）
+    fs.mkdirSync(dirname(p), { recursive: true }); fs.writeFileSync(p, JSON.stringify({ ...base, ...overrides }, null, 2)); tmpSettingsFiles.push(p); return p
+}
+function cleanupTempSettings() {                            //由 cleanup() 呼叫
+    for (const p of tmpSettingsFiles) { try { fs.rmSync(p, { force: true }) } catch (e) {} }
+    tmpSettingsFiles = []
+    try { const d = join(__dir, '_tmp'); if (fs.existsSync(d) && fs.readdirSync(d).length === 0) fs.rmdirSync(d) } catch (e) {}
 }
 export async function restartBackend(pathSettings = './settings.json', envOverride = null) {
     //1. 殺自己 spawn 的 backend  2. port 仍被佔（reuse 或手動啟動之同專案後端）→ OS 層 netstat/taskkill（posix lsof/kill）——明文例外，前提：該 port 專屬本專案
