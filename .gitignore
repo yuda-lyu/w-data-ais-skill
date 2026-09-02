@@ -2,11 +2,11 @@ node_modules
 .env
 .opencode
 .claude
-package-lock.json
-script.txt
-zAI.md
 
-_temp
+script.txt
+g_mem*.md
+zAI*.md
+
 tmp
 
 role-writer-report/res

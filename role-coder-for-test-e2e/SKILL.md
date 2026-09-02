@@ -1,8 +1,8 @@
 ---
 name: role-coder-for-test-e2e
 description: |
-  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；從 spec 推導 case（完整度 rubric、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖命名 / 容差比對 / fail-dump / 重產授權 / 手術式重產 / 認證；截圖穩定性（settle 訊號、mouse park、確定性渲染旗標）；lifecycle 對稱性與逐檔隔離；場景手冊；mocha 執行慣例；w-screenctl 探索；完成前勾選。深入內容在 references/：e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法）、project-mapping-template（專案 settings 映射表範本）。
-  觸發條件：凡接觸 e2e 測試檔（檔名含 `e2e-`）的任務——寫/改/審/拆/移除/重構/完整度盤查/flake 排查/標準圖產製或重產——必先調用本技能，整篇入 context 逐項比對；看到 e2e 工件即觸發。亦適用於撰寫 spec「重要流程」之 E2E-NNN case。
+  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；從 spec 推導 case（完整度 rubric、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖命名 / 容差比對 / fail-dump / 重產授權 / 手術式重產 / 認證；截圖穩定性（settle 訊號、mouse park、確定性渲染旗標）；lifecycle 對稱性與逐檔隔離；場景手冊；mocha 執行慣例；w-screenctl 探索；完成前勾選。深入內容在 references/：e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案 settings 映射表範本）。
+  觸發條件：凡接觸 e2e 測試檔（檔名含 `e2e-`）的任務——寫/改/審/拆/移除/重構/完整度盤查/flake 排查/標準圖產製或重產——必先調用本技能，整篇入 context 逐項比對；看到 e2e 工件即觸發。亦適用於撰寫或複審 spec「重要流程」之 E2E-NNN case（含 description——其受眾為使用者操作手冊，不是測試撰寫者）。
 ---
 
 # E2E 測試建構規範
@@ -64,7 +64,13 @@ description: |
 
 ### 2.5 spec 撰寫
 
-「重要流程」段下緊接 `- **E2E-NNN**` bullets（title / description / flow 五 bullet），契約等級，不寫 helper 名 / API / 固定 wait / selector。格式：[references/spec-case-format.md](references/spec-case-format.md)。
+「重要流程」段下緊接 `- **E2E-NNN**` bullets（title / description / flow）。**一份 spec 兩種讀者，寫法不可混**：
+
+- **description 給使用者**：將來逐字移作操作手冊的敘述文字，主述是介紹功能的引言者，不是指導 e2e 的要求者。骨架「在哪裡 → 做什麼 → 看到什麼 → 什麼時候用得上」；按鈕名、訊息原文照抄；不寫 `檔案:行號`、不寫第幾階段、不引其他案例編號、不用括號夾註、不寫「本案例為…之驗證」。且要**寫夠**：入口位置與所需權限、必要前置、不可逆效果、是否已寫入、成功訊息原文、失敗怎麼辦，六者缺一即不合格——為文風把這些刪掉是第二常見的失敗。
+- **flow 給實作者**：契約等級，不寫 helper 名 / API / 固定 wait / selector；每案自述完整前置；清理寫到副作用類型；`檔案:行號`、階段截圖規劃、對稱關係放〈驗證〉〈備註〉。
+- **事實來源只有現行程式碼與實機**：舊版說明文件不引用、不比對成「已知落差」；每條案例先追按鈕 `v-if` 確認可達，防禦性提示不設案例；權限負向案例先把狀態推到有權限者看得到按鈕。
+
+格式、禁用句型、六問清單、可達性陷阱、副作用清理表：[references/spec-case-format.md](references/spec-case-format.md)。
 
 ## 3. 落地契約（e2e-setup 提供的能力）
 
@@ -168,7 +174,7 @@ description: |
 
 ### 7.3 三種合法 gap
 
-①共用其他 baseline（防帳號列舉同文案）——description 與 flow 兩處註明；②spec 明標不測試；③純 API 驗證無 UI 終態（暫時狀態）。
+①共用其他 baseline（防帳號列舉同文案）——於 flow 之驗證 bullet 註明「共用 `…png`，不另設標準圖」，description 不提（其受眾是使用者）；②spec 明標不測試；③純 API 驗證無 UI 終態（暫時狀態）。
 
 ### 7.4 重產政策
 
@@ -268,6 +274,8 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 
 ```
 - [ ] §0 勘查已做：runner / 拓撲 / 語系資料 / 映射表 / 姊妹先例
+- [ ] spec description 為手冊敘述：機械掃描零命中（本案例|驗證|截圖|stage|E2E-\d|src/|**|括號夾註）且六問（入口權限/前置/不可逆/已寫入/成功訊息/失敗處理）逐條有答；按鈕名與訊息原文逐字對過程式碼
+- [ ] spec 事實來源只有程式碼與實機：未引舊版說明文件；每案已對 v-if 確認可達；已知落差每條附 file:line；廢止案例保留編號
 - [ ] case 對照表：spec 每 bullet × 語系 → it() → baseline，gap 已分類；多階段截圖已主動提出
 - [ ] 6 步 user path 在每個新 case 註解；抹平步驟標「未走 UI」；按鈕 covered/uncovered 已輸出
 - [ ] act 無 L4–L6；assert 每條對應 spec；動作鏈步數 ≥ spec
