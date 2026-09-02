@@ -5,7 +5,7 @@ description: 當任務需要委派給 OpenCode，或需要使用 OpenCode 支援
 
 # dispatch-opencode
 
-使用 `w-dispatch-ai` 1.0.17+ 的 `dispatchOpencode()` 執行自動化 OpenCode 任務。轉接器會呼叫 `opencode run`、選擇代理與模型、透過 stdin 傳入提示詞、視需要注入僅限當次程序的供應商設定與憑證，並以結果物件回報失敗。
+使用 `w-dispatch-ai` 1.0.20+ 的 `dispatchOpencode()` 執行自動化 OpenCode 任務。轉接器會呼叫 `opencode run`、選擇代理與模型、透過 stdin 傳入提示詞、視需要注入僅限當次程序的供應商設定與憑證，並以結果物件回報失敗。
 
 需要變更模型、供應商、variant、認證或輸出旗標時，讀取 [references/opencode-flags.md](references/opencode-flags.md)。
 
@@ -16,7 +16,9 @@ description: 當任務需要委派給 OpenCode，或需要使用 OpenCode 支援
 - 模型：`nvidia/deepseek-ai/deepseek-v4-flash`
 - variant：`max`
 
-NVIDIA 型錄項目支援推理，並提供 `none`、`high`、`max` 三種 variant。相同模型的 Cline 項目目前標示為不支援推理；舊 Zen ID `opencode/deepseek-v4-flash-free` 也已不在即時 OpenCode 供應商型錄中。因此兩者都無法滿足「最深推理」的預設要求。
+NVIDIA 型錄項目支援推理，並提供 `none`、`high`、`max` 三種 variant，`max` 是最深的一檔。相同模型的 Cline 項目目前標示為不支援推理（`reasoning: false`、`variants: {}`）；舊 Zen ID `opencode/deepseek-v4-flash-free` 也已不在即時 OpenCode 供應商型錄中。因此兩者都無法滿足「最深推理」的預設要求。
+
+`--variant` 沒有對應的轉接器選項，必須經 `extraArgs` 傳入；不傳就是跑供應商預設（非 `max`）。
 
 ```javascript
 import wda from 'w-dispatch-ai';
@@ -76,7 +78,7 @@ await wda.dispatchOpencode('分析附件', {
 
 `dispatchOpencode()` 預設使用 `build` 代理。工作內容應限制在選定的專案目錄內。只有在使用者已授權無人值守修改，且執行環境可信時，才可加入 `--auto`；它會自動核准未被明確拒絕的權限。
 
-## 轉接器契約（w-dispatch-ai 1.0.17）
+## 轉接器契約（w-dispatch-ai 1.0.20）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -106,7 +108,7 @@ opencode models nvidia --verbose
 opencode auth list
 ```
 
-截至 2026-08-23 審查時，OpenCode 1.18.21 的型錄顯示 `nvidia/deepseek-ai/deepseek-v4-flash` 支援推理，variant 為 `none`、`high`、`max`。
+截至 2026-09-02 審查時，OpenCode 1.18.26 重新整理後的型錄仍顯示 `nvidia/deepseek-ai/deepseek-v4-flash` 之 `reasoning: true`，variant 為 `none`、`high`、`max`（脈絡窗 1,048,576、最大輸出 393,216），本技能預設值不變。同次確認 `cline/deepseek/deepseek-v4-flash` 仍為 `reasoning: false` 且 `variants: {}`，`opencode/deepseek-v4-flash-free` 仍不在型錄中。
 
 ## 安裝檢查
 
@@ -117,4 +119,4 @@ opencode --version
 opencode run --help
 ```
 
-同次審查時，npm 最新版為 `w-dispatch-ai` 1.0.17、`opencode-ai` 1.18.21。
+同次審查時，npm 最新版為 `w-dispatch-ai` 1.0.20、`opencode-ai` 1.18.26。1.0.20 的 `dispatchOpencode()` 固定參數（`run`、`--agent`、`-m`）與選項預設值和 1.0.17 相同，本技能的呼叫方式不變。

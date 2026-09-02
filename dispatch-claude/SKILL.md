@@ -5,7 +5,7 @@ description: 當任務需要委派給 Claude，或需要把 Claude 納入多代�
 
 # dispatch-claude
 
-使用 `w-dispatch-ai` 1.0.17+ 的 `dispatchClaude()` 執行 Claude Code。轉接器會呼叫 `claude -p`、透過 stdin 傳入提示詞、管理逾時與程序樹清理，並一律回傳結果物件，不會因一般 CLI 失敗而 reject。
+使用 `w-dispatch-ai` 1.0.20+ 的 `dispatchClaude()` 執行 Claude Code。轉接器會呼叫 `claude -p`、透過 stdin 傳入提示詞、管理逾時與程序樹清理，並一律回傳結果物件，不會因一般 CLI 失敗而 reject。
 
 需要變更 CLI 旗標、排查版本差異或改用非預設模型時，讀取 [references/claude-flags.md](references/claude-flags.md)。
 
@@ -13,16 +13,18 @@ description: 當任務需要委派給 Claude，或需要把 Claude 納入多代�
 
 除非使用者明確指定其他模型或推理強度，否則每次都必須傳入：
 
-- 模型：`claude-fable-5`
+- 模型：`claude-fable-5-1`（Claude Fable 5.1，目前最強）
 - 推理強度：`max`
 
 `w-dispatch-ai` 沒有 Claude 專用的 effort 選項，因此每次都須透過 `extraArgs` 傳入 `--effort max`。
+
+必須寫完整模型名稱，不可用別名。`fable` 別名目前解析到 Fable 5.1，但別名會隨新版滾動；派工要的是可重現的固定版本，所以固定寫 `claude-fable-5-1`。
 
 ```javascript
 import wda from 'w-dispatch-ai';
 
 const result = await wda.dispatchClaude('分析此專案並完成指定修改', {
-    model: 'claude-fable-5',
+    model: 'claude-fable-5-1',
     extraArgs: ['--effort', 'max'],
     cwd: '/absolute/path/to/project',
     timeoutMs: 300_000,
@@ -35,7 +37,7 @@ if (!result.ok) {
 console.log(result.stdout);
 ```
 
-不可依賴使用者帳號的 Claude 預設值；為確保派工結果固定，必須明確指定 Fable 5 與 `max`。
+不可依賴使用者帳號的 Claude 預設值；為確保派工結果固定，必須明確指定 Fable 5.1 與 `max`。
 
 ## 權限
 
@@ -43,7 +45,7 @@ console.log(result.stdout);
 
 ```javascript
 await wda.dispatchClaude(prompt, {
-    model: 'claude-fable-5',
+    model: 'claude-fable-5-1',
     skipPermissions: false,
     extraArgs: [
         '--effort', 'max',
@@ -58,7 +60,7 @@ Claude 的 JSON 輸出應與轉接器的驗證器搭配使用：
 
 ```javascript
 await wda.dispatchClaude(prompt, {
-    model: 'claude-fable-5',
+    model: 'claude-fable-5-1',
     extraArgs: ['--effort', 'max', '--output-format', 'json'],
     validate: 'json',
     maxRetries: 1,
@@ -67,7 +69,7 @@ await wda.dispatchClaude(prompt, {
 
 若需限制結構，再透過 `--json-schema` 傳入 JSON Schema 字串。`stream-json` 會產生 JSONL 事件，不能使用只接受單一 JSON 文件的 `validate: 'json'`。
 
-## 轉接器契約（w-dispatch-ai 1.0.17）
+## 轉接器契約（w-dispatch-ai 1.0.20）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -87,7 +89,7 @@ await wda.dispatchClaude(prompt, {
 
 ## 失敗處理
 
-- 模型或 effort 不存在：檢查 `claude --version` 與 `claude --help`；Claude Code 2.1.240 已確認支援 Fable 5 與 `max`。
+- 模型或 effort 不存在：檢查 `claude --version` 與 `claude --help`；Claude Code 2.1.258 已實測支援 `claude-fable-5-1` 與 `--effort max`（`--print --output-format json` 之 `modelUsage` 回報實際使用 `claude-fable-5-1`）。`claude` 沒有 `models` 子命令，模型可用性只能以實跑或 `--help` 的別名說明確認。
 - 認證失敗：執行 `claude auth`，或先完成互動式登入。
 - 權限卡住或被拒：在可信隔離環境使用 `skipPermissions: true`，或明確設定 `--allowedTools`／`--permission-mode`。
 - 回應截斷或耗時過長：提高逾時、拆分任務，或設定 `--max-budget-usd`；預算上限只會停止工作，不會提高完整度。
@@ -102,4 +104,4 @@ claude --version
 claude --help
 ```
 
-截至 2026-08-23 審查時，npm 最新版為 `w-dispatch-ai` 1.0.17、Claude Code 2.1.240。
+截至 2026-09-02 審查時，npm 最新版為 `w-dispatch-ai` 1.0.20、Claude Code 2.1.258。1.0.20 的 `dispatchClaude()` 固定旗標（`-p`、`--dangerously-skip-permissions`、`--model`）與選項預設值和 1.0.17 相同，本技能的呼叫方式不變。

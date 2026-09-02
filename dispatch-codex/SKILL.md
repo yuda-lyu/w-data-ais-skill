@@ -5,7 +5,7 @@ description: 當任務需要委派給 Codex，或需要把 Codex 納入多代理
 
 # dispatch-codex
 
-使用 `w-dispatch-ai` 1.0.19+ 的 `dispatchCodex()` 執行自動化 Codex 任務。轉接器會呼叫 `codex exec`、透過 stdin 傳入提示詞、設定沙箱政策、略過 Git 儲存庫限制、管理逾時與程序樹清理，並以結果物件回報失敗。
+使用 `w-dispatch-ai` 1.0.20+ 的 `dispatchCodex()` 執行自動化 Codex 任務。轉接器會呼叫 `codex exec`、透過 stdin 傳入提示詞、設定沙箱政策、略過 Git 儲存庫限制、管理逾時與程序樹清理，並以結果物件回報失敗。
 
 需要變更模型／設定旗標、沙箱行為或非互動輸出時，讀取 [references/codex-flags.md](references/codex-flags.md)。
 
@@ -13,7 +13,7 @@ description: 當任務需要委派給 Codex，或需要把 Codex 納入多代理
 
 **在 Windows 上派 Codex 前，先做此檢查；未完成就派任務，一定失敗，且多半是靜默失敗。**
 
-Codex CLI 0.149 起，Windows 預設走 **elevated 沙箱**（建立專用使用者 `CodexSandboxOffline`／`CodexSandboxOnline`＋WFP 網路過濾＋家目錄 read ACL），這需要**一次性管理員（UAC）設定**。設定未完成時，Codex 的 execpolicy 會在 spawn 前拒絕**所有** shell 命令——包含 `Get-Content`、`rg`、`dir` 等唯讀命令。Codex 讀檔就是執行 shell，所以不論 `sandbox` 設 `read-only` 或 `workspace-write`，**檔案讀寫全部不能用**。stderr／`--json` 事件中會出現形如：
+Codex CLI 0.149 起（0.152.1 仍如此），Windows 預設走 **elevated 沙箱**（建立專用使用者 `CodexSandboxOffline`／`CodexSandboxOnline`＋WFP 網路過濾＋家目錄 read ACL），這需要**一次性管理員（UAC）設定**。設定未完成時，Codex 的 execpolicy 會在 spawn 前拒絕**所有** shell 命令——包含 `Get-Content`、`rg`、`dir` 等唯讀命令。Codex 讀檔就是執行 shell，所以不論 `sandbox` 設 `read-only` 或 `workspace-write`，**檔案讀寫全部不能用**。stderr／`--json` 事件中會出現形如：
 
 ```
 CreateProcess { message: "Rejected(\"... blocked by policy\")" }
@@ -47,7 +47,7 @@ await wda.dispatchCodex(prompt, {
 });
 ```
 
-此模式無專用使用者與網路過濾，隔離較弱。`w-dispatch-ai` **刻意不**將它設為 Windows 預設，避免在已完成設定的機器上默默降級沙箱；本技能同樣不可自行預設帶入，只在使用者知情同意下使用。
+`windows.sandbox` 於 0.152.1 仍為受支援的設定鍵（以 `codex exec --strict-config -c 'windows.sandbox="unelevated"'` 實測不報 unknown configuration field，對照組 `windows.bogus_zz=1` 則報錯）。此模式無專用使用者與網路過濾，隔離較弱。`w-dispatch-ai` **刻意不**將它設為 Windows 預設，避免在已完成設定的機器上默默降級沙箱；本技能同樣不可自行預設帶入，只在使用者知情同意下使用。
 
 ### 靜默失敗警語
 
@@ -61,10 +61,12 @@ await wda.dispatchCodex(prompt, {
 
 除非使用者明確指定其他模型或推理強度，否則每次都必須使用：
 
-- 模型：`gpt-5.6-sol`
+- 模型：`gpt-5.6-sol`（GPT-5.6 Sol，型錄 priority 1 之旗艦模型）
 - 推理強度：`max`
 
 `max` 是最深的單代理推理等級。Codex 另提供 `ultra`，其功能是最大推理加上自動任務委派；這是編排模式，不是更深的推理等級，因此不作為本技能預設值。
+
+**必須明確傳入 effort**：0.152.1 執行期型錄顯示 `gpt-5.6-sol` 的 `default_reasoning_level` 是 `low`，不傳就是最淺推理。同代另有 `gpt-5.6-terra`（均衡日常）與 `gpt-5.6-luna`（快速廉價），兩者不作為預設。
 
 ```javascript
 import wda from 'w-dispatch-ai';
@@ -122,7 +124,7 @@ await wda.dispatchCodex(prompt, {
 
 使用 `--json` 時，不可搭配 `validate: 'json'`，因為 stdout 是 JSONL 事件流。
 
-## 轉接器契約（w-dispatch-ai 1.0.19）
+## 轉接器契約（w-dispatch-ai 1.0.20）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -140,7 +142,7 @@ await wda.dispatchCodex(prompt, {
 
 ## 模型驗證
 
-OpenAI 官方文件將 `gpt-5.6-sol` 定位為 GPT-5.6 旗艦模型，並記載其支援 `max` 推理。Codex 0.149.0 的執行期模型型錄另列出 Sol 支援 `low`、`medium`、`high`、`xhigh`、`max`、`ultra`，且 CLI 預設為 `low`，所以必須明確傳入 `max`。
+OpenAI 官方文件將 `gpt-5.6-sol` 定位為 GPT-5.6 旗艦模型（最強的 coding／computer use／research／cybersecurity 能力）。Codex 0.152.1 的執行期模型型錄（`codex debug models`）列出 Sol 支援 `low`、`medium`、`high`、`xhigh`、`max`、`ultra`，`default_reasoning_level` 為 `low`，所以必須明確傳入 `max`。
 
 若模型被拒絕，應先檢查 CLI 與帳號，不可靜默切換模型：
 
@@ -164,4 +166,4 @@ codex exec --help
 ls ~/.codex/.sandbox/setup_marker.json   # Windows：存在才代表 elevated 沙箱設定已完成
 ```
 
-截至 2026-08-26 審查時，npm 最新版為 `w-dispatch-ai` 1.0.19、Codex CLI 0.149.0。1.0.19 的 `dispatchCodex()` 旗標與預設值與 1.0.17 相同，差異在於 README 新增 Windows elevated 沙箱之診斷說明（已收錄於本技能「Windows 前置」一節）。
+截至 2026-09-02 審查時，npm 最新版為 `w-dispatch-ai` 1.0.20、Codex CLI 0.152.1。1.0.20 的 `dispatchCodex()` 固定參數（`exec`、`--sandbox`、`--skip-git-repo-check`、`-m`）與選項預設值和 1.0.17／1.0.19 相同，本技能的呼叫方式不變。Codex 0.152.1 相對 0.149.0 之派工相關差異：`--full-auto` 已移除（實測回 `unexpected argument`），新增 `--enable`／`--disable`／`--approve-for-me`／`--dangerously-bypass-hook-trust`／`--thread-source`／`--color`；詳見 references。
