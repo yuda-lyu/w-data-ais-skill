@@ -70,7 +70,9 @@ description: |
 - **flow 給實作者**：契約等級，不寫 helper 名 / API / 固定 wait / selector；每案自述完整前置；清理寫到副作用類型；`檔案:行號`、階段截圖規劃、對稱關係放〈驗證〉〈備註〉。
 - **事實來源只有現行程式碼與實機**：舊版說明文件不引用、不比對成「已知落差」；每條案例先追按鈕 `v-if` 確認可達，防禦性提示不設案例；權限負向案例先把狀態推到有權限者看得到按鈕。
 
-格式、禁用句型、六問清單、可達性陷阱、副作用清理表：[references/spec-case-format.md](references/spec-case-format.md)。
+- **跨流程共用內容一律放 `spec/設計要點與取捨.md`**（檔名固定，同組織各專案一致；ADR 段記決策，約定段記共通規則），不另創檔名。
+
+格式、禁用句型、六問清單、可達性陷阱、副作用清理表、共用文件之檔名與章節：[references/spec-case-format.md](references/spec-case-format.md)。
 
 ## 3. 落地契約（e2e-setup 提供的能力）
 
