@@ -24,9 +24,9 @@
 | C3 換設定重啟 | `restartBackend(path, envOverride)` / `genTempSettings(overrides)` → `test/_tmp/settings-e2e-*.json`（cleanup 刪除；絕不放 `./tmp/`） | |
 | C4 DB 重置 | `resetToBaseSeed()`（直接 DB）/ `resetDb(browser, seed)`（throwaway page） | |
 | C5 進站與語系 | `openApp(browser)`（`?token=sys`）/ `setLang(page, lang)` | |
-| C6 截圖 | `captureStable(page, { initialWaitMs: 1500 })` | |
+| C6 截圖 | `captureStable(page, { initialWaitMs: 1500 })`；截圖範圍：全頁 / 視窗（含重排原因，見技能 §8.5） | 例：某流程改視窗截圖，依據＝全頁截圖觸發 resize 使抽屜翻面／圖片瀏覽器重排（探測 log 路徑） |
 | C7 紅框 | `captureStableWithBox`：sharp 合成 / **DOM 注入（缺口，待遷移）** | |
-| C8 遮罩 | `maskRegions` / `overlayRegions`（`_staref-*` 自舉）/ `{ sel, fixedWidth }` | |
+| C8 遮罩 | `maskRegions` / `overlayRegions`（`_staref-*` 自舉）/ `{ sel, fixedWidth }`；非決定性畫布：比對端「標準圖覆蓋＋DOM 貼回」（函式名、貼回目標清單、命中數自測腳本）；跨流程共有動態區（主頁即時數值）之共用覆蓋函式 | 例：地圖／三維畫布不填黑，依據＝手冊須見畫面；半透明貼回層之殘餘風險列觀察項 |
 | C9 比對 | `assertBaselineMatch(buf, path, label, opts)` / `assertOrRegenBaseline(assert, flow, file, buf, opts)`；pixelmatch `includeAA:false, threshold 0.1, maxDiffPixels 100`；fail-dump `./testPending/` | |
 | C10 輸入 | `typeIntoInput(page, locator, value)`；表格 `typeIntoCell` / `fillAgGridCell` | |
 | C11 偵測等待 | `waitUntilExist(page, label, fn, { timeout, arg })` | |

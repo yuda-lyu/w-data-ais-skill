@@ -1,7 +1,7 @@
 ---
 name: role-coder-for-test-e2e
 description: |
-  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；從 spec 推導 case（完整度 rubric、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖同時是操作手冊用圖（每步兩張、一圖一框、框反應內容本身、已知缺陷不凍結、產完逐張目視並交審才跑 mocha）；截圖穩定性（settle 訊號、mouse park、假時鐘、確定性渲染旗標）；lifecycle 對稱性與逐檔隔離；場景手冊；mocha 執行慣例；w-screenctl 探索；完成前勾選。深入內容在 references/：baseline-as-manual（紅框決定表、量測 helper 設計、已知缺陷協定、假時鐘樣板、產製與目視紀律）、e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案 settings 映射表範本）。
+  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；作業模式（單人 vs 主代理派工：探測先行、計畫檔、單鏈排程與旗標閘門、逐張審圖）；從 spec 推導 case（完整度 rubric 含資料與內容變體覆蓋、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕與鍵盤 affordance 全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖同時是操作手冊用圖（每步兩張、一圖一框、框反應內容本身、已知缺陷不凍結、產完逐張目視並交審才跑 mocha）；截圖穩定性（settle 訊號、mouse park、假時鐘、確定性渲染旗標、非決定性畫布之「標準圖覆蓋＋DOM 貼回」、全頁 vs 視窗截圖）；lifecycle 對稱性與逐檔隔離；場景手冊（含地圖／三維畫布、全畫面圖片瀏覽器、編輯器鍵盤觸發之提示區、彈窗多分頁）；mocha 執行慣例；探測腳本紀律與 w-screenctl 探索；完成前勾選。深入內容在 references/：baseline-as-manual（紅框決定表、量測 helper 設計、已知缺陷協定、假時鐘樣板、產製與目視紀律）、e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案 settings 映射表範本）、dispatch-and-review-workflow（多系統批量產製：主代理探測、計畫檔、單鏈排程與旗標閘門、逐張審圖與退件、回報）。
   觸發條件：凡接觸 e2e 測試檔（檔名含 `e2e-`）的任務——寫/改/審/拆/移除/重構/完整度盤查/flake 排查/標準圖產製或重產——必先調用本技能，整篇入 context 逐項比對；看到 e2e 工件即觸發。亦適用於撰寫或複審 spec「重要流程」之 E2E-NNN case（含 description——其受眾為使用者操作手冊，不是測試撰寫者）。
 ---
 
@@ -9,7 +9,7 @@ description: |
 
 本技能只寫**跨專案不變的規則與能力契約**；各專案的落地映射（函式實名、port、regen 模式、旗標組、服務模式、偏離與依據）寫在該專案 `CLAUDE_settings.md`（範本：[references/project-mapping-template.md](references/project-mapping-template.md)）。**規則以本技能為準，落地細節以專案映射為準；映射表寫了「偏離與依據」的項目才算合法偏離，沒寫的視為缺口。** 正文中的 `$vo` / `csLogin` / WDrawer / ag-grid / eng-cht 等字樣皆為姊妹專案（Vue 2 + 同一套組件庫）**範例**，不是規則。
 
-**閱讀順序**：§0 勘查 → §1 交付物 → §2 從 spec 到 case → §3 契約 → §4 act → §5 assert → §6 隔離 → §7 標準圖（操作手冊用圖）→ §8 穩定性 → §9 lifecycle → §10 場景 → §11 執行與探索 → §12 勾選。深入：[references/baseline-as-manual.md](references/baseline-as-manual.md)、[references/e2e-setup-contract.md](references/e2e-setup-contract.md)、[references/pixel-mismatch-diagnosis.md](references/pixel-mismatch-diagnosis.md)、[references/research-review-discipline.md](references/research-review-discipline.md)。
+**閱讀順序**：§0 勘查 → §1 交付物 → §1.5 作業模式（單人或派工）→ §2 從 spec 到 case → §3 契約 → §4 act → §5 assert → §6 隔離 → §7 標準圖（操作手冊用圖）→ §8 穩定性 → §9 lifecycle → §10 場景 → §11 執行、探索與探測腳本 → §12 勾選。深入：[references/baseline-as-manual.md](references/baseline-as-manual.md)、[references/dispatch-and-review-workflow.md](references/dispatch-and-review-workflow.md)、[references/e2e-setup-contract.md](references/e2e-setup-contract.md)、[references/pixel-mismatch-diagnosis.md](references/pixel-mismatch-diagnosis.md)、[references/research-review-discipline.md](references/research-review-discipline.md)。
 
 ## 0. 動手前的專案勘查（5 分鐘，寫進回報）
 
@@ -28,12 +28,23 @@ description: |
 |---|---|---|
 | 1 | case 對照表 | spec 每個 `E2E-NNN` × 語系 → `it()` → baseline 檔名；缺項標「合法 gap 類型」（§7.8）或「缺口」 |
 | 2 | 按鈕覆蓋清單 | production 可點元素全清單 vs 測試點過的（§2.4） |
-| 3 | rubric 逐維度判定 | §2.1 五維，每維「達 / 缺（哪些 case）」 |
+| 3 | rubric 逐維度判定 | §2.1 六維，每維「達 / 缺（哪些 case）」 |
 | 4 | 標準圖目視紀錄 | 每張圖對照 spec 視覺項「框住…」之核對結果（§7.6）；同類問題已全掃 |
 | 5 | 執行紀錄 | mocha passing / failing / pending（已知缺陷）/ 耗時；regen 時 `git diff --stat test/pics` |
 | 6 | 使用者視角驗收 | 至少一個 case `--grep` 單跑與全跑各一次，結果一致 |
 
-完成四件缺一不可：①既有 e2e 全綠（已知缺陷為 pending 且各附〈已知落差〉）②rubric 五維無缺 ③標準圖經逐張目視並**經使用者審圖認可** ④baseline 變更經授權且 diff 僅限預期。沒有對照表不得寫「全覆蓋 / 完成」；標準圖產完先交審、未認可前不跑 mocha 比對（§7.6）。勾選清單見 §12。
+完成四件缺一不可：①既有 e2e 全綠（已知缺陷為 pending 且各附〈已知落差〉）②rubric 六維無缺 ③標準圖經逐張目視並**經使用者審圖認可** ④baseline 變更經授權且 diff 僅限預期。沒有對照表不得寫「全覆蓋 / 完成」；標準圖產完先交審、未認可前不跑 mocha 比對（§7.6）。勾選清單見 §12。
+
+## 1.5 作業模式：單人做完，或主代理派工
+
+先判規模再動手。判準：要做的系統數、案例數，以及「寫案例的人」與「審圖的人」能否在同一個 context 內都保有餘裕——審圖是判斷密集的工作，context 被實作細節耗掉後審不出東西。
+
+| 模式 | 適用 | 流程 |
+|---|---|---|
+| 單人 | 一個流程、案例數十以內 | §0 → §2 → §3 → 實作 → §7.6 產製與交付門 |
+| 主代理派工 | 多個子系統、多批案例、或同骨架系統成組 | 主代理：**探測**（實機事實、可行性、DOM 可點層、互動語意）→ **計畫檔**（決定表填滿才派）→ 每系統一個全新 context 的子代理，**序列**產製（共用後端與資料庫時只能一條鏈）→ **逐張審圖**、退一張退一類 → 回報交審。前一系統的成品即下一系統的範本。完整流程、計畫檔段落、閘門機制、審圖清單與失敗對策見 [references/dispatch-and-review-workflow.md](references/dispatch-and-review-workflow.md) |
+
+派工模式三條不可省：①**探測先於計畫**——計畫檔裡每個事實（版次、筆數、分頁清單、可點層、平移後主體位置）來自實機探測，不來自 spec 或讀碼；②**單鏈排程**——第二條鏈以主代理建立的旗標檔為閘門，不以 log 出現 EXIT 為閘門；③**主代理逐張看圖並對物核實子代理的主張**——掃描只回答有沒有框，子代理說「既有圖也如此」「此為元件既有行為」要自己開圖或探測後才採信。
 
 ## 2. 從 spec 到 case
 
@@ -46,8 +57,9 @@ description: |
 | 3 | Assert 完整 | UI 語意 + DB/state + 穩定視覺態加 pixel baseline | 只驗 DB / 只驗 innerText / modal 沒 baseline |
 | 4 | 多語覆蓋 | UI 含 i18n 則所有語系都跑 | 只跑一種語系 |
 | 5 | Cleanup 完整 | 測試創建的資料含副作用全清（DB、in-memory 計數、孤兒 token、暫存 log、`./tmp` settings） | 殘留 |
+| 6 | 變體覆蓋 | 同一功能在系統內的每種**資料型別**與**內容型別**至少一個 case，列舉來源是系統不是 spec 字面：schema／解析器型別（例：圖徵有點、線、面三種）、附件分組（彈窗分頁有純文字、圖片、數據表格三種）、元件入口（編輯器有滑鼠工具列與鍵盤觸發的提示區兩種）；具名資料選**結果最豐富**者（多分頁、多命中、多版次、多區塊）當代表 | 只測第一筆或最簡單那筆（單分頁、零命中），整類變體漏掉，業主一眼點出「X 沒做」 |
 
-任一維度缺漏＝部分覆蓋；回報必逐維度列。
+任一維度缺漏＝部分覆蓋；回報必逐維度列。第 6 維列出的變體若 spec 沒寫，補進 spec 再寫 case，不因 spec 沒提就略過。
 
 ### 2.2 case 的單位與拆分
 
@@ -63,7 +75,7 @@ description: |
 
 ### 2.4 按鈕全清單比對
 
-反查 production 所有可點元素（`@click`、`<button>`、可點 `<a>`、`role="button"`），輸出 covered / uncovered。setup helper（simulateXxx / seed）只能用於「不是本測試重點的 trigger」，且該 trigger 必須在別處有真 UI case 覆蓋，依賴寫進 helper 註解。合規範例：重設密碼 flow 之 E2E-001~004 走真 admin 點擊鏈，005~013 才用 simulate 並註明已由 003 覆蓋（此 flow 曾是 13 case 全 simulate、掩蓋 2 個 production bug 的反例）。
+反查 production 所有可點元素（`@click`、`<button>`、可點 `<a>`、`role="button"`）**與鍵盤觸發的 affordance**（編輯器內的斜線指令／自動完成／快捷鍵：grep 元件的 `keyHint`、`hotkey`、`shortcut`、`trigger` 類 prop 與 `keydown` 處理——這類入口沒有按鈕，只掃 `@click` 會整個漏掉），輸出 covered / uncovered。setup helper（simulateXxx / seed）只能用於「不是本測試重點的 trigger」，且該 trigger 必須在別處有真 UI case 覆蓋，依賴寫進 helper 註解。合規範例：重設密碼 flow 之 E2E-001~004 走真 admin 點擊鏈，005~013 才用 simulate 並註明已由 003 覆蓋（此 flow 曾是 13 case 全 simulate、掩蓋 2 個 production bug 的反例）。
 
 ### 2.5 spec 撰寫
 
@@ -136,12 +148,16 @@ description: |
 - click 後驗 `document.activeElement === el`，把「焦點被 `@mousedown.prevent` 攔截」的 silent fail 提早發現。
 - 優先序：①語意（`getByRole` / `getByLabel` / `getByText`）→ ②`data-fmid` 類測試屬性 → ③結構 selector → ④座標；**降級到②③④須經使用者同意**，先窮盡①變體並告知試過哪些。
 - 組件庫按鈕常是 `div[role=button]`；icon 定位 `svg path[d="${mdiXxx}"]`，path 一律 `import` 自 icon 套件（手抄永不命中）。
+- **可點層不等於可見層**：自訂圓鈕、樹狀勾選框、工具列圖示的 `span`/`svg` 常被外層 `pointer-events:none` 或縮放層包住，`locator.click()` 對它們會逾時（命中測試落在別層）。探測時先看哪一層帶 `tabindex`／`role`／`@click`；對這類元素量該容器矩形、以 `page.mouse.click` 點中心（仍是 L2 真滑鼠）。tooltip 只在 hover 才出現者不能靠 tooltip 文字定位，改「畫面順序＋SVG path 起頭」核對功能後再點。
 - 同字撞名（cht 下 modal「取消」與表單「取消」）→ scope 到容器；`hasText` 可能被 hint 誤命中 → 收窄到 label 元素。
 - **有彈窗時以最上層彈窗為範圍**找文字、圖示、輸入框：抽屜與彈窗常有同名元素，從 `document` 起找會命中被蓋住的那份（`.first()` 抓到背後抽屜的圖示、依標籤找輸入框走到表格過濾框）。
 
 ### 4.4 偵測 driven 步驟
 
 每步先偵測對象存在 / 就緒才進下一步（`waitUntilExist`；`fn` 跨 process 序列化不能 closure，傳值用 `arg`）。可單獨用 `waitForTimeout` 的僅：跨頁 redirect 前 buffer（舊頁殘留 DOM 會 false-positive，數值依專案校準）、editor mount 後 type 前 settle、截圖前 final settle（captureStable 已含）。
+
+- **把目標帶進視野也走使用者動作**：虛擬捲動的樹／清單只渲染可見列，目標不在畫面時用該畫面本來就有的過濾／搜尋把它列出，不用滾輪或程式捲動去找——滾輪會連帶捲到別的容器（主選單），`locator.click` 的自動捲入會改版面，兩者都製造正式路徑不會有的假現象；已渲染列數是版面產物，不能當資料筆數斷言。
+- **切換頁面／系統後先等可互動**：過場覆蓋層（浮動抽屜遮罩、內容切換遮罩）會短暫攔截指標事件，多數執行早已消失、偶爾仍在；點擊前以 `elementFromPoint` 確認目標即最上層，否則點擊被吃掉、截圖拍到整片泛白的過場。
 
 ### 4.5 setup 例外
 
@@ -232,6 +248,7 @@ description: |
 
 - UI 變更後重產先取得使用者授權；只產受影響者（`--names` / `--langs` 在截圖前 gate）；每語系都涵蓋。無差別重產＝把 bug 凍結為真理。
 - 改了量測 helper、紅框合成、launch 旗標、假時鐘錨點＝受影響範圍重產，先授權；加 / 改 launch 旗標＝全量。
+- **追加案例到既有流程**只以 `--names` 產新案例；產前記下既有圖 mtime，產後回驗未變。已審過的圖被重產等於換掉真理，即使內容看起來一樣。
 - regen 時 `captureStable({ strict:true })`：未 settle 即 throw 不寫檔；寫檔前語意斷言先過。
 - 重產後 `git diff --stat test/pics`，並認證：LCD 彩邊掃描、同 flow 共通區 hash 分群兩語系對稱、一張帶旗標 capture 與新 baseline 差 0（[references/pixel-mismatch-diagnosis.md](references/pixel-mismatch-diagnosis.md) §5）。
 
@@ -249,7 +266,7 @@ regen 與 mocha 的 browser 取得、per-case fresh、DB 重置、假時鐘、`s
 
 負面斷言（已驗證無效）：warmup dummy screenshot、`fonts.ready` 單獨用、拉長固定 sleep、雙重 rAF。
 
-**點擊後 capture 前必 park mouse** 並等 hover-leave + chain animation（1500ms 級）。tooltip：park 觸發 mouseleave 即消失；點擊立即彈 dialog 者被全屏遮罩擋住 mouseleave，截圖含 tooltip 視為可接受，不可用合成事件強清。提示訊息（toast）只停留數秒：等滑入定位後以縮短的初始等待截圖。
+**點擊後 capture 前必 park mouse** 並等 hover-leave + chain animation（1500ms 級）。tooltip：park 觸發 mouseleave 即消失；點擊立即彈 dialog 者被全屏遮罩擋住 mouseleave，截圖含 tooltip 視為可接受，不可用合成事件強清。提示訊息（toast）只停留數秒：等滑入定位後以縮短的初始等待截圖。**由游標（caret）而非滑鼠決定的 UI**（編輯器在游標所在區塊顯示的小工具列、依游標定位的提示區浮層）park 不掉，也不是壞畫面——那是使用者插入內容後真實看到的狀態，照實凍結並在 spec 註明；不可為了畫面乾淨改變狀態（如插入後再點別處移走焦點）。
 
 ### 8.2 動態內容：先讓資料確定性，再談遮罩
 
@@ -263,8 +280,15 @@ regen 與 mocha 的 browser 取得、per-case fresh、DB 重置、假時鐘、`s
 | canvas 圖表 / 無法固定之統計區 | 貼圖覆蓋（REGEN 自舉 `_ref`，之後貼回同座標；兩端貼同一張） | 保留真實視覺、語系區仍 live 比對；自舉後目視確認一次 |
 | 右對齊且寬度隨位數浮動的值 | `{ sel, fixedWidth }` 錨右緣；或正規化（asset hash → `HASH`） | 依元素尺寸遮，邊界隨位數浮動 |
 | 範圍 | 整個動態 block 一起遮 | 只遮圖表漏了同 block 的表 → diff 307px |
+| 地圖／三維場景等 WebGL 畫布（外部瓦片、軟體渲染，而手冊必須看得到畫面） | **比對端以標準圖自身覆蓋畫布矩形，再把疊在畫布上的 DOM 層自當次截圖貼回**；產製端原樣寫檔 | 畫布像素不參與比對但圖保留真實畫面；popup／四角面板／工具列／抽屜／全畫面覆蓋層仍逐像素比對 |
 
 遮罩函數須做遮擋判定（`elementFromPoint`，視窗外元素維持遮罩），否則黑塊會畫到上層彈窗之上。
+
+手冊用圖再加一條：**該讓讀者看到的畫面不填黑**——填黑會把手冊最需要的地圖／場景整塊抹掉，走「標準圖覆蓋＋DOM 貼回」（產製端與比對端只在最後一步分岔，寫進映射表〈偏離與依據〉）。覆蓋與貼回的三條硬規則：
+
+1. **每個覆蓋／貼回目標都要有命中數自測**：選擇器或正規式寫錯（位數算錯、class 猜錯）會讓該分支永不命中、功能形同未實作而測試照樣綠。上線前用兩張真圖跑一次覆蓋函式，斷言各目標命中 ≥ 1，並取樣驗證來源（畫布內取標準圖、DOM 層與畫布外取當次）。
+2. **半透明層的殘餘風險寫明**：貼回的圓鈕、面板、圖片瀏覽器背景若半透明，其下畫布像素會透出；先接受並列為觀察項，出現 flake 時把該層改為隨畫布一併覆蓋，不放寬容差。
+3. **跨流程共有的動態區域集中一處**：所有流程首圖都拍到的主頁即時數值（資源監控百分比、在線人數）由共用層一個函式在比對端覆蓋，所有流程呼叫同一個；各流程各寫一份或漏一份都是缺口，跑 mocha 時整批首圖超容差。
 
 ### 8.3 紅框：截圖後合成
 
@@ -273,6 +297,10 @@ regen 與 mocha 的 browser 取得、per-case fresh、DB 重置、假時鐘、`s
 ### 8.4 確定性渲染：旗標組由單一 wrapper 供給
 
 headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶發散落差異，CJK 較穩故常只 eng 中招）。建議組：`--disable-gpu` `--force-color-profile=srgb` `--disable-lcd-text` `--disable-font-subpixel-positioning` `--disable-skia-runtime-opts` `--disable-partial-raster`。各專案採用組在映射表寫依據；`--font-render-hinting=none` ≠ `--disable-font-subpixel-positioning`；不假設旗標有效，用 CDP `SystemInfo.getInfo` 印 `featureStatus`。與 per-case fresh browser 綁定使用。
+
+### 8.5 全頁截圖 vs 視窗截圖
+
+`fullPage: true` 會讓 Playwright 暫時放大繪製區，頁面內因此收到 `resize`：依寬度自動切換停靠／浮動的抽屜偶發翻面（整個內容區位移數百 px）、全畫面圖片瀏覽器把剛放大的圖重新縮回視窗、canvas 元件重新排版。版面為固定高度（頁高與視窗只差 1px）且含這類元件的流程或案例改 `fullPage: false`，尺寸差異寫進映射表〈偏離與依據〉；產製端與比對端同值。判別成因：以不注入任何測試 hook 的探測腳本，同一操作分別用全頁與視窗截圖各拍一次，只有全頁出現的位移即是。
 
 ## 9. Lifecycle 對稱性
 
@@ -313,8 +341,12 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 | 檔案上傳 | fixture 入版控；`filechooser` 事件接真檔；上傳模式選單等文字出現再點 |
 | 另開分頁 | `context.waitForEvent('page')` 先掛再點；新分頁以頁面內容斷言（網址常帶不透明 hash）；新分頁自動開的彈窗才是要框的東西 |
 | 拖曳調整寬度 | 把手取「最高的 `cursor: col-resize` 元素」；真滑鼠分段移動；拖前框把手（外擴使其可辨識）、拖後框整個變寬的面板 |
+| 地圖／三維畫布上的圖徵（無 DOM） | 定位：由畫面可讀資訊反算（資訊區的中心經緯度＋縮放＋畫布尺寸做投影反算；三維先以工具列固定正視視角再於畫布內探點，命中者才寫進案例）。**放大以游標為錨**（滑鼠移到圖徵上滾輪），不用中心放大鈕——彈窗平移常把圖徵推到畫布邊緣，中心放大後畫面只剩海面／背景，看似「全黑」實為視野離開主體，不是缺陷。就緒：外部瓦片請求數連續數次不變＋縮放值靜止。截圖前以圖徵顏色像素計數確認主體在框內。點擊圖徵→彈窗→抽屜的路徑由清單項點擊間接觸發 |
+| 全畫面圖片瀏覽器（viewer 類覆蓋層） | 圖片在內部捲動容器內時先以滾輪捲入再點；就緒：覆蓋層帶「已進入」class、透明度到 1、大圖已解碼且矩形連續數次不變；工具列框各按鈕之聯集（容器常是透明整條）；關閉走點背景／Esc，背景點擊位置選明確無物之處（不落在被壓暗的選單項上，讀者會誤讀）並以 `elementFromPoint` 守門 |
+| 編輯器內鍵盤觸發的提示區（斜線指令／自動完成） | 觸發字串以真鍵盤打在行首或空白後；提示區是 Teleport 到 body 的浮層，以「內含識別文字且尺寸為面板級」找，不取第一個同 class 元素（tooltip 同 class）；查詢後等筆數列文字改變且連續數次相同；點項目後驗觸發字串已被移除、插入之連結 `href` 含預期參數；儲存後連結以新分頁開啟，新分頁自動開了彈窗就框彈窗；浮層位置隨游標改變（跑到編輯器下方）是正常行為 |
+| 彈窗內多分頁（附件分組） | 分頁列與內容區分別框；內容區是「高度大於門檻的內部捲動容器」，同為 `overflow:auto` 的分頁列與表格內層要排除；每種內容型別（文字／圖片／數據表格）各切一次並各截 |
 
-## 11. 執行與探索
+## 11. 執行、探索與探測腳本
 
 ### 11.1 跑 mocha
 
@@ -327,6 +359,16 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 ### 11.3 w-screenctl 探索
 
 測試本體永遠 Playwright；w-screenctl 只探索。①health → ②第一個動作 navigate + screenshot（JSON wrapper `jq -r .image | base64 -d`，`file` 驗 magic number；偽圖檔 Read 進 API 會讓 session 永久 400）→ ③視覺確認後才 evaluate → ④試互動 → ⑤selector 寫回。連續 evaluate 三次沒截圖＝立刻截圖。不傳 `viewport`（傳了無法 resize 驗 RWD）。探索用之常駐 REPL 亦可（開一次登入頁、以 HTTP 接程式碼），但要掛 unhandledRejection 處理器。
+
+### 11.4 探測腳本（Playwright 直跑）紀律
+
+探測腳本的目的是取得計畫檔要的事實（§1.5、dispatch-and-review-workflow §2）。它跑在共用後端上，寫壞會拖垮後面所有工作：
+
+1. **收尾不可省**：`finally` 一律關瀏覽器、呼叫 cleanup、再 `process.exit`——失敗路徑沒關瀏覽器，node 就永遠不退出，串接在後面的等待迴圈與其他代理全部卡死（殷鑑：一支探測拋錯後掛了 40 分鐘，使用者問「怎麼這麼久」時才發現）。
+2. **等待條件以殼層寫入的行首標記為準**（`echo "EXIT $?" >> log`），不以腳本自己印的字樣為準；每次執行用沒用過的 log 名；等待迴圈要有上限，逾時就查程序清單（以命令列比對，只殺自己啟動的），不空等。
+3. **只做使用者做得到的動作**：探測與正式案例一樣走 L1–L3（§4.1），用畫面既有的過濾把目標帶進視野（§4.4）；探測用捷徑（程式捲動、`locator.click` 自動捲入、直接呼叫元件方法）製造的現象不能寫進計畫檔當事實，也不能當產品缺陷回報。
+4. **「像缺陷」的現象先在真瀏覽器重現**：用不帶確定性旗標的有頭瀏覽器跑同一操作；只在 headless／旗標／全頁截圖（§8.5）之一才出現的是環境問題；此外先檢查語意（視野是否離開主體、資料本來就是空）再檢查渲染。
+5. 產物：腳本、log、截圖各自留在暫存區並由計畫檔引用；截圖用過即刪（Read 進 API 前先驗 magic number）。
 
 ## 12. 完成前勾選
 
@@ -344,6 +386,9 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 - [ ] baseline 命名 <flow>-<lang>-E2E-NNN-<序>-…；regen 有授權；--names 截圖前 gate；strict settle；git diff --stat 僅預期；certify 通過
 - [ ] 核心契約無缺口，條件式 adapter 已標適用/不適用；chromium.launch 只在 wrapper；紅框後合成；cleanup 兩來源
 - [ ] --grep 單跑與全跑一致；testPending 無本輪殘留；./tmp 清乾淨；netstat 無殘留 server；非自己啟動的程序已回報
+- [ ] 變體覆蓋：資料型別、內容型別、鍵盤觸發入口各有 case；具名資料為結果最豐富者
+- [ ] 派工模式：計畫檔事實皆有探測產物；同時只一條產製鏈、閘門為旗標檔；主代理逐張看圖且子代理主張已對物核實；退一張已退一類
+- [ ] 探測腳本 finally 關瀏覽器並 exit；覆蓋／貼回目標有命中數自測；追加案例後既有圖 mtime 未變；fullPage 選擇已依 §8.5 判別
 ```
 
-回報格式：rubric 五維 → case 對照表 → 標準圖目視紀錄（含退回類別之全掃結果、pending 之已知缺陷）→ 執行紀錄 → `git diff --stat` → 契約缺口與已知不修。
+回報格式：rubric 六維 → case 對照表 → 標準圖目視紀錄（含退回類別之全掃結果、pending 之已知缺陷）→ 執行紀錄 → `git diff --stat` → 契約缺口與已知不修。
