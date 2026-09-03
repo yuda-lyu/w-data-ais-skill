@@ -1,8 +1,8 @@
 # Antigravity（`agy`）CLI 派工參考
 
-以下內容於 2026-09-02 透過這些來源驗證：
+以下內容於 2026-09-03 透過這些來源驗證：
 
-- 本機 `agy` 1.1.24
+- 本機 `agy` 1.1.25
 - 本機 `agy --help`、即時 `agy models`、`agy changelog`
 - [Antigravity 官方模型頁](https://antigravity.google/docs/models/)
 - [Antigravity 官方無介面模式文件](https://antigravity.google/docs/cli/headless/)
@@ -22,12 +22,15 @@ agy -p "prompt" [flags]
 ## 必要模型與最深推理
 
 ```text
---model gemini-3.7-flash-high
+--model gemini-3.8-flash-high
 ```
 
-2026-09-02 之即時型錄（`agy models` 完整輸出）：
+2026-09-03 之即時型錄（`agy models` 完整輸出）：
 
 ```text
+gemini-3.8-flash-high     Gemini 3.8 Flash (High)
+gemini-3.8-flash-medium   Gemini 3.8 Flash (Medium)
+gemini-3.8-flash-low      Gemini 3.8 Flash (Low)
 gemini-3.7-flash-high     Gemini 3.7 Flash (High)
 gemini-3.7-flash-medium   Gemini 3.7 Flash (Medium)
 gemini-3.7-flash-low      Gemini 3.7 Flash (Low)
@@ -41,15 +44,15 @@ claude-opus-4-6-thinking  Claude Opus 4.6 (Thinking)
 gpt-oss-120b-medium       GPT-OSS 120B (Medium)
 ```
 
-**無 Gemini 3.8**：官方模型頁與即時型錄一致，Gemini 最新為 3.7 Flash。`gemini-3.7-flash-high` 是最新且最深的 Gemini 選項，本技能之預設值。
+**`gemini-3.8-flash-high` 是最新且最深的 Gemini 選項，本技能之預設值。** Gemini 3.8 Flash 隨 agy 1.1.25 進入型錄（changelog：「Added Gemini 3.8 Flash to the model catalog when connecting with a `GEMINI_API_KEY`」），本機以 `agy -p "只回覆兩個字：完成" --model gemini-3.8-flash-high --dangerously-skip-permissions` 實跑通過（8.8 秒、exit 0）。`w-dispatch-ai` 1.0.22 之 providers 表同日由 3.7 升為 3.8，附實測數據：回應 12.5s（3.7 為 62.2s）、讀檔 14.6s（3.7 為 57.6s）。
 
-**與 2026-08-23 型錄之差異**：`gemini-3.5-flash-high/medium/low` 三項已自型錄移除。若舊程式固定了 3.5 的 slug，須改用 3.7。
+**型錄變動速度是本節重點**：2026-08-23 型錄尚有 `gemini-3.5-flash-*` 而無 3.8；2026-09-02 查核時 3.5 已移除、最新仍只到 3.7；2026-09-03 即出現 3.8 三檔。**十一天內三次變動**，故固定任何 slug 前一律先跑 `agy models` 對照，不可依本文件的清單直接寫入。
 
 必須使用第一欄 slug，不可傳入顯示名稱（agy 的錯誤訊息列的是顯示名稱，容易誤導）。`high` 是 agy 的最深推理強度，沒有 xhigh／max。模型 slug 已內嵌等級時，不需要再傳相同的 `--effort`；若傳入不一致的 effort，agy 會回 conflicts 錯誤。
 
 需要非 Gemini 的更強推理時，型錄另有 `claude-opus-4-6-thinking`；但本技能定位為 Gemini 派工，改用前須經使用者同意（且 Enterprise 方案對 Claude／GPT 項目有存取限制）。
 
-## 主要旗標（1.1.24 實際 help）
+## 主要旗標（1.1.25 實際 help）
 
 | 旗標 | 用途 |
 |---|---|
@@ -89,28 +92,30 @@ gpt-oss-120b-medium       GPT-OSS 120B (Medium)
 | `agy mic-serve` | 把本機麥克風分享給另一台主機上的 CLI |
 | `agy update` | 更新 CLI |
 
-## 版本下限：1.1.24
+## 版本下限：1.1.25
 
-兩個只在派工情境出現的卡死已於近版修掉，故派工要求 agy ≥ 1.1.24：
+派工要求 agy ≥ 1.1.25，三個理由：
 
+- **1.1.25**：Gemini 3.8 Flash 才進入型錄；舊版沒有本技能的預設模型。
 - **1.1.24**：headless 呼叫在 stdout／stderr 被導管接走時，離開階段卡住（未對保留的串流設 `FD_CLOEXEC`，子程序抓著呼叫端 pipe 不放）。`dispatchAntigravity()` 就是以 pipe 收輸出，必中。
 - **1.1.23**：`models`、`agents` 等子命令繼承到未關閉的 stdin pipe 時會卡住而不執行——即「跑 `agy models` 查型錄卻沒有回應」的成因。
-- 1.1.22 另修好以 Gemini API key 認證時，Gemini 3.1 Pro 與 3.5 Flash 的可選 effort。
+
+（1.1.22 另修好以 Gemini API key 認證時，Gemini 3.1 Pro 與 3.5 Flash 的可選 effort。）
 
 症狀是子程序不結束、只能等 `timeoutMs` 到期被殺；遇到請先確認版本，不要當成模型或提示詞問題去調參數。
 
 ## 輸出與離開狀態
 
 ```text
-agy -p "task" --model gemini-3.7-flash-high --output-format json
-agy -p "task" --model gemini-3.7-flash-high --output-format stream-json
+agy -p "task" --model gemini-3.8-flash-high --output-format json
+agy -p "task" --model gemini-3.8-flash-high --output-format stream-json
 ```
 
 `json` 是單一結果物件；`stream-json` 是 NDJSON。無介面模式遇到不存在的指定模型時，會回傳非零離開狀態與錯誤，不會靜默退回其他模型。
 
 ## 工作區與認證
 
-agy 透過明確指定的工作區目錄決定檔案可視範圍。未提供 `addDirs` 時，`w-dispatch-ai` 1.0.20 會自動加入實際 `cwd`。
+agy 透過明確指定的工作區目錄決定檔案可視範圍。未提供 `addDirs` 時，`w-dispatch-ai` 1.0.22 會自動加入實際 `cwd`。
 
 無人值守執行前，須先在互動式 `agy` 工作階段完成 Google 認證。`--dangerously-skip-permissions` 不會執行 OAuth。
 
@@ -123,4 +128,4 @@ agy models
 agy changelog
 ```
 
-若型錄已不包含 `gemini-3.7-flash-high`，應明確回報失敗並要求重新選擇模型，不可依賴隱含備援。
+若型錄已不包含 `gemini-3.8-flash-high`，應明確回報失敗並要求重新選擇模型，不可依賴隱含備援。

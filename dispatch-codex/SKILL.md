@@ -5,7 +5,7 @@ description: 當任務需要委派給 Codex，或需要把 Codex 納入多代理
 
 # dispatch-codex
 
-使用 `w-dispatch-ai` 1.0.20+ 的 `dispatchCodex()` 執行自動化 Codex 任務。轉接器會呼叫 `codex exec`、透過 stdin 傳入提示詞、設定沙箱政策、略過 Git 儲存庫限制、管理逾時與程序樹清理，並以結果物件回報失敗。
+使用 `w-dispatch-ai` 1.0.22+ 的 `dispatchCodex()` 執行自動化 Codex 任務。轉接器會呼叫 `codex exec`、透過 stdin 傳入提示詞、設定沙箱政策、略過 Git 儲存庫限制、管理逾時與程序樹清理，並以結果物件回報失敗。
 
 需要變更模型／設定旗標、沙箱行為或非互動輸出時，讀取 [references/codex-flags.md](references/codex-flags.md)。
 
@@ -124,7 +124,7 @@ await wda.dispatchCodex(prompt, {
 
 使用 `--json` 時，不可搭配 `validate: 'json'`，因為 stdout 是 JSONL 事件流。
 
-## 轉接器契約（w-dispatch-ai 1.0.20）
+## 轉接器契約（w-dispatch-ai 1.0.22）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -166,4 +166,4 @@ codex exec --help
 ls ~/.codex/.sandbox/setup_marker.json   # Windows：存在才代表 elevated 沙箱設定已完成
 ```
 
-截至 2026-09-02 審查時，npm 最新版為 `w-dispatch-ai` 1.0.20、Codex CLI 0.152.1。1.0.20 的 `dispatchCodex()` 固定參數（`exec`、`--sandbox`、`--skip-git-repo-check`、`-m`）與選項預設值和 1.0.17／1.0.19 相同，本技能的呼叫方式不變。Codex 0.152.1 相對 0.149.0 之派工相關差異：`--full-auto` 已移除（實測回 `unexpected argument`），新增 `--enable`／`--disable`／`--approve-for-me`／`--dangerously-bypass-hook-trust`／`--thread-source`／`--color`；詳見 references。
+截至 2026-09-03 審查時，npm 最新版為 `w-dispatch-ai` 1.0.22、Codex CLI 0.152.1。1.0.22 的 `dispatchCodex()` 固定參數（`exec`、`--sandbox`、`--skip-git-repo-check`、`-m`）與選項預設值和 1.0.17／1.0.19 相同，本技能的呼叫方式不變。Codex 0.152.1 相對 0.149.0 之派工相關差異：`--full-auto` 已移除（實測回 `unexpected argument`），新增 `--enable`／`--disable`／`--approve-for-me`／`--dangerously-bypass-hook-trust`／`--thread-source`／`--color`；詳見 references。

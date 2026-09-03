@@ -5,7 +5,7 @@ description: 當任務需要委派給 OpenCode，或需要使用 OpenCode 支援
 
 # dispatch-opencode
 
-使用 `w-dispatch-ai` 1.0.20+ 的 `dispatchOpencode()` 執行自動化 OpenCode 任務。轉接器會呼叫 `opencode run`、選擇代理與模型、透過 stdin 傳入提示詞、視需要注入僅限當次程序的供應商設定與憑證，並以結果物件回報失敗。
+使用 `w-dispatch-ai` 1.0.22+ 的 `dispatchOpencode()` 執行自動化 OpenCode 任務。轉接器會呼叫 `opencode run`、選擇代理與模型、透過 stdin 傳入提示詞、視需要注入僅限當次程序的供應商設定與憑證，並以結果物件回報失敗。
 
 需要變更模型、供應商、variant、認證或輸出旗標時，讀取 [references/opencode-flags.md](references/opencode-flags.md)。
 
@@ -78,7 +78,7 @@ await wda.dispatchOpencode('分析附件', {
 
 `dispatchOpencode()` 預設使用 `build` 代理。工作內容應限制在選定的專案目錄內。只有在使用者已授權無人值守修改，且執行環境可信時，才可加入 `--auto`；它會自動核准未被明確拒絕的權限。
 
-## 轉接器契約（w-dispatch-ai 1.0.20）
+## 轉接器契約（w-dispatch-ai 1.0.22）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -119,4 +119,4 @@ opencode --version
 opencode run --help
 ```
 
-同次審查時，npm 最新版為 `w-dispatch-ai` 1.0.20、`opencode-ai` 1.18.26。1.0.20 的 `dispatchOpencode()` 固定參數（`run`、`--agent`、`-m`）與選項預設值和 1.0.17 相同，本技能的呼叫方式不變。
+截至 2026-09-03，npm 最新版為 `w-dispatch-ai` 1.0.22、`opencode-ai` 1.18.26（型錄查核為 2026-09-02，之後未再變動）。1.0.22 的 `dispatchOpencode()` 固定參數（`run`、`--agent`、`-m`）與選項預設值和 1.0.17 相同，本技能的呼叫方式不變。

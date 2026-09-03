@@ -5,7 +5,7 @@ description: 當任務需要委派給 Claude，或需要把 Claude 納入多代�
 
 # dispatch-claude
 
-使用 `w-dispatch-ai` 1.0.20+ 的 `dispatchClaude()` 執行 Claude Code。轉接器會呼叫 `claude -p`、透過 stdin 傳入提示詞、管理逾時與程序樹清理，並一律回傳結果物件，不會因一般 CLI 失敗而 reject。
+使用 `w-dispatch-ai` 1.0.22+ 的 `dispatchClaude()` 執行 Claude Code。轉接器會呼叫 `claude -p`、透過 stdin 傳入提示詞、管理逾時與程序樹清理，並一律回傳結果物件，不會因一般 CLI 失敗而 reject。
 
 需要變更 CLI 旗標、排查版本差異或改用非預設模型時，讀取 [references/claude-flags.md](references/claude-flags.md)。
 
@@ -69,7 +69,7 @@ await wda.dispatchClaude(prompt, {
 
 若需限制結構，再透過 `--json-schema` 傳入 JSON Schema 字串。`stream-json` 會產生 JSONL 事件，不能使用只接受單一 JSON 文件的 `validate: 'json'`。
 
-## 轉接器契約（w-dispatch-ai 1.0.20）
+## 轉接器契約（w-dispatch-ai 1.0.22）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -104,4 +104,4 @@ claude --version
 claude --help
 ```
 
-截至 2026-09-02 審查時，npm 最新版為 `w-dispatch-ai` 1.0.20、Claude Code 2.1.258。1.0.20 的 `dispatchClaude()` 固定旗標（`-p`、`--dangerously-skip-permissions`、`--model`）與選項預設值和 1.0.17 相同，本技能的呼叫方式不變。
+截至 2026-09-03 審查時，npm 最新版為 `w-dispatch-ai` 1.0.22、Claude Code 2.1.258。1.0.22 的 `dispatchClaude()` 固定旗標（`-p`、`--dangerously-skip-permissions`、`--model`）與選項預設值和 1.0.17 相同，本技能的呼叫方式不變。
