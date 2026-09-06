@@ -1,8 +1,8 @@
 ---
 name: role-setup-scheduler-for-session
 description: |
-  讓 Claude session 自己定時醒來做事（定時巡檢並自主診斷修復、「N 分鐘後叫醒我」、「幾點以後才開始」、多步串接任務）的完整做法。依真實流程排序：第一步辨識執行環境（終端機 TUI 內 `CronCreate`／`ScheduleWakeup` 可用；VS Code 外掛之 headless session 內兩者永遠不觸發，附實證與日誌判據）；第二步依需求選機制（cron／背景 `sleep` 計時器／`Monitor`／管線內建巡檢／作業系統排程）之決策表與取捨總表；第三步先驗證機制再依靠（nonce 探針、兩分鐘計時器協定、Monitor 最小實驗，沉默不等於正常）；第四步撰寫自足任務書之六項必備（絕對路徑、可機械判定之判準、離開碼 0 不等於成功、處置授權與「絕不可改」清單、結果落檔、回報格式）；第五步各機制之建立配方；巡檢執行要點（重複時段、升降級判準、最小可逆處置、已知常態白名單須成套、同類訊息去重）；紀錄檔規範（含「決定不處理」）；維護與生命週期；實測數據附錄。
-  觸發條件：使用者要求「定時巡檢」「每小時檢查排程有沒有正常」「讓 Claude 自己定時看管線狀況」「CronCreate」「ScheduleWakeup」「session 排程」「排程任務的監控與自動修復」「巡檢紀錄怎麼寫」「cron 沒反應／沒觸發」「N 分鐘／小時後叫醒你」「幾點以後才開始執行」「延後啟動」「定時一次或多次任務」「VS Code 外掛排程沒觸發」「背景 sleep 計時器」時觸發。
+  讓 Claude session 自己「稍後醒來繼續做事」的完整做法——涵蓋使用者要求的定時任務（定時巡檢並自主診斷修復、「N 分鐘後叫醒我」、「幾點以後才開始」、多步串接任務）與 agent 自發的延後執行（等排程輪次跑完、等背景指令結束、等外部服務就緒、等檔案或日誌出現變化之後再做下一步）。**硬性第一步：任何要「現在停下、之後被叫醒」的動作之前，先自檢執行環境是 VS Code 外掛（headless）還是終端機 TUI**——外掛內 `CronCreate`／`ScheduleWakeup` 建得成、列得出、但永遠不觸發，只有背景 `sleep`／`until` 輪詢計時器（`run_in_background`）與 `Monitor` 會叫醒 agent；沒做這一步的 agent 不會注意到自己在外掛內，也不會正確使用叫醒機制。依真實流程排序：第一步辨識執行環境（附一行自檢指令、實證與日誌判據）；第二步依需求選機制（cron／背景 `sleep` 計時器／條件輪詢／`Monitor`／管線內建巡檢／作業系統排程）之決策表與取捨總表；第三步先驗證機制再依靠（nonce 探針、兩分鐘計時器協定、Monitor 最小實驗，沉默不等於正常）；第四步撰寫自足任務書之六項必備（絕對路徑、可機械判定之判準、離開碼 0 不等於成功、處置授權與「絕不可改」清單、結果落檔、回報格式）；第五步各機制之建立配方；巡檢執行要點（重複時段、升降級判準、最小可逆處置、已知常態白名單須成套、同類訊息去重）；紀錄檔規範（含「決定不處理」）；維護與生命週期；實測數據附錄。
+  觸發條件：不限於使用者用了「排程／定時」字眼——凡 agent 打算「現在停下、之後被叫醒繼續」即觸發。包括：使用者要求「定時巡檢」「每小時檢查排程有沒有正常」「讓 Claude 自己定時看管線狀況」「CronCreate」「ScheduleWakeup」「session 排程」「排程任務的監控與自動修復」「巡檢紀錄怎麼寫」「cron 沒反應／沒觸發」「N 分鐘／小時後叫醒你」「幾點以後才開始執行」「延後啟動」「定時一次或多次任務」「VS Code 外掛排程沒觸發」「背景 sleep 計時器」；以及 agent 自己要等一個背景工作／`run_in_background` 指令／排程輪次／外部程序完成再做下一步、要輪詢某檔案或日誌、要延後執行、或要用 `Monitor`／`sleep`／`CronCreate`／`ScheduleWakeup` 任一者時。
 ---
 
 # role-setup-scheduler-for-session — 讓 session 自己定時醒來做事
@@ -15,11 +15,13 @@ description: |
 
 **這個技能不解決什麼**：所有 session 內的機制都隨 session 消失（API 錯誤、連線中斷、IDE 重啟、視窗關閉即全滅）。需要「視窗關了也會準時啟動」的長期無人值守任務，要交給作業系統排程（見 `role-setup-scheduler-for-windows`）或 §6.4 的管線內建巡檢。
 
+**適用範圍不限「使用者叫我排程」**：agent 自己為了等某件事而安排的「稍後再繼續」——等排程輪次跑完再驗收、等背景指令結束再讀輸出、等外部服務就緒、等檔案或日誌出現變化——同樣是「現在停下、之後被叫醒」，同樣適用本技能，**硬性第一步同樣是 §2 的環境自檢**。殷鑑（2026-09-06）：agent 在 VS Code 外掛內等一輪生產管線跑完，直接掛了背景輪詢就走，沒有辨識環境、沒有驗證機制、沒有落檔任務書；這次恰好用對了機制（背景 `until … sleep`），但若它憑印象改用 `ScheduleWakeup`，就會永遠等不到而不自知。
+
 **五步流程**（後面各節依此順序）：
 
 | 步 | 做什麼 | 產物／判定 |
 |---|---|---|
-| 1 | 辨識執行環境（§2） | 判定為「終端機 TUI」或「VS Code 外掛 headless」 |
+| 1 | 辨識執行環境（§2；§2.0 有一行自檢指令） | 判定為「終端機 TUI」或「VS Code 外掛 headless」，寫入 `./tmp/sched_test/env.txt` |
 | 2 | 依需求選機制（§3） | 選定 cron／背景計時器／Monitor／管線內建之一或組合 |
 | 3 | 先驗證機制再依靠（§4） | `./tmp/sched_test/` 內有本環境的機制證據 |
 | 4 | 撰寫自足任務書（§5） | 一份含六項必備的 prompt 或 md 檔 |
@@ -27,7 +29,7 @@ description: |
 
 **三條鐵則**：
 
-1. **先辨識環境再選工具**。VS Code 外掛內 `CronCreate` 與 `ScheduleWakeup` 建得成、列得出、但永遠不會響（§2）。在外掛內建 cron 然後等它，是本技能所有失敗案例的共同起點。
+1. **先辨識環境再選工具**。VS Code 外掛內 `CronCreate` 與 `ScheduleWakeup` 建得成、列得出、但永遠不會響（§2）。在外掛內建 cron 然後等它，是本技能所有失敗案例的共同起點。這一步不因情境小而省略——只是「等一個背景工作跑完再繼續」也算；agent 自己安排的等待與使用者要求的排程一視同仁。
 2. **任何推送機制上線前先驗證**。cron 送進來的 prompt 與人手貼的文字在對話中一模一樣，沒有來源標記；「一直沒動靜」與「正常但沒事發生」看起來也完全相同。沒有 §4 的證據就不能把它當監控依靠。
 3. **喚醒後要做的事必須自足且落檔**。排程排的是一段 prompt（cron）或一次「叫醒」（計時器），不是任務本身；醒來時讀不到「前面說過的」，做完的結論也會隨 session 消失。
 
@@ -76,6 +78,21 @@ description: |
 | **終端機 TUI** | 使用者在終端機執行 `claude` 進入互動式 REPL | 正常。cron 會觸發；已有連續 40 個整點零缺口的實測（§10.1） |
 | **VS Code 外掛（headless）** | 外掛以 `claude.exe --output-format stream-json --input-format stream-json --permission-prompt-tool stdio …` 啟動，經 stdin/stdout JSON 協定驅動 | 排程器有建立、也有 tick，**但從不觸發任務**。`CronCreate` 回成功、`CronList` 列得出、`ScheduleWakeup` 也建得成，然後永遠不響（§10.3） |
 
+### 2.0 自檢——任何要「稍後被叫醒」的動作之前都做，包括只是等一個背景工作
+
+不要憑印象判定。同一 session 內做一次即可；把判定與依據寫進 `./tmp/sched_test/env.txt`（例：`2026-09-06 21:01 env=vscode-plugin 依據=系統提示含 VSCode Extension Context；claude.exe 命令列含 --input-format stream-json`）。兩條判據任一成立即為外掛模式：
+
+1. **看系統提示**：含「VSCode Extension Context」或「running within the Claude Agent SDK」→ 外掛。
+2. **查行程命令列**（Windows；Git Bash 內可直接執行；macOS／Linux 改 `ps -ef | grep -c 'input-format stream-json'`）：
+
+   ```bash
+   powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"name='claude.exe'\" | Select-Object -ExpandProperty CommandLine" | grep -c "input-format stream-json"
+   ```
+
+   回傳 ≥1 → 外掛；0 → 終端機 TUI。
+
+判定後的唯一動作：**外掛 → 只用背景計時器／條件輪詢（§6.2）或 `Monitor`（§6.3），絕不建 cron、絕不用 `ScheduleWakeup`**；TUI → 可用 cron，但仍要 §4.1 探針。
+
 ### 2.1 辨識法（任一成立即可判定為外掛模式）
 
 1. 系統提示含「VSCode Extension Context」或「running within the Claude Agent SDK」字樣。
@@ -106,6 +123,7 @@ description: |
 | 每隔 N 分鐘／小時**主動巡檢**一次 | `CronCreate`（recurring） | 背景計時器配方 C（§6.2） |
 | 「N 分鐘後提醒我一次」「幾點以後才開始」 | `CronCreate` + `recurring: false`（準時，無 jitter） | 背景計時器配方 A |
 | 做完 A、等一段時間、再做 B | 一次性 cron 串接 | 背景計時器配方 B（md 驅動） |
+| agent 自發：等某條件成立再繼續（排程輪次跑完、背景指令結束、檔案／日誌出現變化） | 背景條件輪詢配方 D（§6.2）或 `Monitor` | 同左——外掛內這是**唯一**會叫醒 agent 的方式 |
 | 檔案／行程／指令輸出**一有變化就立刻知道** | `Monitor`（事件驅動） | `Monitor` |
 | 永遠有紀錄、不依賴 session | 管線內建巡檢（§6.4） | 同左 |
 | 視窗關了也要準時啟動 | 作業系統排程拉起 headless claude（§6.5，未實測） | 同左 |
@@ -291,6 +309,15 @@ Bash({ run_in_background: true, description: '計時到 <HH:MM> 後叫醒',
 **配方 B：多步串接（md 驅動）**——第一個計時器到期 → 讀 `taskA.md` → 做 A → **立即再掛**第二個計時器 → 到期讀 `taskB.md` → 做 B。每段的 md 都要自足（§5 六項同樣適用）。
 
 **配方 C：週期巡檢**——每次喚醒的最後一步是**重掛下一個計時器**（`sleep 3600`），並把「下次到期時刻」寫進紀錄檔。與 cron 的差異：沒有 jitter（延遲 5～15 秒）；不會自動到期；**忘記重掛就斷鏈**，任務書內必須明寫「完成後重掛」；仍綁 session。
+
+**配方 D：條件輪詢等待**（agent 自發的「等它跑完再繼續」）——把「條件成立」寫成 shell 判斷，`until` 迴圈配 `sleep`，條件成立即結束，通知抵達即可接手：
+
+```
+Bash({ run_in_background: true, description: '等 <對象> 完成後叫醒',
+  command: 'n=0; until grep -q "<完成標記>" "<日誌絕對路徑>" 2>/dev/null || [ $((n+=1)) -gt 90 ]; do sleep 20; done; echo "wait ended at $(date +%H:%M:%S), polls=$n"; tail -5 "<日誌絕對路徑>"' })
+```
+
+三個要求：①條件要有「永不成立」的出口——加最長等待次數或秒數（上例 90×20 秒＝30 分鐘），否則對象崩潰時會永遠等下去，且「一直沒動靜」與「還在跑」在使用者眼裡完全相同；②醒來要做的事寫進 `./tmp/<案名>/task.md`（等待期間 context 可能被壓縮，醒來先讀它）；③等待對象的路徑一律取自其設定或使用者指定（§5.1），不自行假設。實測（2026-09-06，VS Code 外掛）：`sleep 60; node …` 準時 60 秒觸發、通知 6 秒後抵達；`until … sleep 20` 等一輪 17 分鐘的管線亦正常叫醒。
 
 **寫法要點**：
 
@@ -480,7 +507,8 @@ CronDelete({ id })    // id 由 CronCreate 回傳
 把下列清單貼進回覆，全部打勾才可以說「排程已建立」；有任何一格沒打勾，就寫明缺哪一項。
 
 ```
-- [ ] 已辨識執行環境（TUI／外掛），並依 §2.3 選了該環境可用的機制
+- [ ] 動手前已做 §2.0 自檢——包括「只是等一個背景工作再繼續」的情境——判定與依據寫在 ./tmp/sched_test/env.txt
+- [ ] 已辨識執行環境（TUI／外掛），並依 §2.3 選了該環境可用的機制；外掛內沒有建任何 cron／ScheduleWakeup
 - [ ] 已用 §4 對應的方式驗證機制真的會叫醒，證據在 ./tmp/sched_test/
 - [ ] 任務書含 §5 六項：絕對路徑、可機械判定之判準（含「沒有日誌檔」）、離開碼 0 不等於成功、授權與絕不可改清單、落檔、回報格式
 - [ ] 已知常態白名單已成套列出（同一種失敗的各變體一起列）
