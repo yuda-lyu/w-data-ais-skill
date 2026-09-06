@@ -327,7 +327,7 @@ kill 與 rm 皆**不保證成功**,執行後必回頭驗證,不可假設已成�
 
 **觸發**:任何預估超過 2 分鐘之作業(測試全跑,批次重產,派工外部 CLI AI,下載/爬取,建置).
 
-**凡涉及定時任務,延後執行,或「現在停下,之後被叫醒再繼續」(等排程輪次跑完,等背景指令結束,等外部程序或檔案/日誌變化,用 `Monitor`/`sleep`/`CronCreate`/`ScheduleWakeup` 任一者)——不論是使用者要求還是 agent 自己安排的等待——必先調用 skill[role-setup-scheduler-for-session],第一步自檢是否位於 VS Code 外掛(外掛內 `CronCreate`/`ScheduleWakeup` 永遠不觸發,只有背景計時器/輪詢與 `Monitor` 會叫醒).** 殷鑑:2026-09-06 agent 在外掛內等生產管線跑完,未辨識環境即掛等待;機制恰好用對,但沒有驗證與任務書落檔.
+**凡要「現在停下,之後被叫醒再繼續」——定時任務,延後執行,等背景指令/外部程序/排程輪次完成,等檔案或日誌變化,或用到 `Monitor`/`sleep`/`CronCreate`/`ScheduleWakeup` 任一者,不論使用者要求或 agent 自發——必先調用 skill[role-setup-scheduler-for-session],其第一步是自檢是否位於 VS Code 外掛:外掛內 `CronCreate`/`ScheduleWakeup` 永遠不觸發,只有背景行程(`run_in_background` 之 `sleep`/`until` 輪詢)與 `Monitor` 會叫醒;等待須有上限出口,醒來要做的事先落檔.**
 
 #### 鐵則一:`timeout` 只約束前景,`run_in_background: true` 不受其限,亦無 10 分鐘上限
 
