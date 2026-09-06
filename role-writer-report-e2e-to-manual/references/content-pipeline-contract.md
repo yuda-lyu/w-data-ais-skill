@@ -8,21 +8,22 @@
 spec/流程_<系統>_<瀏覽|編輯>.md ──parseSpec──▶ cases[{ head, title, description, imgs[] }]
 test/pics/<流程前綴>/<流程前綴>-<圖鍵>.png ──genFigs──▶ report/pics/（檔名沿用）
 src/content/<流程前綴>.mjs（figs / text / skipImgs）──┐
-config.mjs（systemName / version / flows[{chapter, spec, lead}]）──┼──genMd──▶ report/<報告名>.md ──genDocx──▶ report/<報告名>.docx
+config.mjs（systemName / version / flows[{chapter, spec, lead?}]）──┼──genMd──▶ report/<報告名>.md ──genDocx──▶ report/<報告名>.docx
 報告總則 data.json（封面、日期、單位）──────────────────┘
 ```
 
 - 一個共用模組 `mkManual(呼叫端位置, config)` 回傳 `{ genFigs, genMd, genDocx, run }`；路徑一律自模組檔位置推導（不依 cwd），各分冊薄殼各有 main-guard。
 - 各分冊 `src/`：`config.mjs`、`manual.mjs`（接入共用模組）、`genFigs.mjs`／`genMd.mjs`／`genDocx.mjs`／`g.mjs`（薄殼）、`content/<流程前綴>.mjs`。
+- `config.flows[].lead`：該章導文之自訂文字；預設導文假設「從主選單點選○○進入」，無主選單入口之機制型系統（貫穿全站之網址控制、分享連結等）必給 `lead`，說明機制從哪些入口觸發、本章各節如何組成、紅框慣例。
 
 ## 2. parseSpec 之解析規則
 
 | 項目 | 規則 |
 |---|---|
 | 流程前綴 | 自 spec 之「檔名前綴 `xxx-`」或「test/pics/xxx/」取得；缺即拋錯 |
-| 案例切分 | 「## 重要流程」段內以 `- **E2E-NNN**` 起始；head 後帶文字（如「（已廢止）」）者略過 |
+| 案例切分 | 「## 重要流程」段內以 `- **E2E-NNN**` 起始；head 後帶文字（如「（已廢止」）者略過 |
 | 必要欄位 | title、description 缺任一即拋錯（它們直接進表格） |
-| 圖鍵 | 視覺段內以反引號標示且以該案例 head 開頭者，依出現順序去重；不認檔案系統 |
+| 圖鍵 | 視覺段內以反引號標示且以該案例 head 開頭者，依出現順序去重；不認檔案系統；「暫時狀態」之標註不影響解析（照列） |
 | 廢止與 pending | 廢止不列節；pending 之圖由 content 之 `skipImgs` 處理，parseSpec 不判斷 |
 
 ## 3. 內容檔格式
@@ -38,7 +39,7 @@ export default {
 ```
 
 - 檔首註解交代：真理源在 spec、本檔只補圖名與敘述、圖名規則、`{fig:k}` 契約、`skipImgs` 用途、未撰寫案例會被略過。
-- 尚未撰寫之案例不列於檔內（genMd 略過並提示），不得以空物件佔位。
+- 尚未撰寫之案例不列於檔內（genMd 略過並提示），不得以空物件佔位；**分批存檔時每次只寫已完成之案例**，之後追加。
 
 ## 4. genMd 之檢核（一律拋錯，不降級為警告）
 
@@ -67,14 +68,15 @@ export default {
 ## 6. genFigs 與 genDocx
 
 - genFigs：只複製已撰寫案例引用之圖，檔名沿用；標準圖重產後重跑即同步；找不到來源即拋錯。
-- genDocx：走專案共用之 md→docx 模組（本機 Word 或既有服務），套用共用模板（圖片不壓縮旗標）；以產物實體檔（存在、時間戳、大小）判定成敗，回傳值不可信；產製期間不得開啟 Word，產後檢查殘留 Word 行程。
+- genDocx：走專案共用之 md→docx 模組（本機文書軟體或既有服務），套用共用模板（圖片不壓縮旗標）；以產物實體檔（存在、時間戳、大小）判定成敗，回傳值不可信；產製期間不得開啟文書軟體，產後檢查殘留行程。
 - 圖較多之冊 docx 可達數十 MB，屬正常；相同圖檔被轉檔器去重致內嵌媒體數少於圖數，屬正常。
+- **重產順序**（spec 或 content 改動後）：genMd → lint → genDocx → `verification-and-report.md` §1～§2 之核對；只重產受影響之冊。
 
 ## 7. lint 與文件同步
 
 - 專案 lint（禁詞、data 消費矩陣、報告目錄掃描）須把分冊子夾之 `src/` 與 `report/` 納入掃描。
 - 新裁定之放行詞（畫面上的資料項名稱，如「○○項目」「○○節點」）同時登記於禁詞裁決表與 lint 規則，三處一致（表、lint、要點文件）。
-- 分冊 L3 文件（版式、命名、產製、撰寫要領、檢核清單、定稿句、版本紀錄）與共用模組同步維護；使用者裁定即登記版本紀錄。
+- 分冊 L3 文件（版式、命名、產製、撰寫要領、檢核清單、定稿句、版本紀錄）與共用模組同步維護；使用者裁定即登記版本紀錄；每批新增之冊登記冊名、節數、圖數與新寫法。
 
 ## 8. 失敗對策速查
 
@@ -83,8 +85,10 @@ export default {
 | genMd 報「圖名重複」 | 加語意前置語（另存前／刪除前／確認刪除○○），不加序號 |
 | genMd 報「figs 項數不一致」 | 對照 spec 視覺段圖鍵數與 skipImgs，補漏或移除多寫者 |
 | genMd 報「引用不存在之圖」 | 檢查 `{fig:k}` 之 k 是否因 skipImgs 重新編號 |
+| genMd 報「無導文」 | 無主選單入口之系統於 config 給 `lead` |
 | lint 命中 spec 帶入之禁詞 | 改 spec 與 e2e 測試檔 title；非資料項名稱不放行 |
 | lint 命中「括號內容過長」 | 縮短 spec title 之括號註記，測試檔同步 |
 | docx 產出但為舊檔 | 以時間戳判定；服務假成功時改本機轉檔或重試 |
 | 標準圖夾與 spec 圖鍵不一致 | 回 e2e 端修 spec 或重產，不在 content 遷就 |
+| 內容檔長時間 0 byte | 子代理未分批存檔而陷入重讀迴圈；停掉重派並明令每三案例存檔 |
 | 子代理回報「未執行 g.mjs」 | 正常：子代理只寫 content 並跑 genMd；產圖與 docx 由主代理統一跑 |
