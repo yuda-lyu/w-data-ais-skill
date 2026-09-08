@@ -1,6 +1,6 @@
 ---
 name: dispatch-claude
-description: 當任務需要委派給 Claude，或需要把 Claude 納入多代理工作流程時，透過 w-dispatch-ai 以非互動子程序方式執行 Claude Code CLI。
+description: 當任務需要委派給 Claude，或需要把 Claude 納入多代理工作流程時，透過 w-dispatch-ai 以非互動子程序方式執行 Claude Code CLI。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準：權限不足時會以 exit 0 交回看似正常卻沒做事的結果。
 ---
 
 # dispatch-claude
@@ -39,20 +39,61 @@ console.log(result.stdout);
 
 不可依賴使用者帳號的 Claude 預設值；為確保派工結果固定，必須明確指定 Fable 5.1 與 `max`。
 
-## 權限
+## 權限：先定能力下限，再往下收斂
 
-`dispatchClaude()` 的 `skipPermissions` 預設為 `true`，因此會加入 `--dangerously-skip-permissions`。只有在工作區與提示詞內容皆可信時才可使用。若輸入不可信或任務只需少數工具，應保留權限閘門並僅預先核准必要工具：
+派工前先回答一個問題：**這個任務少了哪一項能力就做不出來？** 那是下限。安全考量只能在下限之上收斂範圍（限目錄、限工具、限指令樣式），不能低於下限——低於下限不是比較安全，是拿不到結果，而且多半還會被判成成功（見下一節實測）。
+
+| 任務類型 | 能力下限 | Claude Code 的給法 |
+|---|---|---|
+| 純生成、翻譯、改寫（素材全在提示詞內） | 無 | `--tools ""` 停用全部工具 |
+| 探索、調研、讀碼回答 | 讀檔 | 預設即可讀；目標在 `cwd` 之外時加 `--add-dir` |
+| 審計、複審、調查 | 讀檔 ＋ 寫檔（報告落檔）＋ 唯讀查證指令 | `--allowedTools 'Read,Glob,Grep,Write,Bash(git *)'`；產出目錄以 `--add-dir` 開放 |
+| 寫測試、驗證猜想、重現問題 | 讀檔 ＋ 寫測試檔 ＋ 執行測試 | `--allowedTools 'Read,Glob,Grep,Edit,Write,Bash'`，或 `--permission-mode acceptEdits` |
+| 修改、實作 | 讀 ＋ 寫 ＋ 執行 | 工作區可信時用轉接器預設的 `skipPermissions: true` |
+
+`dispatchClaude()` 的 `skipPermissions` 預設為 `true`（加入 `--dangerously-skip-permissions`），只有在工作區與提示詞內容皆可信時才適用。要收斂時，收的是上表右欄的範圍，不是把能力砍到下限以下。
+
+- **審計必須自己讀檔**。把檔案內容貼進提示詞不算獨立審計：被派對象只看得到你挑給它的片段，找不出你漏掉的地方，而那正是複審的唯一價值。
+- **驗證猜想必須能寫檔並執行**。不能寫測試就只剩推論；「我認為可能是 X」沒有可重現的執行結果，不是結論。
+- **不想放權時，換的是任務或環境，不是砍權限**。把目標複製或 `git worktree` 出一份到獨立目錄，`cwd` 指向該處並只 `--add-dir` 該目錄，讓被派對象在裡面有完整讀寫執行，事後自己審 diff。給半套權限硬派，是拿「看起來安全」換掉任務本身。
+
+### 權限不足是 exit 0 的假成功，不是錯誤
+
+2026-09-08 於 Claude Code 2.1.261 實測。同一段提示詞（讀 `probe.txt` 第一行，並於同目錄建立 `out.txt`），差別只在載不載入使用者層設定：
+
+| 條件 | stdout | 離開碼 | `out.txt` |
+|---|---|---:|---|
+| 未加 `--dangerously-skip-permissions`，載入使用者設定（本機該檔的 `permissions.allow` 含 `Write`、`Bash`） | `READ=… WRITE=DONE` | 0 | 已建立 |
+| 未加 `--dangerously-skip-permissions` ＋ `--setting-sources project` | `READ=… WRITE=FAILED` | 0 | **未建立** |
+| 同上，再加 `--allowedTools 'Read,Glob,Grep,Edit,Write,Bash'` | `READ=… WRITE=DONE` | 0 | 已建立 |
+
+- **離開碼與非空輸出都不是成功判準**。兩列都是 exit 0、stdout 非空，`validate: 'nonempty'` 全部放行。派工端必須自己驗產物（檔案在不在、內容對不對），並在提示詞要求被派對象逐步自報 `DONE`／`FAILED`——第二列看得出失敗，正是因為提示詞規定了這個格式。
+- **被派的 Claude 會繼承使用者層 `settings.json` 的 `permissions.allow`**。兩列唯一差別就是這個。「在我機器上跑得通」不代表換台機器跑得通；要可重現，就把權限顯式寫進旗標，或用 `--setting-sources` 指定來源。
+- 讀取類工具在 print 模式預設可用，寫入與執行類才需要預先核准。所以「只給讀」的派工不會報錯，只會安靜地交不出東西。第三列則證明：把能力補到任務下限，不必動用 `--dangerously-skip-permissions` 也做得成。
+
+### 派工前的能力探測
+
+正式派工前，以**與正式派工相同的權限選項**跑一次最小探測，確認被派對象真的具備所需能力：
 
 ```javascript
-await wda.dispatchClaude(prompt, {
-    model: 'claude-fable-5-1',
-    skipPermissions: false,
-    extraArgs: [
-        '--effort', 'max',
-        '--allowedTools', 'Read,Glob,Grep',
-    ],
-});
+const permArgs = ['--allowedTools', 'Read,Glob,Grep,Edit,Write,Bash'];
+
+const probe = await wda.dispatchClaude(
+    '讀取 <目標檔絕對路徑> 並原文輸出第 1 行；'
+    + '再於 <產出目錄絕對路徑> 建立 probe-out.txt，內容為 OK；'
+    + '最後只回一行：READ=<第1行> WRITE=<DONE 或 FAILED>',
+    {
+        model: 'claude-fable-5-1',
+        skipPermissions: false,
+        extraArgs: [...permArgs, '--effort', 'low'],
+        cwd,
+        timeoutMs: 120_000,
+    },
+);
+// 只看 stdout 不算數：要確認 probe-out.txt 真的落地
 ```
+
+探測用低 effort 即可，它驗的是權限不是推理；正式派工沿用同一組權限選項，只把 effort 換回 `max`。探測失敗時先修權限，不要改提示詞重試。
 
 ## 結構化輸出
 
@@ -91,9 +132,13 @@ await wda.dispatchClaude(prompt, {
 
 - 模型或 effort 不存在：檢查 `claude --version` 與 `claude --help`；Claude Code 2.1.258 已實測支援 `claude-fable-5-1` 與 `--effort max`（`--print --output-format json` 之 `modelUsage` 回報實際使用 `claude-fable-5-1`）。`claude` 沒有 `models` 子命令，模型可用性只能以實跑或 `--help` 的別名說明確認。
 - 認證失敗：執行 `claude auth`，或先完成互動式登入。
-- 權限卡住或被拒：在可信隔離環境使用 `skipPermissions: true`，或明確設定 `--allowedTools`／`--permission-mode`。
+- 權限不足：症狀不是卡住也不是報錯，而是 exit 0 卻沒做事（見「權限」一節）。依任務所需的能力下限補 `--allowedTools`／`--permission-mode`，或在可信隔離環境使用 `skipPermissions: true`；補完再跑一次能力探測確認。
 - 回應截斷或耗時過長：提高逾時、拆分任務，或設定 `--max-budget-usd`；預算上限只會停止工作，不會提高完整度。
 - 服務過載：只有在使用者接受替代模型時，才可加入 `--fallback-model opus` 備援設定。
+
+## 派什麼、怎麼驗收：依全域規範
+
+本技能只管「怎麼呼叫 Claude Code」與「給到任務所需的能力」。審計／複審／規劃審核類派工之內容要求（先審表再審方案、逐格核對後採納）一律依全域規範 §9.1，對所有被派對象一體適用，不在此重複。
 
 ## 安裝檢查
 

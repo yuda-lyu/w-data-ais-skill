@@ -1,6 +1,6 @@
 ---
 name: dispatch-codex
-description: 當任務需要委派給 Codex，或需要把 Codex 納入多代理工作流程時，透過 w-dispatch-ai 以非互動方式執行 OpenAI Codex CLI。
+description: 當任務需要委派給 Codex，或需要把 Codex 納入多代理工作流程時，透過 w-dispatch-ai 以非互動方式執行 OpenAI Codex CLI。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準：權限不足時 Codex 會以 exit 0 交回看似正常卻沒做事的結果；另含 Windows 上讀非 ASCII（中文）檔案的 UTF-8 正解，預設讀法會拿到亂碼而外表正常。
 ---
 
 # dispatch-codex
@@ -57,6 +57,32 @@ await wda.dispatchCodex(prompt, {
 - `validate`（或工作流的 `check`）應要求回覆引用指定內容，不要只驗非空。
 - 若回覆要求你提供檔案內容、或聲稱找不到／無法讀取明明存在的檔案，第一懷疑對象就是本節的沙箱設定，而非路徑或 prompt。
 
+## Windows 讀非 ASCII 檔案：預設會亂碼，要指定 UTF-8 讀法
+
+**症狀**：檔案在磁碟上是 UTF-8，Codex 讀回來卻是亂碼（中文變成 `??ａ?瑼?…` 這類字元）。它會拿這份亂碼去回答、比對、當成 patch 的上下文——審計結論與編輯跟著錯，而外表完全正常。2026-09-08 實測就撞到：同一支中文檔，Codex 一次自行改用讀 byte 轉十六進位才還原出正確內容，另一次直接把亂碼當答案回傳。
+
+**成因**：Codex 在 Windows 以 `WindowsPowerShell\v1.0\powershell.exe -Command "…"` 執行命令（實測 argv；`$PSVersionTable.PSVersion` 回 `5.1.19041.6456`），也就是 **Windows PowerShell 5.1**；5.1 的 `Get-Content` 未指定編碼時以系統 ANSI 代碼頁解碼，不是 UTF-8。失真只發生在 shell 讀檔這一段——Codex 的 stdout 與 `--output-last-message` 本身是 UTF-8 乾淨的（同日實測中文原樣往返）。
+
+**正解（2026-09-08 於 0.153.4 實測，兩種寫法皆通過）**：
+
+```text
+Get-Content -LiteralPath <檔案> -TotalCount <行數> -Encoding utf8
+[System.IO.File]::ReadAllText((Join-Path (Get-Location) '<檔案>'))
+```
+
+同一支中文檔：未指定編碼時回 `??ａ?瑼?…`，上面兩種寫法都回完全正確的原文。要不要把這條寫進派工提示詞，由執行 agent 自行判斷；本技能的要求是——**凡任務會讀到非 ASCII 內容，就要用上面的讀法，並在收回結果時驗證沒有失真**。
+
+**驗收（canary）**：提示詞裡指定一個你已知的中文字串，要求 Codex 原文引用，收回後逐字比對。比對不過是編碼問題，不是模型理解問題，不要靠改寫提示詞繞過去。
+
+**寫入方向同樣有坑**：PS 5.1 的 `Out-File` 預設 UTF-16LE，`Set-Content` 與 `>` 走 ANSI。要 Codex 以 shell 寫出含中文的檔案時一律明寫 `-Encoding utf8`，收回後驗檔案內容。
+
+**不要拿這兩招當解**：
+
+- `chcp 65001` 改的是主控台代碼頁，不是 `Get-Content` 解碼所用的系統 ANSI 代碼頁，對本症狀沒有作用。
+- `[Console]::OutputEncoding = [Text.Encoding]::UTF8` 是屬性設定，在 PowerShell 受限語言模式下會被擋（上游 issue #9767 回報 Codex 自己下這行時就撞到）。本機實測 `$ExecutionContext.SessionState.LanguageMode` 為 `FullLanguage`，但那是本機沙箱設定的結果，不能假設每台機器都一樣。
+
+**影響全機的檔位（需使用者同意，本技能未實測）**：在 `$PROFILE` 加 `$PSDefaultParameterValues['Get-Content:Encoding']='utf8'`（實測所見 argv 未帶 `-NoProfile`，profile 應會載入），或改用 Windows 區域設定的「Beta：使用 Unicode UTF-8 提供全球語言支援」把系統 ANSI 代碼頁改成 65001。兩者都會影響本機其他程式，採用前先徵得使用者同意。
+
 ## 必要預設值
 
 除非使用者明確指定其他模型或推理強度，否則每次都必須使用：
@@ -88,9 +114,23 @@ console.log(result.stdout);
 
 轉接器已固定加入 `--skip-git-repo-check`，不可在 `extraArgs` 重複傳入。
 
-## 沙箱與網路
+## 沙箱與網路：先定能力下限，再往下收斂
 
-轉接器的 `sandbox` 預設為 `workspace-write`，一般儲存庫工作應維持此設定。Windows 上不論哪種模式，都以「Windows 前置」一節的 elevated 沙箱設定已完成為前提。只分析、不修改時使用 `read-only`。只有在使用者任務確實需要，而且執行環境已妥善隔離時，才可使用 `danger-full-access`。
+派工前先回答一個問題：**這個任務少了哪一項能力就做不出來？** 那是下限。安全考量只能在下限之上收斂範圍（工作根、可寫目錄、網路），不能低於下限——低於下限不是比較安全，是拿不到結果。`codex exec` 的 approval 恆為 `never`（實測輸出標頭），被沙箱擋住時它不會回頭要求核准，只會照常把該回合結束掉，成敗得由你從產物與 stderr 判斷。
+
+| 任務類型 | 能力下限 | Codex 的給法 |
+|---|---|---|
+| 純生成、翻譯、改寫（素材全在提示詞內） | 無 | `sandbox: 'read-only'` |
+| 探索、調研、讀碼回答 | 讀檔＋跑唯讀命令 | `sandbox: 'read-only'`；Codex 讀檔就是執行 shell，Windows 須先完成「Windows 前置」一節的一次性沙箱設定，否則連唯讀命令都被擋 |
+| 審計、複審、調查 | 讀檔 ＋ 寫檔（報告落檔）＋ 唯讀查證指令 | 報告要落檔就得 `sandbox: 'workspace-write'`；結果只走 stdout 時才可維持 `read-only` |
+| 寫測試、驗證猜想、重現問題 | 讀檔 ＋ 寫測試檔 ＋ 執行測試 | `sandbox: 'workspace-write'`；工作根用 `-C`，工作區外還要寫的目錄用 `--add-dir`（help 原文：additional directories that should be **writable**）；要裝套件才另開網路 |
+| 修改、實作 | 讀 ＋ 寫 ＋ 執行 | 轉接器預設的 `workspace-write` |
+
+- **審計必須自己讀檔**。把檔案內容貼進提示詞不算獨立審計：被派對象只看得到你挑給它的片段，找不出你漏掉的地方，而那正是複審的唯一價值。
+- **驗證猜想必須能寫檔並執行**。不能寫測試就只剩推論；「我認為可能是 X」沒有可重現的執行結果，不是結論。
+- **不想放權時，換的是任務或環境，不是砍權限**。把目標複製或 `git worktree` 出一份到獨立目錄，以 `-C` 指向該處並用 `workspace-write`，讓被派對象在裡面有完整讀寫執行，事後自己審 diff。給半套權限硬派，是拿「看起來安全」換掉任務本身。
+
+只有在使用者任務確實需要，而且執行環境已妥善隔離時，才可使用 `danger-full-access`。
 
 workspace-write 的網路權限是獨立設定。只有在任務需要安裝套件等網路操作時才啟用：
 
@@ -106,6 +146,46 @@ await wda.dispatchCodex(prompt, {
 ```
 
 除非 Codex 本身在專用強化沙箱內執行，否則不可使用 `--dangerously-bypass-approvals-and-sandbox`。
+
+### 沙箱擋寫的實際樣子（2026-09-08 於 0.153.4 實測）
+
+同一段提示詞（讀 `probe.txt` 第一行，再於同目錄建立 `out.txt`），以 `--sandbox read-only` 執行：
+
+| 觀察點 | 結果 |
+|---|---|
+| 讀取 | 成功（Codex 起 PowerShell 讀檔——再次印證讀檔就是執行 shell） |
+| 寫入 | 被拒，stderr 出現 `error=patch rejected: writing is blocked by read-only sandbox; rejected by user approval settings` |
+| `out.txt` | **未建立** |
+| stdout | 一行看似正常的回覆 |
+| 離開碼 | **0** |
+| `--output-last-message <FILE>` 指定的檔案 | **有**建立——該檔由 CLI 本身寫出，不經模型的沙箱 |
+
+- **離開碼與非空輸出都不是成功判準**：exit 0 ＋ stdout 非空，`validate: 'nonempty'` 直接放行，實際什麼都沒寫成。判成功要看產物是否落地，並檢查 stderr 有無 `blocked by read-only sandbox`／`blocked by policy` 字樣。
+- 症狀與「Windows 前置」一節的靜默失敗同型，只是換到寫入維度：那節談的是讀不到，這裡是寫不了。
+- read-only 之下若只需把**最終一段結果**落檔，`--output-last-message` 是可行路徑；要讓被派對象自己整理出多個檔案（報告、測試、fixture），就必須給 `workspace-write`。
+- **對照組**：同一段提示詞改用 `sandbox: 'workspace-write'`，`out.txt` 確實建立、離開碼 0。差別只在沙箱檔位，不在提示詞——所以探測失敗時要改的是權限，不是提示詞。
+
+### 派工前的能力探測
+
+「Windows 前置」一節的讀取探測只驗得到讀。凡任務要寫檔或跑測試，探測要一次涵蓋讀與寫，且**用與正式派工相同的沙箱與目錄選項**：
+
+```javascript
+const probe = await wda.dispatchCodex(
+    '讀取 <目標檔絕對路徑> 並原文輸出第 1 行；'
+    + '再於 <產出目錄絕對路徑> 建立 probe-out.txt，內容為 OK；'
+    + '最後只回一行：READ=<第1行> WRITE=<DONE 或 FAILED>',
+    {
+        model: 'gpt-5.6-luna',
+        sandbox: 'workspace-write',
+        extraArgs: ['--config', 'model_reasoning_effort="low"'],
+        cwd,
+        timeoutMs: 120_000,
+    },
+);
+// 只看 stdout 不算數：要確認 probe-out.txt 真的落地，並看 stderr 有無 blocked 字樣
+```
+
+探測用輕量模型與低推理即可，它驗的是權限不是推理；正式派工再換回 `gpt-5.6-sol` 與 `max`。探測失敗時先修沙箱與目錄，不要改提示詞重試。
 
 ## 輸出
 

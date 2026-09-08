@@ -1,6 +1,6 @@
 ---
 name: dispatch-antigravity
-description: 當任務需要委派給 Antigravity，或需要使用其提供的 Gemini 模型時，透過 w-dispatch-ai 以非互動子程序方式執行 Google Antigravity CLI（agy）。
+description: 當任務需要委派給 Antigravity，或需要使用其提供的 Gemini 模型時，透過 w-dispatch-ai 以非互動子程序方式執行 Google Antigravity CLI（agy）。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準：權限不足時會以 exit 0 交回看似正常卻沒做事的結果。
 ---
 
 # dispatch-antigravity
@@ -38,7 +38,7 @@ if (!result.ok) {
 console.log(result.stdout);
 ```
 
-未提供 `addDirs` 時，`w-dispatch-ai` 1.0.22 會自動把實際 `cwd` 加入 agy 工作區。需要更多目錄時明確傳入 `addDirs`；若傳入 `[]`，則不公開任何目錄。
+未提供 `addDirs` 時，`w-dispatch-ai` 1.0.22 會自動把實際 `cwd` 加入 agy 工作區。需要更多目錄時明確傳入 `addDirs`；若傳入 `[]`，則不公開任何目錄——那等於被派對象什麼都讀不到，見「權限」一節。
 
 ## CLI 版本下限：派工須 agy ≥ 1.1.25
 
@@ -76,9 +76,56 @@ Antigravity 也接受 `--effort low|medium|high`。若使用轉接器的 `effort
 
 外層逾時設為 10 分鐘時，推導出的 agy 逾時為 570 秒。這能讓 agy 先回傳自身的逾時錯誤，再由外層終止程序樹。
 
-## 權限與結構化輸出
+## 權限：先定能力下限，再往下收斂
 
-轉接器的 `skipPermissions` 預設為 `true`，因此會加入 `--dangerously-skip-permissions`。只有在輸入與工作區可信時才可使用；需要保留權限閘門時應設為 `false`。
+派工前先回答一個問題：**這個任務少了哪一項能力就做不出來？** 那是下限。安全考量只能在下限之上收斂範圍（工作區目錄），不能低於下限——低於下限不是比較安全，是拿不到結果，而且會以 exit 0 回報（見下一節實測）。
+
+| 任務類型 | 能力下限 | agy 的給法 |
+|---|---|---|
+| 純生成、翻譯、改寫（素材全在提示詞內） | 無 | `addDirs: []`，不公開任何目錄 |
+| 探索、調研、讀碼回答 | 讀檔 | `addDirs` 須含全部待查目錄；純讀取任務**不需**跳過權限（2026-09-08 實測通過） |
+| 審計、複審、調查 | 讀檔 ＋ 寫檔（報告落檔）＋ 唯讀查證指令 | `skipPermissions: true`；`addDirs` 同時含被審目錄與產出目錄 |
+| 寫測試、驗證猜想、重現問題 | 讀檔 ＋ 寫測試檔 ＋ 執行測試 | 同上；agy 建檔與跑指令走的都是需要 `command` 權限的工具 |
+| 修改、實作 | 讀 ＋ 寫 ＋ 執行 | 轉接器預設的 `skipPermissions: true` |
+
+轉接器的 `skipPermissions` 預設為 `true`（加入 `--dangerously-skip-permissions`），只有在輸入與工作區可信時才適用。要收斂時，agy 能收的維度是**工作區目錄**（`addDirs`）——把目標複製或 `git worktree` 出一份到獨立目錄，只把該目錄加進工作區，比關掉權限實際得多。
+
+- **審計必須自己讀檔**。把檔案內容貼進提示詞不算獨立審計：被派對象只看得到你挑給它的片段，找不出你漏掉的地方，而那正是複審的唯一價值。
+- **驗證猜想必須能寫檔並執行**。不能寫測試就只剩推論；「我認為可能是 X」沒有可重現的執行結果，不是結論。
+- **`addDirs: []` 等於它什麼都讀不到**，探索與審計類任務必然交白卷。
+
+### 權限不足是 exit 0 的假成功，不是錯誤
+
+2026-09-08 於 agy 1.1.27 實測，兩次都未加 `--dangerously-skip-permissions`，工作區皆以 `--add-dir` 開放：
+
+| 任務 | stdout | 離開碼 | 檔案真的建立？ |
+|---|---|---:|---|
+| 只讀 `probe.txt` 第一行 | `READ=ZZPROBE-7F3A 這是探針檔的第一行` | 0 | 不適用（讀取成功） |
+| 讀第一行 ＋ 建立 `out.txt` | `jetski: no output produced — a tool required the "command" permission that headless mode cannot prompt for, so it was auto-denied. Add an allow-rule under permissions.allow in settings.json (e.g. command(<target>)). Alternatively, re-run with --dangerously-skip-permissions to auto-approve all tools.` | **0** | **否** |
+
+- **離開碼與非空輸出都不是成功判準**。第二列是 exit 0、stdout 非空，`validate: 'nonempty'` 直接放行，但整輪沒有任何模型輸出、也沒有建立任何檔案。
+- 無介面模式沒有人可以回答權限詢問，未預先核准者一律**自動拒絕**，不是等待、不是報錯。
+- 訊息本身指出另一個檔位：在 agy 設定檔的 `permissions.allow` 加規則。用它之前先確認該設定檔路徑與規則語法（以最小探測驗證），否則就用 `skipPermissions: true` 搭配收斂過的 `addDirs`。
+
+### 派工前的能力探測
+
+正式派工前，以**與正式派工相同的權限與工作區選項**跑一次最小探測：
+
+```javascript
+const probe = await wda.dispatchAntigravity(
+    '讀取工作區內 <目標檔絕對路徑> 並原文輸出第 1 行；'
+    + '再於 <產出目錄絕對路徑> 建立 probe-out.txt，內容為 OK；'
+    + '最後只回一行：READ=<第1行> WRITE=<DONE 或 FAILED>',
+    { model: 'gemini-3.8-flash-low', addDirs, cwd, timeoutMs: 180_000 },
+);
+// 只看 stdout 不算數：要確認 probe-out.txt 真的落地
+```
+
+探測可用低階模型，它驗的是權限不是推理；正式派工再換回預設模型。探測失敗時先修權限與 `addDirs`，不要改提示詞重試。
+
+## 結構化輸出
+
+print 模式的輸出格式以 `extraArgs` 指定：
 
 ```javascript
 await wda.dispatchAntigravity(prompt, {
@@ -120,6 +167,10 @@ agy changelog     # 確認新版是否影響 headless 派工
 ```
 
 截至 2026-09-03 審查時，本機 agy 1.1.25 之即時 `agy models` 列出 `gemini-3.8-flash-high` 為最新且最深的 Gemini 選項，並已實跑驗證。無介面模式遇到不存在的指定模型時會以非零狀態結束，不會靜默退回其他模型。
+
+## 派什麼、怎麼驗收：依全域規範
+
+本技能只管「怎麼呼叫 agy」與「給到任務所需的能力」。審計／複審／規劃審核類派工之內容要求（先審表再審方案、逐格核對後採納）一律依全域規範 §9.1，對所有被派對象一體適用，不在此重複。
 
 ## 安裝檢查
 

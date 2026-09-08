@@ -9,6 +9,8 @@
 - [Codex 官方設定參考](https://learn.chatgpt.com/docs/config-file/config-reference)
 - [Codex 官方模型頁面](https://learn.chatgpt.com/docs/models)
 
+2026-09-08 於本機 0.153.4 追加查核：`codex exec --help`（旗標與下方表格一致）、沙箱擋寫與非 ASCII 讀檔之實測（見 SKILL.md「沙箱與網路」「Windows 讀非 ASCII 檔案」兩節）。Windows 編碼問題之上游討論見 [openai/codex issue #9767](https://github.com/openai/codex/issues/9767)（受限語言模式擋掉 `[Console]::OutputEncoding` 設定）與 [#15422](https://github.com/openai/codex/issues/15422)（UTF-8 檔在 agent 脈絡中變亂碼，導致 patch 對不上）。
+
 ## 非互動語法
 
 ```text

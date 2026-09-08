@@ -8,6 +8,8 @@
 - [OpenCode 官方 CLI 文件](https://opencode.ai/docs/cli/)
 - [OpenCode 官方模型與 variant 文件](https://opencode.ai/docs/models/)
 
+2026-09-08 於本機 `opencode` 1.18.29 追加查核並改寫模型章節：`opencode run --help`、`opencode auth list`、`opencode models`／`opencode models opencode --refresh --verbose`、`opencode agent list`，以及對各候選模型 ID 之實跑（結果見下）。
+
 ## 非互動語法
 
 ```text
@@ -19,27 +21,48 @@ opencode run [message..]
 ## 必要模型與 variant
 
 ```text
---model nvidia/deepseek-ai/deepseek-v4-flash --variant max
+--model opencode/muse-spark-1.3-contributor-free --variant xhigh
 ```
 
-重新整理後的型錄（1.18.26）顯示：
+2026-09-08 重新整理後的型錄（1.18.29，`opencode models opencode --verbose`）顯示：
 
 ```text
-供應商／模型：nvidia/deepseek-ai/deepseek-v4-flash
-名稱：DeepSeek V4 Flash
-支援推理：reasoning: true
-variant：none(none)、high(high)、max(max)
-脈絡窗：1,048,576；最大輸出：393,216
+供應商／模型：opencode/muse-spark-1.3-contributor-free
+名稱：Muse Spark 1.3 Free
+狀態：status: active（release_date 2026-09-02）
+能力：reasoning: true、toolcall: true、attachment: true
+variant：minimal、low、medium、high、xhigh
+脈絡窗：1,048,576；最大輸出：131,072
+費用：input／output 皆 0
 ```
 
-`max` 是此供應商／模型項目提供的最深推理 variant。**不傳 `--variant` 就是跑供應商預設，不是 `max`。**
+`xhigh` 是此項目最深的一檔，**它沒有 `max`**。**不傳 `--variant` 就是跑供應商預設，不是 `xhigh`。**
 
-必要預設值不可使用以下項目：
+### 已實測可用之其他選項（同一 `opencode` 供應商，免費且免第三方金鑰）
 
-- `cline/deepseek/deepseek-v4-flash`：型錄仍為 `reasoning: false`、`variants: {}`，沒有推理變體。
-- `opencode/deepseek-v4-flash-free`：重新整理供應商型錄後仍不存在（`opencode` 供應商下只有 `big-pickle`、`ling-3.0-flash-fin-free`、`mimo-v2.5-free`、`muse-spark-1.2-contributor-free`、`nemotron-3-ultra-free`、`nemotron-3.5-lightning-free` 等）。注意 `w-dispatch-ai` 的 `providers` 表仍收錄此 ID 作為 Zen REST 路徑之用，不代表 CLI 型錄查得到。
+| 模型 ID | 定位 | 實測（2026-09-08） |
+|---|---|---|
+| `opencode/muse-spark-1.3-contributor-free` | 本技能必要預設值 | 以 `--variant xhigh` 跑讀檔＋建檔任務通過：工具呼叫正常、檔案確實建立、離開碼 0、中文原樣往返 |
+| `opencode/nemotron-3.5-lightning-free` | 備選 | 以預設 variant 跑同一任務通過 |
 
-同一供應商另有 `nvidia/deepseek-ai/deepseek-v4-pro`（DeepSeek V4 Pro，同樣 `reasoning: true`、variant `none`／`high`／`max`、脈絡窗 1,048,576）。使用者若要求比 Flash 更強者才改用，本技能預設仍為 Flash。
+同供應商型錄另列 `big-pickle`、`ling-3.0-flash-fin-free`、`mimo-v2.5-free`、`muse-spark-1.2-contributor-free`、`nemotron-3-ultra-free` 等，**未實跑**；要用之前先照下節查核並實跑。
+
+### 已確認不可用之項目
+
+| 項目 | 實測結果（2026-09-08） |
+|---|---|
+| `nvidia/deepseek-ai/deepseek-v4-flash` | HTTP 410 `Gone`，`detail` 為 has reached its end of life on 2026-08-07 |
+| `nvidia/deepseek-ai/deepseek-v4-pro` | 同上 410 |
+| `nvidia/deepseek-ai/deepseek-v4-flash-0731`、`…/deepseek-v4-pro-0813` | 403 `Authorization failed` |
+| `nvidia/poolside/laguna-xs-2.1` | 403 `Authorization failed` |
+| `cline/deepseek/deepseek-v4-flash` | 型錄為 `reasoning: false`、`variants: {}`，無推理變體 |
+| `opencode/deepseek-v4-flash-free` | 不在型錄中（`w-dispatch-ai` 的 `providers` 表仍收錄此 ID 作為 Zen REST 路徑之用，不代表 CLI 型錄查得到） |
+
+**前四項在同一天的 `opencode models nvidia --refresh` 中照樣列得出來**——型錄查得到不等於供應商還在服務，這是本技能改用現行預設值的直接原因。
+
+### 供應商沒設定就等於模型不存在
+
+`opencode models` 只列出**已認證或已在設定中定義**之供應商的模型。2026-09-08 本機（`opencode auth list` 顯示 Nvidia、cline 兩筆憑證，加上內建 `opencode`）共 111 項模型、僅此三家。查未設定的供應商回 `Error: Provider not found: <名稱>`；硬用 `-m <該供應商>/<模型>` 派工則回 `UnknownError`（伺服器錯誤），訊息不會告訴你是沒認證。要用內建清單以外的供應商，須以 `opencode auth login` 完成認證，或以轉接器的 `config` 選項注入自訂供應商定義（base URL、模型、憑證來源）。
 
 型錄會動態變更。應使用 `opencode models <provider> --refresh` 與 `--verbose` 查核，不可猜測模型 ID 或 variant。
 
@@ -81,7 +104,7 @@ variant：none(none)、high(high)、max(max)
 
 variant 是型錄定義的請求覆寫。不可假設每個推理模型都有 `high` 或 `max`；使用前應檢查 `opencode models <provider> --verbose`。
 
-`opencode models` 支援 `[provider]` 位置參數過濾、`--refresh`（自 models.dev 重抓快取）與 `--verbose`（含成本與 variants 等中繼資料）。目前本機已認證之供應商為 `cline`、`nvidia`、`opencode`（共 110 項模型）。
+`opencode models` 支援 `[provider]` 位置參數過濾、`--refresh`（自 models.dev 重抓快取）與 `--verbose`（含成本與 variants 等中繼資料）。2026-09-08 本機可用之供應商為 `cline`、`nvidia`、`opencode`（共 111 項模型）；不在此列者一律 `Provider not found`。
 
 ## 認證
 
@@ -91,14 +114,14 @@ opencode auth list
 opencode auth logout
 ```
 
-NVIDIA 模型需要 NVIDIA 供應商憑證。`dispatchOpencode()` 也能透過 `provider: 'nvidia'` 與 `key`，僅為當次程序注入 `OPENCODE_AUTH_CONTENT`，不會修改已保存的認證檔案。
+必要預設模型走 OpenCode 自家供應商，`opencode auth login` 完成一次即可，不需第三方金鑰。第三方供應商（如 NVIDIA）的模型才需要該供應商憑證；`dispatchOpencode()` 也能透過 `provider` 與 `key`，僅為當次程序注入 `OPENCODE_AUTH_CONTENT`，不會修改已保存的認證檔案。
 
 第三方供應商定義可透過轉接器的 `config` 選項注入為 `OPENCODE_CONFIG_CONTENT`。供應商、模型、base URL 與憑證來源必須互相對應。
 
 ## 輸出與工作階段
 
 ```text
-opencode run --format json --model nvidia/deepseek-ai/deepseek-v4-flash --variant max
+opencode run --format json --model opencode/muse-spark-1.3-contributor-free --variant xhigh
 opencode run --continue "繼續"
 opencode run --session <SESSION_ID> "後續指令"
 ```
@@ -110,9 +133,11 @@ opencode run --session <SESSION_ID> "後續指令"
 ```bash
 opencode --version
 opencode run --help
-opencode models nvidia --refresh
-opencode models nvidia --verbose
+opencode auth list
+opencode models opencode --refresh
+opencode models opencode --verbose
+opencode agent list                 # 各代理的實際生效權限規則
 npm view opencode-ai version
 ```
 
-若指定模型或 `max` variant 已消失，應明確回報失敗並要求選擇新的模型／供應商，不可靜默改派其他模型。
+查完型錄還要實跑一次最小任務才算驗證過（型錄會照列已下線的模型）。若指定模型或 `xhigh` variant 已消失，應明確回報失敗並要求選擇新的模型／供應商，不可靜默改派其他模型。

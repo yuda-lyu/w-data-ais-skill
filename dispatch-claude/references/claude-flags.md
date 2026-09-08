@@ -7,6 +7,7 @@
 - 本機實跑 `claude -p --model claude-fable-5-1 --effort low --output-format json`（回應之 `modelUsage` 出現 `claude-fable-5-1`，exit 0）
 - [Claude Code 官方 CLI 參考](https://code.claude.com/docs/en/cli-usage)
 - [Claude Code 官方模型設定指南](https://code.claude.com/docs/en/model-config)
+- 2026-09-08 於本機 2.1.261 追加確認：`--permission-prompts`、`--permission-mode` 之可選值、`--add-dir`、`--restricted`、`--setting-sources` 之 help 原文，並實測權限不足時的行為（見 SKILL.md「權限」一節）
 
 `claude` 沒有 `models` 子命令，因此模型清單以官方模型設定指南與實跑結果為準；旗標一律以已安裝 CLI 的 `--help` 為執行期依據。
 
@@ -60,6 +61,7 @@ claude -p [options]
 | `--disallowedTools <tools...>` | 禁止指定工具 |
 | `--tools <tools...>` | 選擇要暴露的內建工具集合；`""` 停用全部，`default` 取全部 |
 | `--permission-mode <mode>` | `acceptEdits`、`auto`、`bypassPermissions`、`manual`、`dontAsk` 或 `plan` |
+| `--permission-prompts <host\|none>` | print 模式由誰回答權限詢問：`host`（SDK 宿主或 `--permission-prompt-tool`，預設）或 `none`（無人回答，凡會觸發詢問者一律自動拒絕；權限模式仍決定其餘行為） |
 | `--restricted` | 移除會執行命令／程式碼的內建工具與 WebFetch，忽略 user／project／local 設定檔，並把檔案工具限制在工作目錄內；拒絕 `bypassPermissions` |
 | `--output-format <format>` | print 模式可用 `text`、`json`、`stream-json` |
 | `--input-format <format>` | print 模式可用 `text` 或 `stream-json` |
