@@ -56,6 +56,7 @@ console.log(result.stdout);
 - **審計必須自己讀檔**。把檔案內容貼進提示詞不算獨立審計：被派對象只看得到你挑給它的片段，找不出你漏掉的地方，而那正是複審的唯一價值。
 - **驗證猜想必須能寫檔並執行**。不能寫測試就只剩推論；「我認為可能是 X」沒有可重現的執行結果，不是結論。
 - **不想放權時，換的是任務或環境，不是砍權限**。把目標複製或 `git worktree` 出一份到獨立目錄，`cwd` 指向該處並只 `--add-dir` 該目錄，讓被派對象在裡面有完整讀寫執行，事後自己審 diff。給半套權限硬派，是拿「看起來安全」換掉任務本身。
+- **沿用 `w-dispatch-ai/src/providers.mjs` 的條目要先看鎖**：表內 `claude:sonnet` 帶 `--disallowedTools Write,Edit,NotebookEdit,Bash`，那是給純文字生成與遞補用的唯讀檔位；照抄去派審計或寫測試必然交白卷，要先把對應工具放開。
 
 ### 權限不足是 exit 0 的假成功，不是錯誤
 
@@ -127,6 +128,27 @@ await wda.dispatchClaude(prompt, {
 回傳結果包含 `{ ok, stdout, stderr, code, error, errorType, durationMs, attempts }`。必須檢查 `ok`；一般 CLI 失敗不會造成函式 reject。
 
 `w-dispatch-ai` 提供 UMD 預設匯出。請使用 `import wda from 'w-dispatch-ai'`，不要使用具名匯入。
+
+### 表以外的細節一律查原始碼（當前安裝版）
+
+上表只列常用鍵。**細部設定、權限、實際可用的模型、錯誤分類等只要不確定，就去讀當前安裝版的原始碼，不要憑記憶或猜測**——技能寫的是查核當日的狀態，套件與 CLI 都會滾動。
+
+```bash
+npm ls w-dispatch-ai                                     # 當前安裝版本
+node -e "console.log(require.resolve('w-dispatch-ai'))"  # 安裝位置；其 ../src 即原始碼
+```
+
+| 想知道 | 讀哪個檔 |
+|---|---|
+| 完整選項、預設值、固定旗標與其順序、哪些鍵不轉傳給 `execCli` | `src/dispatchClaude.mjs`（固定旗標順序為 `-p` → `--dangerously-skip-permissions` → `--model` → `extraArgs`；`exe`／`model`／`skipPermissions`／`extraArgs`／`input` 為自用鍵，其餘鍵原樣轉給 `execCli`） |
+| 有哪些 kind、何時用 CLI 類何時用 REST 類 | `src/adapters.mjs` 檔頭（判準只有一條：這次呼叫需不需要工具） |
+| 實際可用且已被實測過的模型條目（含權限鎖、金鑰環境變數、實測耗時） | `src/providers.mjs` |
+| `validate` 規則語法 | `src/buildValidator.mjs`：`nonempty`／`json`／`min:N`，逗號串接須全部通過；規則本身打錯（如 `min:abc`）算驗證失敗，不會靜默跳過 |
+| `errorType` 值域與判準 | `src/getErrorType.mjs` 檔頭一覽（`params`／`timeout`／`spawn`／`validation`／`exec`／`http`／`fetch`…） |
+| 逾時預設值 | `src/dfTimeoutMs.mjs` |
+| 多供應商遞補、金鑰輪替、條目 id 命名規則 | `src/dispatchAiFallback.mjs` 檔頭 |
+
+**檔頭註解是實測紀錄，不是設計說明**：踩過什麼坑、為什麼刻意不做某件事，都寫在那裡，而且通常比技能新。本轉接器檔頭另記載一條容易誤解的事——Claude Code 沿用帳號層級登入態，**沒有逐次注入金鑰的概念，故無 `key` 參數**；做供應商輪替時它是「另一個供應商」，不是「另一把金鑰」。與本技能所述不一致時，以原始碼與其實測註記為準，並回頭修技能。
 
 ## 失敗處理
 

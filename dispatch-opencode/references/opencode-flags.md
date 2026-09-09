@@ -60,9 +60,30 @@ variant：minimal、low、medium、high、xhigh
 
 **前四項在同一天的 `opencode models nvidia --refresh` 中照樣列得出來**——型錄查得到不等於供應商還在服務，這是本技能改用現行預設值的直接原因。
 
-### 供應商沒設定就等於模型不存在
+### 供應商沒設定就等於模型不存在——但可用 `config` 當場注入
 
-`opencode models` 只列出**已認證或已在設定中定義**之供應商的模型。2026-09-08 本機（`opencode auth list` 顯示 Nvidia、cline 兩筆憑證，加上內建 `opencode`）共 111 項模型、僅此三家。查未設定的供應商回 `Error: Provider not found: <名稱>`；硬用 `-m <該供應商>/<模型>` 派工則回 `UnknownError`（伺服器錯誤），訊息不會告訴你是沒認證。要用內建清單以外的供應商，須以 `opencode auth login` 完成認證，或以轉接器的 `config` 選項注入自訂供應商定義（base URL、模型、憑證來源）。
+`opencode models` 只列出**已認證或已在設定中定義**之供應商的模型。2026-09-08 本機（`opencode auth list` 顯示 Nvidia、cline 兩筆憑證，加上內建 `opencode`）共 111 項模型、僅此三家。查未設定的供應商回 `Error: Provider not found: <名稱>`；硬用 `-m <該供應商>/<模型>` 派工則回 `UnknownError`（伺服器錯誤），訊息不會告訴你是沒認證。
+
+**但這兩種錯誤都不等於「該模型不能用」**：轉接器的 `config` 選項會為當次程序注入 provider 定義，型錄查不到照樣派得動。`w-dispatch-ai/src/providers.mjs` 內建的第三方條目即為此形式：
+
+| 條目 id | `model` | `provider` | 金鑰環境變數 | baseURL | npm 轉接器 |
+|---|---|---|---|---|---|
+| `oc:agnes-ai/agnes-2.5-flash` | `agnes-ai/agnes-2.5-flash` | `agnes-ai` | `AGNES_KEYS` | `https://apihub.agnes-ai.com/v1` | `@ai-sdk/openai-compatible` |
+| `oc:poolside/poolside/laguna-s-2.1` | `poolside/poolside/laguna-s-2.1` | `poolside` | `POOLSIDE_KEYS` | `https://inference.poolside.ai/v1` | `@ai-sdk/openai-compatible` |
+
+上表之 `nvidia/poolside/laguna-xs-2.1`（403）是 **NVIDIA 轉售的另一個 laguna 項目**，與此處 Poolside 官方 REST／CLI 路徑無關，別混為一談。同一個模型經不同路徑屬不同供應商，額度池與故障域各自獨立。
+
+該表另有同名模型的 REST 條目（`agnes:agnes-2.5-flash`、`poolside:laguna-s-2.1`，kind 為 `api-openai-compat`），走 `dispatchApiOpenaiCompat` 而非本轉接器：免 CLI、快，但**無工具能力**，只適合純文字生成。
+
+### `config` 內的權限設定
+
+同一個 `config` 物件除了 provider 定義，還吃 `permission`，可逐項給 `allow`／`ask`／`deny`：
+
+```javascript
+config: { permission: { edit: 'deny', write: 'deny', bash: 'deny' } }
+```
+
+`providers.mjs` 的每個 opencode 條目都帶這把唯讀鎖。2026-09-08 實測：加上此鎖後，讀取照常、建檔失敗且 `out.txt` 未建立，但**離開碼仍為 0、stdout 非空**，轉錄裡甚至出現 `✓ Create out.txt file`（建檔被轉交子代理，子代理回報成功）。派需要寫入的任務時要把對應項目放開，並一律以產物是否落地判成敗。
 
 型錄會動態變更。應使用 `opencode models <provider> --refresh` 與 `--verbose` 查核，不可猜測模型 ID 或 variant。
 

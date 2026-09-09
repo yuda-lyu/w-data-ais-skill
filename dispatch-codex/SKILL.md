@@ -129,6 +129,7 @@ console.log(result.stdout);
 - **審計必須自己讀檔**。把檔案內容貼進提示詞不算獨立審計：被派對象只看得到你挑給它的片段，找不出你漏掉的地方，而那正是複審的唯一價值。
 - **驗證猜想必須能寫檔並執行**。不能寫測試就只剩推論；「我認為可能是 X」沒有可重現的執行結果，不是結論。
 - **不想放權時，換的是任務或環境，不是砍權限**。把目標複製或 `git worktree` 出一份到獨立目錄，以 `-C` 指向該處並用 `workspace-write`，讓被派對象在裡面有完整讀寫執行，事後自己審 diff。給半套權限硬派，是拿「看起來安全」換掉任務本身。
+- **沿用 `w-dispatch-ai/src/providers.mjs` 的條目要先看鎖**：表內 `codex:gpt-5.6-luna` 帶 `sandbox: 'read-only'`，那是給純文字生成與遞補用的唯讀檔位；照抄去派審計落檔或寫測試必然做不成，要改成 `workspace-write`。
 
 只有在使用者任務確實需要，而且執行環境已妥善隔離時，才可使用 `danger-full-access`。
 
@@ -219,6 +220,27 @@ await wda.dispatchCodex(prompt, {
 提示詞透過 stdin 傳入。回傳結果包含 `{ ok, stdout, stderr, code, error, errorType, durationMs, attempts }`；應檢查 `ok`，不要假設失敗會造成 reject。
 
 請使用套件的 UMD 預設匯出：`import wda from 'w-dispatch-ai'`。
+
+### 表以外的細節一律查原始碼（當前安裝版）
+
+上表只列常用鍵。**細部設定、沙箱與權限、實際可用的模型、錯誤分類等只要不確定，就去讀當前安裝版的原始碼，不要憑記憶或猜測**——技能寫的是查核當日的狀態，套件與 CLI 都會滾動。
+
+```bash
+npm ls w-dispatch-ai                                     # 當前安裝版本
+node -e "console.log(require.resolve('w-dispatch-ai'))"  # 安裝位置；其 ../src 即原始碼
+```
+
+| 想知道 | 讀哪個檔 |
+|---|---|
+| 完整選項、預設值、固定旗標與其順序、哪些鍵不轉傳給 `execCli` | `src/dispatchCodex.mjs`（固定旗標順序為 `exec` → `--sandbox <值>` → `--skip-git-repo-check` → `-m` → `extraArgs`；`exe`／`model`／`sandbox`／`extraArgs`／`input` 為自用鍵，其餘鍵原樣轉給 `execCli`） |
+| 有哪些 kind、何時用 CLI 類何時用 REST 類 | `src/adapters.mjs` 檔頭（判準只有一條：這次呼叫需不需要工具） |
+| 實際可用且已被實測過的模型條目（含沙箱檔位、實測耗時） | `src/providers.mjs` |
+| `validate` 規則語法 | `src/buildValidator.mjs`：`nonempty`／`json`／`min:N`，逗號串接須全部通過；規則本身打錯（如 `min:abc`）算驗證失敗，不會靜默跳過 |
+| `errorType` 值域與判準 | `src/getErrorType.mjs` 檔頭一覽（`params`／`timeout`／`spawn`／`validation`／`exec`／`http`／`fetch`…） |
+| 逾時預設值 | `src/dfTimeoutMs.mjs` |
+| 多供應商遞補、金鑰輪替、條目 id 命名規則 | `src/dispatchAiFallback.mjs` 檔頭 |
+
+**檔頭註解是實測紀錄，不是設計說明**：`src/dispatchCodex.mjs` 檔頭就完整記著 Windows 沙箱未設定時「所有命令 blocked by policy」的成因、實測日期，以及**為什麼刻意不把 `windows.sandbox="unelevated"` 設成 Windows 預設**（那會在已完成設定的機器上默默降級沙箱）。與本技能所述不一致時，以原始碼與其實測註記為準，並回頭修技能。
 
 ## 模型驗證
 
