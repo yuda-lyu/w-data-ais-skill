@@ -316,7 +316,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 ### 9.2 restartBackend 與逐檔隔離
 
 - `restartBackend`：先殺自己 spawn 的；port 仍被佔（reuse / 手動啟動之**同專案**後端）走 OS 層 `netstat` / `taskkill`（posix `lsof` / `kill`），等 port 真釋放再 spawn——這是「只重啟自己 PID」規則的明文例外，前提是該 port 專屬本專案（映射表載明）。需特殊 settings 的 case 以 `try/finally` 還原預設；環境變數覆寫收斂在 `envOverride`。
-- 逐檔隔離 runner：多 e2e 檔塞單一 mocha 進程會共用被前面測試改過狀態的後端（RPC 正規化過欄位序 → 列序與 solo 產的 baseline 不符）。每檔獨立 mocha 進程 + 全新後端；無狀態且啟動慢的前端暖機共用；`readdirSync` 動態白名單。無 runner 的專案 e2e 一律單檔跑，`npm test` 不得含 e2e。`package.json` 之 scripts 只有 `test`，**不加 `test:e2e`**；e2e 以自行編寫之指令逐檔跑（`npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`），有隔離 runner 者直跑 `node test/tools/run-e2e-isolated.mjs`；`test/` 內有 e2e 檔時，`test` 之 mocha glob 收窄為 `unit-`／`api-` 前綴白名單，e2e 檔不得被 `npm test` 抓到。
+- 逐檔隔離 runner：多 e2e 檔塞單一 mocha 進程會共用被前面測試改過狀態的後端（RPC 正規化過欄位序 → 列序與 solo 產的 baseline 不符）。每檔獨立 mocha 進程 + 全新後端；無狀態且啟動慢的前端暖機共用；`readdirSync` 動態白名單。測試之間過於混雜或相依時，套件自己負責建立獨立程序、專用資料來源或獨立儲存區——逐檔隔離 runner 即此類機制之一，放 `test/tools/`，以 `node test/tools/run-e2e-isolated.mjs` 直跑。
 - cwd：以專案根為 cwd 執行，setup 內相對路徑以 `projRoot` 解析；cwd 錯會整檔「標準圖不存在」假紅。
 - **測試中介資料一律落 `test/_tmp/`（gitignore），測完即刪**：臨時 settings、fixture 副本、合成 log 目錄、資料庫快照等放 `test/_tmp/<用途>/`，由該測試檔 `after` 或 setup `cleanup()` 刪除（追蹤本進程建立的檔案逐一 `rm`，目錄空了再 `rmdir`）。**絕不可放專案 `./tmp/`**——那是 AI 代理的暫存區，隨時會被整個清除，測試執行途中被刪即假失敗（殷鑑：三專案 `genTempSettings` 原寫 `./tmp/`；golden 產生器留在 `./tmp/` 隨清除佚失）。fixture 資產（golden logs、expected、`_staref`、上傳用 xlsx）不是中介資料，放 `test/<fixture>/` 入版控。**失敗證據也不是中介資料**：baseline 比對失敗之三聯組一律 dump 到專案根 `./testPending/`（gitignore、ms 時間戳、永不覆蓋、**不自動刪除**——偶發 flake 的當次證據常在隔天才分析），這是本技能既定規則（§7.7、contract C9），不因「臨時資料放 test/_tmp」而改變；三者分工：`test/_tmp/`＝中介資料（測完即刪）、`./testPending/`＝失敗證據（人工清理）、`./tmp/`＝AI 暫存區（測試禁用）。
 
@@ -350,7 +350,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 
 ### 11.1 跑 mocha
 
-指令自行編寫，不新增 `package.json` script（scripts 只有 `test`，且不含 e2e）；`--reporter list` 且不接 pipe；長跑 `run_in_background` + Read output；`--timeout` 依專案。`--grep` 過濾掉 outer `it` 時 nested `before` 會在 DB 未 setup 前執行（徵狀「找不到 user / 30s timeout」是 artifact 非 production bug）：`--grep` 涵蓋 outer 至少一個 case、或 nested 自己 setup、或 outer 改 `before`。標準圖尚未經使用者審圖認可前不跑比對（§7.6）。
+單獨跑某檔時指令自行編寫（如 `npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`）；`--reporter list` 且不接 pipe；長跑 `run_in_background` + Read output；`--timeout` 依專案。`--grep` 過濾掉 outer `it` 時 nested `before` 會在 DB 未 setup 前執行（徵狀「找不到 user / 30s timeout」是 artifact 非 production bug）：`--grep` 涵蓋 outer 至少一個 case、或 nested 自己 setup、或 outer 改 `before`。標準圖尚未經使用者審圖認可前不跑比對（§7.6）。
 
 ### 11.2 Timing flake 自己修
 
@@ -384,7 +384,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 - [ ] 產品缺陷步驟走 knownDefect → pending，已以無 hook 環境重現並寫入已知落差；無 allowPageErrors 放行
 - [ ] 重產：同時只有一條鏈；log 檔名未重用；長段紅線掃描無框為 0；每張逐張目視並對照 spec；退回類別已全掃；已交使用者審圖並取得認可後才跑 mocha
 - [ ] baseline 命名 <flow>-<lang>-E2E-NNN-<序>-…；regen 有授權；--names 截圖前 gate；strict settle；git diff --stat 僅預期；certify 通過
-- [ ] 核心契約無缺口，條件式 adapter 已標適用/不適用；chromium.launch 只在 wrapper；紅框後合成；cleanup 兩來源；setup 與 runner 在 test/tools/；package.json 無 test:e2e；port ≥ 8000 且不隨機
+- [ ] 核心契約無缺口，條件式 adapter 已標適用/不適用；chromium.launch 只在 wrapper；紅框後合成；cleanup 兩來源；setup 與 runner 在 test/tools/；port ≥ 8000 且不隨機
 - [ ] --grep 單跑與全跑一致；testPending 無本輪殘留；./tmp 清乾淨；netstat 無殘留 server；非自己啟動的程序已回報
 - [ ] 變體覆蓋：資料型別、內容型別、鍵盤觸發入口各有 case；具名資料為結果最豐富者
 - [ ] 派工模式：計畫檔事實皆有探測產物；同時只一條產製鏈、閘門為旗標檔；主代理逐張看圖且子代理主張已對物核實；退一張已退一類

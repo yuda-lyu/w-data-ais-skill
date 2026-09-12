@@ -20,7 +20,7 @@ npx mocha test/e2e-hello.test.mjs --reporter list --timeout 60000 --baseline   #
 npx mocha test/e2e-hello.test.mjs --reporter list --timeout 60000              # 比對 → 2 passing；cleanup 後 netstat 無 18090
 ```
 
-`package.json` 之 scripts **只保留 `test`**（全部單元／介面測試；`test/` 內有 e2e 檔時 mocha glob 收窄為 `unit-`／`api-` 前綴白名單，使 `npm test` 不含 e2e），**不加 `test:e2e`**。e2e 以自行編寫之指令逐檔跑：`npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`；有逐檔隔離 runner 者直跑 `node test/tools/run-e2e-isolated.mjs`。ESM：`"type": "module"` 或 `.mjs`。
+要單獨跑某檔用自行編寫之指令：`npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`；測試混雜或相依時由套件自建獨立程序／專用資料來源，逐檔隔離 runner（`node test/tools/run-e2e-isolated.mjs`）即其一。ESM：`"type": "module"` 或 `.mjs`。
 
 ## C1 launchBrowser
 

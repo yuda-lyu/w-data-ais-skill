@@ -550,7 +550,6 @@ assertion 必須是 spec 的可執行翻譯,不是[跟上次跑出來一樣]的�
 - 檔名 `e2e-xxx` 但 act 用 `page.evaluate` / `vm.method()` → 名實不符,**正名為 `api-` 或 `unit-`,或重寫成真 e2e**(§16.6 之 e2e 技能有 L1-L6 操作層級表).
 - UI 無法自然觸發者(fail-closed、後端並發序列化)→ 下沉 `api-`/`unit-`,不在 e2e 硬造.
 - 共用層與輔助工具(setup 模組、runner、產生器)不帶 `.test.` 中綴且放 `test/tools/`(§16.4),避免被 runner 當測試檔抓取.
-- **runner 的納入規則用白名單不用黑名單**:如 jest `testMatch: ['**/unit-*.test.mjs','**/api-*.test.mjs']`,而非 `testMatch:['**/*.test.mjs']` + 逐檔 `testPathIgnorePatterns` 排除 e2e——後者新增 e2e 檔時忘了加排除,會被 jest 誤抓並在無瀏覽器環境炸開.
 - 專案若無某層(如純前端函式庫無後端)則該前綴不出現,不需硬造.
 
 ### 16.4 目錄配置:什麼放哪,誰負責清
@@ -560,22 +559,23 @@ assertion 必須是 spec 的可執行翻譯,不是[跟上次跑出來一樣]的�
 | `test/*.test.mjs` | 測試檔 | 一律 `.test.mjs`,依 §16.3 前綴分層;不開 `e2e/` `api/` `unit/` 子目錄 |
 | `test/tools/*.mjs` | 輔助測試與配套工具:setup 共用層、逐檔隔離 runner、baseline 產生器 | 一律 `.mjs`,不帶 `.test.` 中綴;同一 helper 只定義一次,測試檔內第二份近似實作＝補丁堆積 |
 | `test/pics/<flow>/` | e2e 標準圖(baseline) | 入版控;spec 或規範另有指定路徑者從其指定 |
-| `test/<fixture>/` | fixture 資產(golden、expected、上傳用檔) | 入版控;不是中介資料,不放 `_tmp` |
 | `test/_tmp/<案名>/` | 測試中之臨時/中繼檔(暫時 settings、fixture 副本、合成 log、資料庫快照) | gitignore;各測試自建專用資料夾,由該測試檔之 `after` 或 setup 之 cleanup 刪除,測完即刪,不殘留 |
 | `./testPending/` | pixel 比對失敗之三聯組證據 | gitignore;ms 時間戳、永不覆蓋、**不自動刪**(人工清理) |
 | `./tmp/` | AI 代理暫存區(§12.4) | **測試程式禁用**——隨時會被整個清除,測試途中被刪即假失敗.**典型錯誤形狀**:暫時 settings 與 golden 產生器寫在 `./tmp/`,隨一次清理佚失 |
 
 ### 16.5 執行:`package.json`、mocha 與 port
 
-- **禁用 `.mocharc.json`**:會讓套件與專案之批次處理機制無法統一、無法自動化調整與擴充;不自行建立.
-- **`package.json` 之 scripts 一律只有 `test`**(即 `npm test`):它放的是全部單元測試之指令,不是給 agent 塞多種指令的指令庫;不加 `test:e2e`、`test:unit`、`test:watch` 等變體——變更會讓批次處理機制無法統一.
-- **要跑指定測試檔,自行編寫指令執行,不寫進 scripts**:如 `npx mocha test/unit-xxx.test.mjs --timeout 180000`;e2e 逐檔 `npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout <依專案>`,有逐檔隔離 runner 者直跑 `node test/tools/<runner>.mjs`.超過 2 分鐘者 `run_in_background`(§12.8).
-- **`test` 之值用 mocha 時,依有無 parallel 限定為下列字串**:
-  - 有 parallel:`mocha --parallel \"test/*.test.mjs\" --timeout 180000`
-  - 無 parallel:`mocha --no-parallel \"test/*.test.mjs\" --timeout 180000`
-- **`npm test` 不含 e2e**:e2e 需真瀏覽器、獨立後端與逐檔隔離(多檔塞同一 mocha 進程會共用被前面測試改過狀態的後端),一律以自行編寫之指令逐檔跑.`test/` 內只有 `unit-`/`api-` 時,上列標準字串之 `test/*.test.mjs` 即為白名單;`test/` 內另有 `e2e-*.test.mjs` 時,glob 收窄為前綴白名單(`\"test/unit-*.test.mjs\" \"test/api-*.test.mjs\"`),其餘旗標不變(§16.3 白名單規則).
-- **port**:測試要起伺服器者,port 一律 ≥ 8000,寫死於專案設定/映射表並與他專案錯開;多服務須有自動配發機制(自固定起點遞增偵測),**禁止隨機產生**——隨機常撞埠導致整批假失敗.測後釋放並回驗(§12.6);非自己啟動之伺服器先回報,不擅自殺.
-- 跑完的判準不只是綠:`./tmp/` 清乾淨、`test/_tmp/` 無殘留、`netstat` 無殘留 server、`./testPending/` 無本輪新增(或已分析);子程序清理走 §12.9.
+- 請勿使用`.mocharc.json`,此會造成套件與專案批次處理機制無法統一,無法自動化調整與擴充,請勿自行創建使用.
+
+- 若agent想用mocha運行指定測試檔,請自行編寫指令執行.
+
+- `package.json`內本來就該放全部單元測試的指令,不是為了agent方便執行多種測試指令而被視為指令庫,`package.json`內scripts一律僅提供test,也就是只提供`npm test`快速指令,變更會造成套件與專案批次處理機制無法統一,請勿自行擴充調改.
+
+- `package.json`內,若有要使用mocha,scripts給予值請依照有無parallel兩種情形,限定使用其對應指令:
+**有parallel**:`mocha --parallel \"test/*.test.mjs\" --timeout 180000`
+**無parallel**:`mocha --no-parallel \"test/*.test.mjs\" --timeout 180000`
+
+- 若有啟動伺服器要開port,若太多得須有自動配發port的機制,都要8000以上,也禁止用隨機產生,否則常一堆衝突導致測試失敗.
 
 ### 16.6 e2e 測試
 
