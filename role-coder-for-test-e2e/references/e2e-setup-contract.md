@@ -10,7 +10,7 @@
 minimal-skeleton/
   srv.mjs                    靜態服務 (port 18090; /health 回 { project } 供 reuse 辨識)
   app/index.html             輸入 + 按鈕 + 300ms 延遲顯示訊息 + CSS spinner
-  test/e2e-setup.mjs         C1/C2/C5/C6/C7/C8/C9/C10/C11/C13/C14 實作 (約 220 行)
+  test/tools/e2e-setup.mjs   C1/C2/C5/C6/C7/C8/C9/C10/C11/C13/C14 實作 (約 220 行；輔助工具放 test/tools/，不帶 .test.)
   test/e2e-hello.test.mjs    E2E-001 × eng/cht：真人輸入 → 點按鈕 → 偵測訊息 → 紅框截圖 + 遮罩 → 語意斷言 → 比對
 ```
 
@@ -20,7 +20,7 @@ npx mocha test/e2e-hello.test.mjs --reporter list --timeout 60000 --baseline   #
 npx mocha test/e2e-hello.test.mjs --reporter list --timeout 60000              # 比對 → 2 passing；cleanup 後 netstat 無 18090
 ```
 
-`package.json` 建議 scripts：`"test:e2e": "node test/run-e2e-isolated.mjs"`（有 runner）或逐檔 `npx mocha test/e2e-<flow>.test.mjs --reporter list`；`"test"` 不含 e2e。ESM：`"type": "module"` 或 `.mjs`。
+`package.json` 之 scripts **只保留 `test`**（全部單元／介面測試；`test/` 內有 e2e 檔時 mocha glob 收窄為 `unit-`／`api-` 前綴白名單，使 `npm test` 不含 e2e），**不加 `test:e2e`**。e2e 以自行編寫之指令逐檔跑：`npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`；有逐檔隔離 runner 者直跑 `node test/tools/run-e2e-isolated.mjs`。ESM：`"type": "module"` 或 `.mjs`。
 
 ## C1 launchBrowser
 
@@ -68,13 +68,13 @@ process.on('exit', cleanup); process.on('SIGINT', () => { cleanup(); process.exi
 let tmpSettingsFiles = []                                  //本進程建立者, cleanup() 逐一刪除（測完即刪）
 export function genTempSettings(overrides = {}) {
     const base = JSON5.parse(fs.readFileSync(join(projRoot, 'settings.json'), 'utf8'))   //原檔含註解/單引號
-    const p = join(__dir, '_tmp', `settings-e2e-${process.pid}-${seq++}.json`)          //test/_tmp/（gitignore）, 絕不放專案 ./tmp/（AI 暫存區隨時清）
+    const p = join(testDir, '_tmp', `settings-e2e-${process.pid}-${seq++}.json`)        //test/_tmp/（gitignore）, 絕不放專案 ./tmp/（AI 暫存區隨時清）；testDir 見 C14
     fs.mkdirSync(dirname(p), { recursive: true }); fs.writeFileSync(p, JSON.stringify({ ...base, ...overrides }, null, 2)); tmpSettingsFiles.push(p); return p
 }
 function cleanupTempSettings() {                            //由 cleanup() 呼叫
     for (const p of tmpSettingsFiles) { try { fs.rmSync(p, { force: true }) } catch (e) {} }
     tmpSettingsFiles = []
-    try { const d = join(__dir, '_tmp'); if (fs.existsSync(d) && fs.readdirSync(d).length === 0) fs.rmdirSync(d) } catch (e) {}
+    try { const d = join(testDir, '_tmp'); if (fs.existsSync(d) && fs.readdirSync(d).length === 0) fs.rmdirSync(d) } catch (e) {}
 }
 export async function restartBackend(pathSettings = './settings.json', envOverride = null) {
     //1. 殺自己 spawn 的 backend  2. port 仍被佔（reuse 或手動啟動之同專案後端）→ OS 層 netstat/taskkill（posix lsof/kill）——明文例外，前提：該 port 專屬本專案
@@ -309,19 +309,20 @@ else { for (const lang of LANGS) describe(`flow (${lang})`, function() { /* befo
 ## C14 端點
 
 ```js
-const BACKEND_PORT = 11006, FRONTEND_PORT = 8090   //與他專案錯開；映射表載明
+const BACKEND_PORT = 11006, FRONTEND_PORT = 8090   //≥ 8000、與他專案錯開、寫死不隨機；映射表載明
 export const apiBaseUrl = `http://127.0.0.1:${BACKEND_PORT}`, baseUrl = `http://127.0.0.1:${FRONTEND_PORT}`
-export const projRoot = join(dirname(fileURLToPath(import.meta.url)), '..')   //相對路徑一律由此解析
+export const projRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')   //本模組位於 test/tools/，上兩層為專案根；相對路徑一律由此解析
+export const testDir = join(projRoot, 'test')                                        //test/_tmp、test/pics 由此衍生，不用 __dir（那是 test/tools）
 ```
 
-## Audit 指令（改一檔就掃全部 `test/e2e-*.mjs`）
+## Audit 指令（改一檔就掃全部 `test/e2e-*.test.mjs` 與 `test/tools/*.mjs`）
 
 ```bash
 grep -rn "chromium.launch" test/ | grep -v launchBrowser                                        # 應為空
 grep -lE "process\.argv\.includes\('--baseline'\)" test/e2e-*.test.mjs | while read f; do grep -q "cleanup()" "$f" || echo "MISSING cleanup(): $f"; done
 grep -rln "spawn(" test/e2e-*.test.mjs                                                           # 個別檔不得自行 spawn server
 grep -rn "\.fill(\|vm\.\|\$store\.commit" test/e2e-*.test.mjs                                   # act 階段不得出現（setup 例外須註解）
-grep -rn "async function typeInto\|async function waitUntilExist\|async function resetDb" test/e2e-*.test.mjs   # 應只在 e2e-setup.mjs
-grep -rn "__e2e_box__\|createElement('div')" test/e2e-*.mjs                                     # 紅框不得注入 DOM（含測試檔內自訂 capture helper）
-grep -rn "localhost" test/e2e-*.mjs                                                              # 端點應為 127.0.0.1
+grep -rn "async function typeInto\|async function waitUntilExist\|async function resetDb" test/e2e-*.test.mjs   # 應只在 test/tools/e2e-setup.mjs
+grep -rn "__e2e_box__\|createElement('div')" test/e2e-*.test.mjs test/tools/*.mjs               # 紅框不得注入 DOM（含測試檔內自訂 capture helper）
+grep -rn "localhost" test/e2e-*.test.mjs test/tools/*.mjs                                        # 端點應為 127.0.0.1
 ```

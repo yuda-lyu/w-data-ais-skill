@@ -9,11 +9,11 @@
 
 | 項目 | 值 |
 |---|---|
-| 後端 | `node srv.mjs`（port NNNNN） |
-| 前端 | (a) `npm run serve`（port NNNN，與他專案錯開）/ (b) 先 `npm run build`，由後端 serve `dist` |
+| 後端 | `node srv.mjs`（port NNNNN，≥ 8000、與他專案錯開、寫死不隨機） |
+| 前端 | (a) `npm run serve`（port NNNN，≥ 8000 且與他專案錯開）/ (b) 先 `npm run build`，由後端 serve `dist` |
 | w-screenctl | `node node_modules/w-screenctl/g.mjs`（port 7000，被佔用另選） |
 | seed 腳本 | `g_initialTestData.mjs`（hermetic：e2e 進場先刪 DB 目錄再跑；偵測 stdout `finish.`） |
-| e2e 執行 | `npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout NNNNNN`（單檔）/ `npm run test:e2e`（逐檔隔離 runner `test/run-e2e-isolated.mjs`） |
+| e2e 執行 | `npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout NNNNNN`（單檔）/ `node test/tools/run-e2e-isolated.mjs`（逐檔隔離 runner；`package.json` scripts 只有 `test`，不加 `test:e2e`） |
 
 ### 契約映射
 

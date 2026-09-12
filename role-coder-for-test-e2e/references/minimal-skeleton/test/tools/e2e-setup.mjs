@@ -1,4 +1,5 @@
 //dry run: 依技能 references/e2e-setup-contract.md 之「最小可執行骨架」建立 (核心契約 C1/C2/C6/C7/C8/C9/C10/C11/C13/C14)
+//位置: test/tools/ (輔助工具不帶 .test., 免被 runner 抓成測試檔); 測試檔在 test/ 一層
 import { spawn, execSync } from 'child_process'
 import http from 'http'
 import fs from 'fs'
@@ -9,8 +10,9 @@ import pixelmatch from 'pixelmatch'
 import { PNG } from 'pngjs'
 import { chromium } from 'playwright'
 
-const __dir = path.dirname(fileURLToPath(import.meta.url))
-export const projRoot = path.join(__dir, '..')
+const __dir = path.dirname(fileURLToPath(import.meta.url))   //test/tools
+export const projRoot = path.join(__dir, '..', '..')           //專案根: 本模組位於 test/tools/, 上兩層
+export const testDir = path.join(projRoot, 'test')             //test/pics, test/_tmp 由此衍生, 不用 __dir
 const isWin = process.platform === 'win32'
 
 //C14 端點

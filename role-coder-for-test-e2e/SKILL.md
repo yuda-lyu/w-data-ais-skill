@@ -15,7 +15,7 @@ description: |
 
 | 問 | 怎麼查 | 決定 |
 |---|---|---|
-| runner 與比對方式？ | `package.json` scripts、`test/e2e-setup.mjs` 有無 `pixelmatch` | 本技能全量適用 / 只採通用原則 |
+| runner 與比對方式？ | `package.json` scripts、`test/tools/e2e-setup.mjs` 有無 `pixelmatch` | 本技能全量適用 / 只採通用原則 |
 | 服務拓撲？ | setup 內 spawn 什麼：前端 dev server + 後端，或後端 serve build；port 是否與他專案錯開 | 契約 C2 模式 |
 | 語系與資料來源？ | 有無 i18n（語系迴圈）；seed 腳本、mock 開關、fixture log | C4 / C5 是否需要、§10 場景 |
 | 時間戳從哪層寫入？ | grep schema 預設值、ORM 服務層、Worker、前端暫態 | 假時鐘錨點放哪層（§8.2） |
@@ -116,7 +116,7 @@ description: |
 | C15 | 程序級假時鐘（preload 模組 + 種子 / 執行期兩個錨點） | 畫面含由程式取當下時間寫入的欄位 |
 | — | 逐檔隔離 runner、in-memory 計數清除 API、fixture log | 後端跨檔留狀態 / rate limit / 統計頁 |
 
-參考實作、最小可執行骨架（含 imports / dependencies / scripts）、audit 指令：[references/e2e-setup-contract.md](references/e2e-setup-contract.md)。**helper 不重複**：同一 helper 只在 setup 模組定義一次；測試檔內第二份近似實作＝補丁堆積，先收斂再寫新 case。紅框量測 helper 屬 flow 共用模組，設計原則見 §7.4。
+參考實作、最小可執行骨架（含 imports / dependencies / scripts）、audit 指令：[references/e2e-setup-contract.md](references/e2e-setup-contract.md)。**輔助工具的位置**：setup 模組、逐檔隔離 runner、baseline 產生器一律放 `test/tools/*.mjs`（不帶 `.test.` 中綴，免被 runner 抓成測試檔）；測試檔本身放 `test/` 一層，以 `e2e-` 前綴分類，不開 `e2e/` 子目錄。**helper 不重複**：同一 helper 只在 setup 模組定義一次；測試檔內第二份近似實作＝補丁堆積，先收斂再寫新 case。紅框量測 helper 屬 flow 共用模組，設計原則見 §7.4。
 
 ## 4. Act：走 user-facing input
 
@@ -306,7 +306,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 
 ### 9.1 進場 ↔ 離場
 
-- 進場：偵測 port（health 回專案識別才 reuse，否則另選 port / fail-fast）；沒人 → spawn 等 ready；多服務時 once 旗標依服務分拆。
+- 進場：偵測 port（port ≥ 8000、與他專案錯開、寫死於映射表不隨機；health 回專案識別才 reuse，否則另選 port / fail-fast）；沒人 → spawn 等 ready；多服務時 once 旗標依服務分拆。
 - 離場死結：spawn 的 child hold event loop，`process.on('exit')` 要等 loop 清空 → 互鎖；`unref()` 單獨用讓 cleanup 沒人觸發；`process.exit(0)` 掩蓋問題——都不要用。正解：同一 `cleanup()`、兩條觸發來源——①`globalThis.after`（框架）②直跑分支主函式末尾顯式呼叫；exit / SIGINT 備援只做**同步**殺（`execSync taskkill`），非同步 spawn 在 exit handler 內不會被等待。
 - 第三方 client 無法 close（內部 `setInterval`）時，api 測試層 root `after` 註冊 `process.exit()`，註解原因——明文例外。
 - **規則錨定 artifact**：規則寫「接觸 spawned server 的 script」而非「框架跑完不退」，否則直跑模式觸發詞不命中而累犯；發現 recurring bug 第一動作是 grep 全 repo 同 pattern 一起修。
@@ -316,7 +316,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 ### 9.2 restartBackend 與逐檔隔離
 
 - `restartBackend`：先殺自己 spawn 的；port 仍被佔（reuse / 手動啟動之**同專案**後端）走 OS 層 `netstat` / `taskkill`（posix `lsof` / `kill`），等 port 真釋放再 spawn——這是「只重啟自己 PID」規則的明文例外，前提是該 port 專屬本專案（映射表載明）。需特殊 settings 的 case 以 `try/finally` 還原預設；環境變數覆寫收斂在 `envOverride`。
-- 逐檔隔離 runner：多 e2e 檔塞單一 mocha 進程會共用被前面測試改過狀態的後端（RPC 正規化過欄位序 → 列序與 solo 產的 baseline 不符）。每檔獨立 mocha 進程 + 全新後端；無狀態且啟動慢的前端暖機共用；`readdirSync` 動態白名單。無 runner 的專案 e2e 一律單檔跑，`npm test` 不得含 e2e。
+- 逐檔隔離 runner：多 e2e 檔塞單一 mocha 進程會共用被前面測試改過狀態的後端（RPC 正規化過欄位序 → 列序與 solo 產的 baseline 不符）。每檔獨立 mocha 進程 + 全新後端；無狀態且啟動慢的前端暖機共用；`readdirSync` 動態白名單。無 runner 的專案 e2e 一律單檔跑，`npm test` 不得含 e2e。`package.json` 之 scripts 只有 `test`，**不加 `test:e2e`**；e2e 以自行編寫之指令逐檔跑（`npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`），有隔離 runner 者直跑 `node test/tools/run-e2e-isolated.mjs`；`test/` 內有 e2e 檔時，`test` 之 mocha glob 收窄為 `unit-`／`api-` 前綴白名單，e2e 檔不得被 `npm test` 抓到。
 - cwd：以專案根為 cwd 執行，setup 內相對路徑以 `projRoot` 解析；cwd 錯會整檔「標準圖不存在」假紅。
 - **測試中介資料一律落 `test/_tmp/`（gitignore），測完即刪**：臨時 settings、fixture 副本、合成 log 目錄、資料庫快照等放 `test/_tmp/<用途>/`，由該測試檔 `after` 或 setup `cleanup()` 刪除（追蹤本進程建立的檔案逐一 `rm`，目錄空了再 `rmdir`）。**絕不可放專案 `./tmp/`**——那是 AI 代理的暫存區，隨時會被整個清除，測試執行途中被刪即假失敗（殷鑑：三專案 `genTempSettings` 原寫 `./tmp/`；golden 產生器留在 `./tmp/` 隨清除佚失）。fixture 資產（golden logs、expected、`_staref`、上傳用 xlsx）不是中介資料，放 `test/<fixture>/` 入版控。**失敗證據也不是中介資料**：baseline 比對失敗之三聯組一律 dump 到專案根 `./testPending/`（gitignore、ms 時間戳、永不覆蓋、**不自動刪除**——偶發 flake 的當次證據常在隔天才分析），這是本技能既定規則（§7.7、contract C9），不因「臨時資料放 test/_tmp」而改變；三者分工：`test/_tmp/`＝中介資料（測完即刪）、`./testPending/`＝失敗證據（人工清理）、`./tmp/`＝AI 暫存區（測試禁用）。
 
@@ -350,7 +350,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 
 ### 11.1 跑 mocha
 
-`--reporter list` 且不接 pipe；長跑 `run_in_background` + Read output；`--timeout` 依專案。`--grep` 過濾掉 outer `it` 時 nested `before` 會在 DB 未 setup 前執行（徵狀「找不到 user / 30s timeout」是 artifact 非 production bug）：`--grep` 涵蓋 outer 至少一個 case、或 nested 自己 setup、或 outer 改 `before`。標準圖尚未經使用者審圖認可前不跑比對（§7.6）。
+指令自行編寫，不新增 `package.json` script（scripts 只有 `test`，且不含 e2e）；`--reporter list` 且不接 pipe；長跑 `run_in_background` + Read output；`--timeout` 依專案。`--grep` 過濾掉 outer `it` 時 nested `before` 會在 DB 未 setup 前執行（徵狀「找不到 user / 30s timeout」是 artifact 非 production bug）：`--grep` 涵蓋 outer 至少一個 case、或 nested 自己 setup、或 outer 改 `before`。標準圖尚未經使用者審圖認可前不跑比對（§7.6）。
 
 ### 11.2 Timing flake 自己修
 
@@ -384,7 +384,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 - [ ] 產品缺陷步驟走 knownDefect → pending，已以無 hook 環境重現並寫入已知落差；無 allowPageErrors 放行
 - [ ] 重產：同時只有一條鏈；log 檔名未重用；長段紅線掃描無框為 0；每張逐張目視並對照 spec；退回類別已全掃；已交使用者審圖並取得認可後才跑 mocha
 - [ ] baseline 命名 <flow>-<lang>-E2E-NNN-<序>-…；regen 有授權；--names 截圖前 gate；strict settle；git diff --stat 僅預期；certify 通過
-- [ ] 核心契約無缺口，條件式 adapter 已標適用/不適用；chromium.launch 只在 wrapper；紅框後合成；cleanup 兩來源
+- [ ] 核心契約無缺口，條件式 adapter 已標適用/不適用；chromium.launch 只在 wrapper；紅框後合成；cleanup 兩來源；setup 與 runner 在 test/tools/；package.json 無 test:e2e；port ≥ 8000 且不隨機
 - [ ] --grep 單跑與全跑一致；testPending 無本輪殘留；./tmp 清乾淨；netstat 無殘留 server；非自己啟動的程序已回報
 - [ ] 變體覆蓋：資料型別、內容型別、鍵盤觸發入口各有 case；具名資料為結果最豐富者
 - [ ] 派工模式：計畫檔事實皆有探測產物；同時只一條產製鏈、閘門為旗標檔；主代理逐張看圖且子代理主張已對物核實；退一張已退一類

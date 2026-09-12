@@ -3,11 +3,11 @@
 //  test : npx mocha tmp/e2e-dryrun/test/e2e-hello.test.mjs
 import assert from 'assert'
 import path from 'path'
-import { startServersOnce, launchBrowser, openApp, setLang, typeIntoInput, waitUntilExist, captureStableWithBox, assertBaselineMatch, projRoot } from './e2e-setup.mjs'
+import { startServersOnce, launchBrowser, openApp, setLang, typeIntoInput, waitUntilExist, captureStableWithBox, assertBaselineMatch, testDir } from './tools/e2e-setup.mjs'   //輔助工具在 test/tools/
 
 const LANGS = ['eng', 'cht']
 const KP = { eng: { btn: 'Submit', hello: 'Hello, ' }, cht: { btn: '送出', hello: '你好, ' } }
-const picPath = (lang, name) => path.join(projRoot, 'test', 'pics', 'hello', `hello-${lang}-${name}.png`)
+const picPath = (lang, name) => path.join(testDir, 'pics', 'hello', `hello-${lang}-${name}.png`)
 
 //6 步 user path: ①進站首頁 ②點 Name 輸入框 ③看到空白訊息 ④輸入 Alice ⑤點 Submit ⑥看到「Hello, Alice」(無後端副作用)
 const CASES = [
