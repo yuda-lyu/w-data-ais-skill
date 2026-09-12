@@ -1,13 +1,13 @@
 ---
 name: role-coder-for-test-e2e
 description: |
-  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；作業模式（單人 vs 主代理派工：探測先行、計畫檔、單鏈排程與旗標閘門、逐張審圖）；從 spec 推導 case（完整度 rubric 含資料與內容變體覆蓋、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕與鍵盤 affordance 全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖同時是操作手冊用圖（每步兩張、一圖一框、框反應內容本身、已知缺陷不凍結、產完逐張目視並交審才跑 mocha）；截圖穩定性（settle 訊號、mouse park、假時鐘、確定性渲染旗標、非決定性畫布之「標準圖覆蓋＋DOM 貼回」、全頁 vs 視窗截圖）；lifecycle 對稱性與逐檔隔離；場景手冊（含地圖／三維畫布、全畫面圖片瀏覽器、編輯器鍵盤觸發之提示區、彈窗多分頁）；mocha 執行慣例；探測腳本紀律與 w-screenctl 探索；完成前勾選。深入內容在 references/：baseline-as-manual（紅框決定表、量測 helper 設計、已知缺陷協定、假時鐘樣板、產製與目視紀律）、e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案 settings 映射表範本）、dispatch-and-review-workflow（多系統批量產製：主代理探測、計畫檔、單鏈排程與旗標閘門、逐張審圖與退件、回報）。
+  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；作業模式（單人 vs 主代理派工：探測先行、計畫檔、單鏈排程與旗標閘門、逐張審圖）；從 spec 推導 case（完整度 rubric 含資料與內容變體覆蓋、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕與鍵盤 affordance 全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖同時是操作手冊用圖（每步兩張、一圖一框、框反應內容本身、已知缺陷不凍結、產完逐張目視並交審才跑 mocha）；截圖穩定性（settle 訊號、mouse park、假時鐘、確定性渲染旗標、非決定性畫布之「標準圖覆蓋＋DOM 貼回」、全頁 vs 視窗截圖）；lifecycle 對稱性與逐檔隔離；場景手冊（含地圖／三維畫布、全畫面圖片瀏覽器、編輯器鍵盤觸發之提示區、彈窗多分頁）；mocha 執行慣例；探測腳本紀律與 w-screenctl 探索；完成前勾選。深入內容在 references/：baseline-as-manual（紅框決定表、量測 helper 設計、已知缺陷協定、假時鐘樣板、產製與目視紀律）、e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案規則帳本 `CLAUDE_rulebook.md` 之 e2e 映射表範本）、dispatch-and-review-workflow（多系統批量產製：主代理探測、計畫檔、單鏈排程與旗標閘門、逐張審圖與退件、回報）。
   觸發條件：凡接觸 e2e 測試檔（檔名含 `e2e-`）的任務——寫/改/審/拆/移除/重構/完整度盤查/flake 排查/標準圖產製或重產——必先調用本技能，整篇入 context 逐項比對；看到 e2e 工件即觸發。亦適用於撰寫或複審 spec「重要流程」之 E2E-NNN case（含 description——其受眾為使用者操作手冊，不是測試撰寫者）。
 ---
 
 # E2E 測試建構規範
 
-本技能只寫**跨專案不變的規則與能力契約**；各專案的落地映射（函式實名、port、regen 模式、旗標組、服務模式、偏離與依據）寫在該專案 `CLAUDE_settings.md`（範本：[references/project-mapping-template.md](references/project-mapping-template.md)）。**規則以本技能為準，落地細節以專案映射為準；映射表寫了「偏離與依據」的項目才算合法偏離，沒寫的視為缺口。** 正文中的 `$vo` / `csLogin` / WDrawer / ag-grid / eng-cht 等字樣皆為姊妹專案（Vue 2 + 同一套組件庫）**範例**，不是規則。
+本技能只寫**跨專案不變的規則與能力契約**；各專案的落地映射（函式實名、port、regen 模式、旗標組、服務模式、偏離與依據）屬規則帳本之一環，寫在該專案 `CLAUDE_rulebook.md` 的 e2e 映射節（範本：[references/project-mapping-template.md](references/project-mapping-template.md)）。**規則以本技能為準，落地細節以專案映射為準；映射表寫了「偏離與依據」的項目才算合法偏離，沒寫的視為缺口。** 正文中的 `$vo` / `csLogin` / WDrawer / ag-grid / eng-cht 等字樣皆為姊妹專案（Vue 2 + 同一套組件庫）**範例**，不是規則。
 
 **閱讀順序**：§0 勘查 → §1 交付物 → §1.5 作業模式（單人或派工）→ §2 從 spec 到 case → §3 契約 → §4 act → §5 assert → §6 隔離 → §7 標準圖（操作手冊用圖）→ §8 穩定性 → §9 lifecycle → §10 場景 → §11 執行、探索與探測腳本 → §12 勾選。深入：[references/baseline-as-manual.md](references/baseline-as-manual.md)、[references/dispatch-and-review-workflow.md](references/dispatch-and-review-workflow.md)、[references/e2e-setup-contract.md](references/e2e-setup-contract.md)、[references/pixel-mismatch-diagnosis.md](references/pixel-mismatch-diagnosis.md)、[references/research-review-discipline.md](references/research-review-discipline.md)。
 
@@ -19,7 +19,7 @@ description: |
 | 服務拓撲？ | setup 內 spawn 什麼：前端 dev server + 後端，或後端 serve build；port 是否與他專案錯開 | 契約 C2 模式 |
 | 語系與資料來源？ | 有無 i18n（語系迴圈）；seed 腳本、mock 開關、fixture log | C4 / C5 是否需要、§10 場景 |
 | 時間戳從哪層寫入？ | grep schema 預設值、ORM 服務層、Worker、前端暫態 | 假時鐘錨點放哪層（§8.2） |
-| 專案映射表存在嗎？ | `CLAUDE_settings.md` 之 e2e 映射 | 缺 → 先依範本補，再寫 case |
+| 專案映射表存在嗎？ | `CLAUDE_rulebook.md` 之 e2e 映射節 | 缺 → 先依範本補，再寫 case |
 | 姊妹專案有先例嗎？ | Grep 同組織其他專案 `test/` 之 helper 名與註解 | 沿用，不自創 |
 
 ## 1. 交付物與完成判準

@@ -62,9 +62,9 @@ CLAUDE.md
 
 執行工作時特有之[重要處理要點]須紀錄至`CLAUDE_process.md`,主要為業務端之特化要求事項與其對應之處理流程與方式.由agent自行編列、擴充與維護.
 
-專案特有之[e2e專案映射表]須儲存至`CLAUDE_settings.md`,規則以全域技能為準,落地細節以本檔為準,由agent自行擴充.
-
 專案特有之[計畫資訊]須儲存至`CLAUDE_project.md`,agent請勿自行修改.
+
+套件特有之[設定資訊]須儲存至`CLAUDE_settings.md`,agent請勿自行修改.
 
 --
 
