@@ -15,6 +15,7 @@ config.mjs（systemName / version / flows[{chapter, spec, lead?}]）──┼─
 - 一個共用模組 `mkManual(呼叫端位置, config)` 回傳 `{ genFigs, genMd, genDocx, run }`；路徑一律自模組檔位置推導（不依 cwd），各分冊薄殼各有 main-guard。
 - 各分冊 `src/`：`config.mjs`、`manual.mjs`（接入共用模組）、`genFigs.mjs`／`genMd.mjs`／`genDocx.mjs`／`g.mjs`（薄殼）、`content/<流程前綴>.mjs`。
 - `config.flows[].lead`：該章導文之自訂文字；預設導文假設「從主選單點選○○進入」，無主選單入口之機制型系統（貫穿全站之網址控制、分享連結等）必給 `lead`，說明機制從哪些入口觸發、本章各節如何組成、紅框慣例。
+- `config.dirProject`（選填）：spec 與標準圖位於另一專案時指向該專案根（絕對路徑或相對主專案根）；parseSpec 與 genFigs 改自該專案之 `spec/` 與 `test/pics/` 取材，`report/` 仍在本分冊。
 
 ## 2. parseSpec 之解析規則
 
@@ -40,6 +41,7 @@ export default {
 
 - 檔首註解交代：真理源在 spec、本檔只補圖名與敘述、圖名規則、`{fig:k}` 契約、`skipImgs` 用途、未撰寫案例會被略過。
 - 尚未撰寫之案例不列於檔內（genMd 略過並提示），不得以空物件佔位；**分批存檔時每次只寫已完成之案例**，之後追加。
+- **片段檔**：`content/<流程前綴>.<片段名>.mjs` 與主檔一併載入合併（依檔名排序），同一案例出現於兩檔即拋錯；供多位撰寫者並行，各只改自己的片段。收回後以併檔工具合併：以文字擷取各片段 `export default {` 內之案例區塊（每案例以四空格縮排之 `'E2E-NNN': {` 起始、以 `},` 結尾），依編號排序重組並加回檔首註解，先以 import 深比對「併檔前各片段之聯集」與「併檔後」逐案例相同，才寫入並刪片段。
 
 ## 4. genMd 之檢核（一律拋錯，不降級為警告）
 
@@ -92,3 +94,5 @@ export default {
 | 標準圖夾與 spec 圖鍵不一致 | 回 e2e 端修 spec 或重產，不在 content 遷就 |
 | 內容檔長時間 0 byte | 子代理未分批存檔而陷入重讀迴圈；停掉重派並明令每三案例存檔 |
 | 子代理回報「未執行 g.mjs」 | 正常：子代理只寫 content 並跑 genMd；產圖與 docx 由主代理統一跑 |
+| genMd 報「案例同時出現於兩個內容檔」 | 兩位撰寫者寫到同一案例；依派工區間刪去其一 |
+| 併檔工具報「併檔前後不同」 | 片段內有非案例區塊之程式碼或註解夾在案例之間；改為純案例區塊後重併 |

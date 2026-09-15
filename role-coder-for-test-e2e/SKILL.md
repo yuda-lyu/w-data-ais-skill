@@ -1,7 +1,7 @@
 ---
 name: role-coder-for-test-e2e
 description: |
-  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；作業模式（單人 vs 主代理派工：探測先行、計畫檔、單鏈排程與旗標閘門、逐張審圖）；從 spec 推導 case（完整度 rubric 含資料與內容變體覆蓋、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕與鍵盤 affordance 全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖同時是操作手冊用圖（每步兩張、一圖一框、框反應內容本身、已知缺陷不凍結、產完逐張目視並交審才跑 mocha）；截圖穩定性（settle 訊號、mouse park、假時鐘、確定性渲染旗標、非決定性畫布之「標準圖覆蓋＋DOM 貼回」、全頁 vs 視窗截圖）；lifecycle 對稱性與逐檔隔離；場景手冊（含地圖／三維畫布、全畫面圖片瀏覽器、編輯器鍵盤觸發之提示區、彈窗多分頁）；mocha 執行慣例；探測腳本紀律與 w-screenctl 探索；完成前勾選。深入內容在 references/：baseline-as-manual（紅框決定表、量測 helper 設計、已知缺陷協定、假時鐘樣板、產製與目視紀律）、e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案規則帳本 `CLAUDE_rulebook.md` 之 e2e 映射表範本）、dispatch-and-review-workflow（多系統批量產製：主代理探測、計畫檔、單鏈排程與旗標閘門、逐張審圖與退件、回報）。
+  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；作業模式（單人 vs 主代理派工：探測先行、計畫檔、單鏈排程與旗標閘門、逐張審圖）；從 spec 推導 case（完整度 rubric 含資料與內容變體覆蓋、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕與鍵盤 affordance 全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖同時是操作手冊用圖（每步兩張、一圖一框、框反應內容本身、已知缺陷不凍結、產完逐張目視並以圖文對照之審圖報告交審才跑 mocha、下游手冊同輪更新）；截圖穩定性（settle 訊號、mouse park、假時鐘、確定性渲染旗標、非決定性畫布之「標準圖覆蓋＋DOM 貼回」、全頁 vs 視窗截圖）；lifecycle 對稱性與逐檔隔離；場景手冊（含地圖／三維畫布、全畫面圖片瀏覽器、編輯器鍵盤觸發之提示區、彈窗多分頁、以真實收件匣驗證信件往返與模板改版之三處同步）；mocha 執行慣例；探測腳本紀律與 w-screenctl 探索；完成前勾選。深入內容在 references/：baseline-as-manual（紅框決定表、量測 helper 設計、已知缺陷協定、假時鐘樣板、產製與目視紀律）、e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案規則帳本 `CLAUDE_rulebook.md` 之 e2e 映射表範本）、dispatch-and-review-workflow（多系統批量產製：主代理探測、計畫檔、單鏈排程與旗標閘門、逐張審圖與退件、審圖報告與回報）、mail-roundtrip-verification（寄信點盤點、收件匣服務、假時鐘與 Date 標頭、逐行純文字斷言、模板設計與檢視器頁、改版三處同步）。
   觸發條件：凡接觸 e2e 測試檔（檔名含 `e2e-`）的任務——寫/改/審/拆/移除/重構/完整度盤查/flake 排查/標準圖產製或重產——必先調用本技能，整篇入 context 逐項比對；看到 e2e 工件即觸發。亦適用於撰寫或複審 spec「重要流程」之 E2E-NNN case（含 description——其受眾為使用者操作手冊，不是測試撰寫者）。
 ---
 
@@ -231,7 +231,7 @@ description: |
 2. 重產：**同一時間只有一條鏈在跑**（重產與 mocha 共用後端與資料庫）；啟動前列出 `baseline|mocha|後端` 程序，殺乾淨或等完；多批次串成一條序列背景鏈；每次用**沒用過的 log 檔名**；等待用任務完成通知或本輪 log 的 EXIT。殷鑑：`until grep EXIT` 等到上一輪同名 log，第二條重產並行殺掉第一條的後端，剩餘案例逾時而圖仍是舊檔。異常結束以圖檔 mtime 對照本輪起訖判斷哪些真的重產了。
 3. 無框掃描：以「長段紅線（同色連續 ≥ 20 px）」判定有框；統計紅像素會被頁面紅字假陽性。
 4. **逐張目視**：每張對照 spec 那句「框住…」核對（reference §6.3 清單）。使用者退回一張＝退回一個類別，把同類別的每張圖翻出來查，不只修被點名那張；殷鑑：八輪退圖，每輪只修被點名那張。
-5. **交使用者審圖**；未認可前不跑 mocha 比對。
+5. **交使用者審圖**：使用者難以逐張開圖檔時，產一份圖文對照之審圖報告（md→docx，非交付文件、放暫存區）交審——只收本輪新增／變動之案例，每案例先列操作描述與手冊敘述，每張圖之圖說為「圖名（圖鍵）」再附 spec 那句「框住…」，另附本輪變動摘要與重產抽樣（作法見 dispatch-and-review-workflow §6）。已有下游手冊者，手冊之圖名、敘述、md 與 docx 於**同一輪**更新後一起交審，不留到認可之後（殷鑑：補了收信之標準圖卻未同輪補手冊，使用者反問「為何手冊還是沒看到收信截圖」）。未認可前不跑 mocha 比對。
 6. 認可後才跑全跑與 `--grep` 單跑一致性，再回報。
 
 ### 7.7 比對與失敗證據
@@ -333,7 +333,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 | 模擬不同 client IP | `ctx.route('**/*')` 僅本機 URL 加 `X-Forwarded-For`（`newContext({extraHTTPHeaders})` 會套到 CDN → icon 缺圖）；絕不封 127.0.0.1；後端不信任 XFF 的專案改 fixture log |
 | in-memory 計數清除 | 僅本機 + token 放行的清除 API，`beforeEach` 打；fail-closed 情境下沉 unit |
 | server 注入語系之初始畫面 | 打後端 serve 的 build 非 dev server；保留不可變模板或冪等還原佔位符；URL 不帶 `?lang=`；**最低覆蓋**：連線中畫面（`page.route` 攔截不回應使懸置；abort 會變斷線畫面）＋ 登入 / 主畫面；其他連線狀態以前端狀態 API 強制切換（setup 例外） |
-| email round-trip（重設密碼、變更通知、註冊驗證信） | 先三步探測（建收件匣→產品寄信→API 讀全文）再擴案例；一收信者一個 API 可讀之收件匣，收件匣不足時多帳號＋「收件匣→金鑰」對應；涉信案例才用真實 SMTP，其餘指向拒絕埠；假時鐘會讓 Date 標頭落在過去而送不到，後端殼補 `date: Date.now()`；輪詢取信（案例起始減 1 分鐘、同主旨多封以識別碼排除）；憑證缺 fail-fast 不 skip；信件標準圖用固定版式檢視器頁（無時間、密碼／識別碼黑條），不截儀表板。全文：[references/mail-roundtrip-verification.md](references/mail-roundtrip-verification.md) |
+| email round-trip（重設密碼、變更通知、註冊驗證信） | 先三步探測（建收件匣→產品寄信→API 讀全文）再擴案例；一收信者一個 API 可讀之收件匣，收件匣不足時多帳號＋「收件匣→金鑰」對應；涉信案例才用真實 SMTP，其餘指向拒絕埠；假時鐘會讓 Date 標頭落在過去而送不到，後端殼補 `date: Date.now()`；輪詢取信（案例起始減 1 分鐘、同主旨多封以識別碼排除）；憑證缺 fail-fast 不 skip；信件標準圖用固定版式檢視器頁（無時間、密碼／識別碼黑條），不截儀表板；先盤點產品全部寄信點（grep 寄信呼叫與設定之信件鍵），每個寄信點至少一個收信案例，不只做最先想到的那種信；斷言以逐行純文字對 spec〈信件對照〉；模板或文案改版（版式、點名所屬系統、結果頁文案）時模板檔、spec〈信件對照〉、測試之期望文字三處同步並 grep 舊主旨，只重產含信件與結果頁之圖；只能由套件改的文案先寫建議檔、升版後再改三處。全文：[references/mail-roundtrip-verification.md](references/mail-roundtrip-verification.md) |
 | 統計 / 依時間漂移 | 後端確定性優先：假時鐘（§8.2）、mock 資料集（settings 開關）、fixture log（非 ISO 檔名繞過輪替清理）、合成 log 目錄 + `restartBackend`；仍漂移才貼圖覆蓋 |
 | 成功訊息 | 停留 modal 不用 toast；既有 toast 者等滑入定位後縮短初始等待截圖 |
 | 按鈕視覺鎖 | `pm.resolve()` 放 handler 第一行，否則 e2e 永遠截到 loading 態 |
@@ -384,6 +384,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 - [ ] 標準圖：每步兩張且每張有框；spec 視覺項與程式碼註解都寫「框住什麼」且一致；一圖一框；框反應內容本身不框空白；標籤/抽屜整顆；被蓋住改框上層；捲入後量
 - [ ] 產品缺陷步驟走 knownDefect → pending，已以無 hook 環境重現並寫入已知落差；無 allowPageErrors 放行
 - [ ] 重產：同時只有一條鏈；log 檔名未重用；長段紅線掃描無框為 0；每張逐張目視並對照 spec；退回類別已全掃；已交使用者審圖並取得認可後才跑 mocha
+- [ ] 交審形式：圖文對照之審圖報告只收本輪新增／變動案例、每圖附圖鍵與框住對象；下游手冊已同輪更新；涉信流程之寄信點已全盤點，模板／〈信件對照〉／測試期望三處一致
 - [ ] baseline 命名 <flow>-<lang>-E2E-NNN-<序>-…；regen 有授權；--names 截圖前 gate；strict settle；git diff --stat 僅預期；certify 通過
 - [ ] 核心契約無缺口，條件式 adapter 已標適用/不適用；chromium.launch 只在 wrapper；紅框後合成；cleanup 兩來源；setup 與 runner 在 test/tools/；port ≥ 8000 且不隨機
 - [ ] --grep 單跑與全跑一致；testPending 無本輪殘留；./tmp 清乾淨；netstat 無殘留 server；非自己啟動的程序已回報
