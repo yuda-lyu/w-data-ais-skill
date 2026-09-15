@@ -333,7 +333,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 | 模擬不同 client IP | `ctx.route('**/*')` 僅本機 URL 加 `X-Forwarded-For`（`newContext({extraHTTPHeaders})` 會套到 CDN → icon 缺圖）；絕不封 127.0.0.1；後端不信任 XFF 的專案改 fixture log |
 | in-memory 計數清除 | 僅本機 + token 放行的清除 API，`beforeEach` 打；fail-closed 情境下沉 unit |
 | server 注入語系之初始畫面 | 打後端 serve 的 build 非 dev server；保留不可變模板或冪等還原佔位符；URL 不帶 `?lang=`；**最低覆蓋**：連線中畫面（`page.route` 攔截不回應使懸置；abort 會變斷線畫面）＋ 登入 / 主畫面；其他連線狀態以前端狀態 API 強制切換（setup 例外） |
-| email round-trip | 真打信箱 API 輪詢（`afterTime` 減 1 分鐘）抓連結；憑證缺 fail-fast |
+| email round-trip（重設密碼、變更通知、註冊驗證信） | 先三步探測（建收件匣→產品寄信→API 讀全文）再擴案例；一收信者一個 API 可讀之收件匣，收件匣不足時多帳號＋「收件匣→金鑰」對應；涉信案例才用真實 SMTP，其餘指向拒絕埠；假時鐘會讓 Date 標頭落在過去而送不到，後端殼補 `date: Date.now()`；輪詢取信（案例起始減 1 分鐘、同主旨多封以識別碼排除）；憑證缺 fail-fast 不 skip；信件標準圖用固定版式檢視器頁（無時間、密碼／識別碼黑條），不截儀表板。全文：[references/mail-roundtrip-verification.md](references/mail-roundtrip-verification.md) |
 | 統計 / 依時間漂移 | 後端確定性優先：假時鐘（§8.2）、mock 資料集（settings 開關）、fixture log（非 ISO 檔名繞過輪替清理）、合成 log 目錄 + `restartBackend`；仍漂移才貼圖覆蓋 |
 | 成功訊息 | 停留 modal 不用 toast；既有 toast 者等滑入定位後縮短初始等待截圖 |
 | 按鈕視覺鎖 | `pm.resolve()` 放 handler 第一行，否則 e2e 永遠截到 loading 態 |
