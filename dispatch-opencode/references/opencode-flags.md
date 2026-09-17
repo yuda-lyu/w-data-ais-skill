@@ -56,7 +56,8 @@ variant：minimal、low、medium、high、xhigh
 | `nvidia/deepseek-ai/deepseek-v4-flash-0731`、`…/deepseek-v4-pro-0813` | 403 `Authorization failed` |
 | `nvidia/poolside/laguna-xs-2.1` | 403 `Authorization failed` |
 | `cline/deepseek/deepseek-v4-flash` | 型錄為 `reasoning: false`、`variants: {}`，無推理變體 |
-| `opencode/deepseek-v4-flash-free` | 不在型錄中（`w-dispatch-ai` 的 `providers` 表仍收錄此 ID 作為 Zen REST 路徑之用，不代表 CLI 型錄查得到） |
+| `opencode/union-alpha`（REST 路徑） | **CLI 路徑可用、REST 路徑不可用**：2026-09-17 以 CLI 1.18.31 實測 6.8s 成功，但 REST 直呼回 403 `FreeTierError`（free tier can only be used from within OpenCode）——限免費模型只開放 opencode 客戶端，屬政策非故障，故套件只收 `oc:` 版 |
+| `opencode/deepseek-v4-flash-free` | 不在 CLI 型錄中。`w-dispatch-ai` 的 `providers` 表同時收錄它的 CLI 條目（`oc:opencode/deepseek-v4-flash-free`，2026-08-21 實測 `UnknownError`）與 REST 條目（`zen:deepseek-v4-flash-free`，同期回 401 `Free promotion has ended`）——兩條都是刻意保留不移除（恢復的偵測就是下次再打），**條目存在不代表現在能用** |
 
 **前四項在同一天的 `opencode models nvidia --refresh` 中照樣列得出來**——型錄查得到不等於供應商還在服務，這是本技能改用現行預設值的直接原因。
 
@@ -64,16 +65,18 @@ variant：minimal、low、medium、high、xhigh
 
 `opencode models` 只列出**已認證或已在設定中定義**之供應商的模型。2026-09-08 本機（`opencode auth list` 顯示 Nvidia、cline 兩筆憑證，加上內建 `opencode`）共 111 項模型、僅此三家。查未設定的供應商回 `Error: Provider not found: <名稱>`；硬用 `-m <該供應商>/<模型>` 派工則回 `UnknownError`（伺服器錯誤），訊息不會告訴你是沒認證。
 
-**但這兩種錯誤都不等於「該模型不能用」**：轉接器的 `config` 選項會為當次程序注入 provider 定義，型錄查不到照樣派得動。`w-dispatch-ai/src/providers.mjs` 內建的第三方條目即為此形式：
+**但這兩種錯誤都不等於「該模型不能用」**：轉接器的 `config` 選項會為當次程序注入 provider 定義，型錄查不到照樣派得動。`w-dispatch-ai/src/providers.mjs` 內建的第三方條目即為此形式（需 `config` 帶 provider 定義）：
 
 | 條目 id | `model` | `provider` | 金鑰環境變數 | baseURL | npm 轉接器 |
 |---|---|---|---|---|---|
-| `oc:agnes-ai/agnes-2.5-flash` | `agnes-ai/agnes-2.5-flash` | `agnes-ai` | `AGNES_KEYS` | `https://apihub.agnes-ai.com/v1` | `@ai-sdk/openai-compatible` |
+| `oc:agnes-ai/agnes-3.0-flash` | `agnes-ai/agnes-3.0-flash` | `agnes-ai` | `AGNES_KEYS` | `https://apihub.agnes-ai.com/v1` | `@ai-sdk/openai-compatible` |
 | `oc:poolside/poolside/laguna-s-2.1` | `poolside/poolside/laguna-s-2.1` | `poolside` | `POOLSIDE_KEYS` | `https://inference.poolside.ai/v1` | `@ai-sdk/openai-compatible` |
+
+走 OpenCode 自家供應商的另外四條（1.0.26 實查）**不需要 provider 定義**，`config` 內只有權限鎖：`oc:opencode/muse-spark-1.3-contributor-free`、`oc:opencode/muse-spark-1.2-contributor-free`、`oc:opencode/deepseek-v4-flash-free`（三者金鑰環境變數皆為 `OPENCODE_KEYS`），以及 **`oc:opencode/union-alpha`（刻意不帶金鑰環境變數，走 opencode 自身免費存取）**。全表之 `kind: 'opencode'` 條目共 6 條，逐條說明見 SKILL.md 之「條目表」。
 
 上表之 `nvidia/poolside/laguna-xs-2.1`（403）是 **NVIDIA 轉售的另一個 laguna 項目**，與此處 Poolside 官方 REST／CLI 路徑無關，別混為一談。同一個模型經不同路徑屬不同供應商，額度池與故障域各自獨立。
 
-該表另有同名模型的 REST 條目（`agnes:agnes-2.5-flash`、`poolside:laguna-s-2.1`，kind 為 `api-openai-compat`），走 `dispatchApiOpenaiCompat` 而非本轉接器：免 CLI、快，但**無工具能力**，只適合純文字生成。
+該表另有同名模型的 REST 條目（`agnes:agnes-3.0-flash`、`poolside:laguna-s-2.1`，kind 為 `api-openai-compat`），走 `dispatchApiOpenaiCompat` 而非本轉接器：免 CLI、快，但**無工具能力**，只適合純文字生成。
 
 ### `config` 內的權限設定
 
