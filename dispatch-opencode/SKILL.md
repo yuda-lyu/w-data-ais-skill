@@ -7,7 +7,7 @@ description: 當任務需要委派給 OpenCode，或需要使用 OpenCode 支援
 
 使用 `w-dispatch-ai` 的 `dispatchOpencode()` 執行自動化 OpenCode 任務。轉接器會呼叫 `opencode run`、選擇代理與模型、透過 stdin 傳入提示詞、視需要注入僅限當次程序的供應商設定與憑證，並以結果物件回報失敗。
 
-**本技能對照的是 1.0.26**（`dispatchOpencode()` 之固定參數與選項自 1.0.17 起未變動，呼叫方式不受版本影響）。但**條目會隨版本增刪改名，改動頻率遠高於轉接器本身**——近兩版即有兩起：1.0.25 把 `oc:agnes-ai/agnes-2.5-flash` 改名為 `oc:agnes-ai/agnes-3.0-flash`（官方 2026-09-11 發布 3.0，探測五題 3.0 答對推理題而 2.5 答錯、總耗時 41s 對 281s，故兩條目同步換掉，舊 id 不再收錄），1.0.26 又新增 `oc:opencode/union-alpha`。**寫死 id 前先對安裝版核一次**，不要照抄本技能或別處的字面值；`pick` 打錯或用到已改名的 id 會靜默少一條（接法見「展開條目」）。實際安裝版一律讀 `<技能根>/node_modules/w-dispatch-ai/package.json` 的 `version`。
+**本技能對照的是 1.0.34**（`dispatchOpencode()` 之固定參數自 1.0.17 起未變動；1.0.34 新增一個 `useStoredAuth` 選項，見「免費模型走匿名」）。但**條目會隨版本增刪改名，改動頻率遠高於轉接器本身**——近幾版就有三起：1.0.25 把 `oc:agnes-ai/agnes-2.5-flash` 改名為 `oc:agnes-ai/agnes-3.0-flash`（官方 2026-09-11 發布 3.0，探測五題 3.0 答對推理題而 2.5 答錯、總耗時 41s 對 281s，兩條目同步換掉），1.0.26 新增 `oc:opencode/union-alpha`，**1.0.34 又把 union-alpha 與 deepseek 一起移除、換成 `big-pickle` 與 `mimo-v2.6-flash-free`，並把 opencode 自家條目全改為匿名取用**。**寫死 id 前先對安裝版核一次**，不要照抄本技能或別處的字面值；`pick` 打錯或用到已移除的 id 會靜默少一條（接法見「展開條目」）。實際安裝版一律讀 `<技能根>/node_modules/w-dispatch-ai/package.json` 的 `version`。
 
 需要變更模型、供應商、variant、認證或輸出旗標時，讀取 [references/opencode-flags.md](references/opencode-flags.md)。
 
@@ -92,7 +92,7 @@ console.log(result.stdout);
 
 **可用模型＝已認證／已設定之供應商的模型，其餘等於不存在。** 2026-09-08 實測本機（已認證 `cline`、`nvidia`，加上內建 `opencode`）：`opencode models` 共 111 項、只涵蓋這三家；查一個沒設定的供應商回 `Error: Provider not found: <名稱>`，硬用 `-m <該供應商>/<模型>` 派工則回 `UnknownError`（伺服器錯誤）而不是清楚的「未認證」。看到這兩種錯誤，先查供應商有沒有設定，別懷疑模型名稱拼錯。
 
-**還有第三種錯誤長相：`Model is disabled`（401）**——那是**金鑰所屬工作區沒開這個模型**，不是模型不存在、也不是金鑰無效。同一批金鑰換一把就可能通（不同工作區設定不同），正解是到該工作區把模型開起來。注意有些模型在「不登入」時反而可用（見「不帶金鑰的條目」），所以注入金鑰不一定比較保險。
+**還有第三種錯誤長相：`Model is disabled`（401）**——那是**金鑰所屬工作區沒開這個模型**，不是模型不存在、也不是金鑰無效。同一批金鑰換一把就可能通（不同工作區設定不同），正解是到該工作區把模型開起來。注意 opencode 自家的免費模型在「不登入」時反而可用（見「免費模型走匿名」），所以注入金鑰不一定比較保險——套件的四個自家條目正是為此全部改走匿名。
 
 要用第三方供應商時，可沿用已儲存的憑證，或只為這次子程序注入金鑰：
 
@@ -114,39 +114,54 @@ await wda.dispatchOpencode(prompt, {
 
 ## 條目表：`providers.mjs` 的 6 個 opencode 條目
 
-`w-dispatch-ai` 自帶一份實測可用的條目表 `w-dispatch-ai/src/providers.mjs`，直接引用即可，不必自己重試一遍。**它是本技能所有模型資訊的上游**，與本技能不一致時以它為準。截至 1.0.26 全表 20 條，其中 `kind: 'opencode'` 者 6 條：
+`w-dispatch-ai` 自帶一份實測可用的條目表 `w-dispatch-ai/src/providers.mjs`，直接引用即可，不必自己重試一遍。**它是本技能所有模型資訊的上游**，與本技能不一致時以它為準。截至 1.0.34 全表 15 條，其中 `kind: 'opencode'` 者 6 條：
 
-| 條目 id | `model` | `provider` | 金鑰環境變數 | 備註（條目註解之實測紀錄） |
-|---|---|---|---|---|
-| `oc:opencode/muse-spark-1.3-contributor-free` | `opencode/muse-spark-1.3-contributor-free` | `opencode` | `OPENCODE_KEYS` | **即本技能必要預設模型**；2026-09-03 實測 6.1s。同模型走 zen REST 回 HTTP 500，只有 CLI 路徑可用 |
-| `oc:opencode/muse-spark-1.2-contributor-free` | `opencode/muse-spark-1.2-contributor-free` | `opencode` | `OPENCODE_KEYS` | 2026-09-03 實測 8.1s |
-| `oc:opencode/union-alpha` | `opencode/union-alpha` | `opencode` | **無**（刻意不帶） | **1.0.26 新增**；限時免費之 stealth 模型。2026-09-17 實測 6.8s 成功，詳見下方「不帶金鑰的條目」 |
-| `oc:opencode/deepseek-v4-flash-free` | `opencode/deepseek-v4-flash-free` | `opencode` | `OPENCODE_KEYS` | 2026-08-21 實測失敗（`UnknownError`）；依套件哲學保留不移除，恢復的偵測就是下次再打 |
-| `oc:agnes-ai/agnes-3.0-flash` | `agnes-ai/agnes-3.0-flash` | `agnes-ai` | `AGNES_KEYS` | 第三方，baseURL `https://apihub.agnes-ai.com/v1`。**1.0.25 才改為 3.0**（原 `agnes-2.5-flash`），REST 版 `agnes:agnes-3.0-flash` 同步改名 |
-| `oc:poolside/poolside/laguna-s-2.1` | `poolside/poolside/laguna-s-2.1` | `poolside` | `POOLSIDE_KEYS` | 第三方，baseURL `https://inference.poolside.ai/v1` |
+| 條目 id | `model` | 取用方式 | 備註（條目註解之實測紀錄） |
+|---|---|---|---|
+| `oc:opencode/muse-spark-1.3-contributor-free` | `opencode/muse-spark-1.3-contributor-free` | **匿名**（`useStoredAuth: false`） | **即本技能必要預設模型**；2026-09-03 實測 6.1s。同模型走 zen REST 回 HTTP 500，只有 CLI 路徑可用 |
+| `oc:opencode/muse-spark-1.2-contributor-free` | `opencode/muse-spark-1.2-contributor-free` | **匿名** | 2026-09-03 實測 8.1s |
+| `oc:opencode/big-pickle` | `opencode/big-pickle` | **匿名** | **1.0.34 新增**；id 不帶 `-free` 後綴但官方〈Pricing〉列為 Free，屬限時免費之 stealth 模型。2026-09-22 匿名 CLI 實測 7.1s。**官方〈Privacy〉載明免費期間所收資料可能用於改進模型**，敏感內容勿走此條（各 `*-free` 模型亦同） |
+| `oc:opencode/mimo-v2.6-flash-free` | `opencode/mimo-v2.6-flash-free` | **匿名** | **1.0.34 新增**；2026-09-22 匿名 CLI 實測 7.0s |
+| `oc:agnes-ai/agnes-3.0-flash` | `agnes-ai/agnes-3.0-flash` | 金鑰 `AGNES_KEYS` | 第三方，baseURL `https://apihub.agnes-ai.com/v1`。1.0.25 由 `agnes-2.5-flash` 改名，REST 版 `agnes:agnes-3.0-flash` 同步改名 |
+| `oc:poolside/poolside/laguna-s-2.1` | `poolside/poolside/laguna-s-2.1` | 金鑰 `POOLSIDE_KEYS` | 第三方，baseURL `https://inference.poolside.ai/v1` |
 
-**六條全部自帶 `config.permission: { edit:'deny', write:'deny', bash:'deny' }`**——條目表的定位是唯讀調用。派審計、寫測試前要逐條放開，理由見「權限」一節。
+**1.0.34 的兩項換血**：`oc:opencode/deepseek-v4-flash-free` 與 `oc:opencode/union-alpha` 已自表內移除，換成 `big-pickle` 與 `mimo-v2.6-flash-free`；全表也由 20 條縮為 15 條（zen REST 系大量退場，原因見下節之免費層閘門）。**照抄舊 id 會落入 `missing`**。
+
+**四個 opencode 自家條目一律匿名取用**（`useStoredAuth: false`、不帶 `envVar`），這是 2026-09-18 起的政策性改動，理由見下節。第三方兩條仍走金鑰。
 
 **Poolside 的 `model` 是三段**：供應商名 `poolside` ＋ 模型 id `poolside/laguna-s-2.1`（模型 id 本身就含斜線），不是寫錯。
 
-**全取條目表時會混進一條非文字生成的條目**：1.0.26 新增了 kind `api-typesafe-systemone`（決策模型 `typesafe:jev-latest`，輸入是待評估狀態、輸出是型別化答案，呼叫時必須另給 `questions`）。它的輸出形狀與文字生成完全不同，**不可與文字生成條目混在同一條遞補鏈**；全取時它會因缺 `questions` 以 `params` 錯誤在 0ms 失敗後換下一家，不影響其他家，但要它就得用 `pick` 單獨取出。
+**全取條目表時會混進非文字生成的條目**：kind `api-typesafe-systemone`（決策模型，輸入是待評估狀態、輸出是型別化答案，呼叫時必須另給 `questions`）在 1.0.34 有 2 條。它的輸出形狀與文字生成完全不同，**不可與文字生成條目混在同一條遞補鏈**；全取時它會因缺 `questions` 以 `params` 錯誤在 0ms 失敗後換下一家，不影響其他家，但要它就得用 `pick` 單獨取出。
 
-### 同一模型走 REST 走不通時，改走 `oc:` 往往就通
+### Zen 免費層閘門：REST 直呼免費模型一律 403，只能走 CLI
 
-opencode CLI 內建各模型正確的端點與 SDK，而 REST 側的失敗有兩種完全不同的成因，**都不是「模型壞了」**：
+**2026-09-17 起**，OpenCode 對免費層加了反濫用政策（維護者於 issue #49580 明示：免費層只准在 opencode 本體內使用，付費模型不受限）。症狀是 HTTP 403 `FreeTierError`，訊息為 `OpenCode's free tier can only be used from within OpenCode`。
+
+套件於 2026-09-18 以矩陣實測（opencode 1.18.31）定出三條判準：
+
+| 路徑 | 結果 |
+|---|---|
+| REST 直呼（任何金鑰）之 `/chat/completions` 與 `/responses` | 免費模型**一律 403** → 該類 `zen:` 條目自此為政策性失效，故大量退場 |
+| opencode CLI（匿名或帶金鑰） | **通過**——但注入的設定若把 bash 工具 deny 掉，即被判定非 opencode 而 403 |
+| 帶金鑰時 | 另受該金鑰所屬工作區之模型開關影響（實測第 1 把金鑰對免費模型回 `Model access is disabled` 且耗 76s） |
+
+閘門的指紋之一是**請求的工具清單是否含 bash**，之二是 User-Agent 的版本字串（非正式版 build 會被拒）。例外：`/systemone` 端點的決策模型不受此閘門（2026-09-22 實測帶金鑰或匿名皆 200），所以那條 REST 條目仍然可用。
+
+**所以 REST 側的失敗有兩種成因，處置完全不同**：
 
 | REST 失敗長相 | 真正的成因 | 處置 |
 |---|---|---|
 | HTTP 500 | **端點型別錯配**：zen 的端點依模型家族而異，muse-spark 系走 `/responses` 不走 `/chat/completions`（回 500 而非 404，極易被誤判成暫時故障而反覆重試） | 改用對的 kind，或改走 `oc:` 版 |
-| HTTP 403 `FreeTierError`（free tier can only be used from within OpenCode） | **政策性阻擋**：該免費模型只開放 opencode 客戶端，REST 直呼被刻意擋下（2026-09-17 以 union-alpha 實測） | **只能收 `oc:` 版**，再等再試也不會通 |
+| HTTP 403 `FreeTierError` | **政策性阻擋**：免費層只開放 opencode 客戶端 | **只能收 `oc:` 版**，再等再試也不會通 |
 
-本技能的預設模型屬第一種，union-alpha 屬第二種。
+### 免費模型走匿名：`useStoredAuth: false`
 
-### 不帶金鑰的條目：`oc:opencode/union-alpha`
+`dispatchOpencode()` 於 1.0.34 有一個 `useStoredAuth` 選項（預設 `true`）。給 `false` 時會注入 `OPENCODE_AUTH_CONTENT='{}'`（空憑證），令本次**不讀 `auth.json`**、改以匿名免費存取。
 
-這是表內唯一**刻意不帶 `envVar`** 的 opencode 條目——不注入金鑰時 opencode 走自身的免費存取即可用（2026-09-17 以 CLI 1.18.31 實測 6.8s 成功）。套件之所以不綁金鑰，是因為實測 `OPENCODE_KEYS` 的第 1 把金鑰所屬工作區未開此模型（回 `Model is disabled`），第 2 把雖可用但該工作區會預設開啟新模型（可能非免費），兩者都不適合當預設。
+**為什麼免費模型要刻意匿名**：未注入金鑰時 opencode 會自動沿用 `auth.json` 的登入，而該帳號工作區若沒開某個免費模型就回 `Error: Model is disabled`——**同一個模型在「沒有 auth.json」的機器上卻匿名可用**，於是結果隨執行機器而異。套件以 `XDG_DATA_HOME` 指向含金鑰的暫存 `auth.json` 實測：不帶 key → `Model is disabled`；加 `'{}'` → 7.0s 成功；改注入 `''` → 仍 `Model is disabled`（**空字串無效，所以這個旗標不開放呼叫端自填內容**）；`auth.json` 前後 md5 一致。
 
-**前提是本機 opencode 未登入（無 `auth.json`）**；若日後以金鑰登入，得先到該工作區把此模型開起來，否則就會撞上 `Model is disabled`。
+- 同時給 `key` 與 `provider` 時，金鑰注入本就整份取代 `auth.json`，此旗標**不再作用**。
+- 風險備忘（套件檔頭記載）：原始碼的 `Auth.set` 會以注入內容為底寫回 `auth.json`，但只在 OAuth 權杖刷新等寫入時發生；api 型金鑰與空憑證皆無刷新，實測未觸發。
 
 ### 展開條目：`resolveProviders` 的五個回傳欄位
 
@@ -231,7 +246,7 @@ await wda.dispatchOpencode(prompt, {
                 models: { 'agnes-3.0-flash': { name: 'Agnes 3.0 Flash' } },
             },
         },
-        permission: { edit: 'deny', write: 'deny', bash: 'deny' },   // 見「權限」一節
+        permission: { edit: 'deny', bash: 'ask' },   // 見「權限」一節；bash 用 ask 不用 deny
     },
     timeoutMs: 3_600_000,   // 審計／複審／測試類 1 小時起跳，見「逾時」一節
 });
@@ -267,8 +282,8 @@ await wda.dispatchOpencode('分析附件', {
 |---|---|---|
 | 純生成、翻譯、改寫（素材全在提示詞內） | 無 | 提示詞自帶素材，`cwd` 不指向專案 |
 | 探索、調研、讀碼回答 | 讀檔 | `cwd`（或 `--dir`）指向待查專案；跨專案要查的目錄也得在裡面 |
-| 審計、複審、調查 | 讀檔 ＋ 寫檔（報告落檔）＋ 唯讀查證指令 | 同上，且**報告產出路徑必須落在同一個專案目錄內**；若沿用條目表的唯讀鎖，要把 `config.permission` 的 `write`／`edit` 放開 |
-| 寫測試、驗證猜想、重現問題 | 讀檔 ＋ 寫測試檔 ＋ 執行測試 | 同上；維持轉接器預設的 `build` 代理，且 `config.permission.bash` 須為 `allow` 才跑得了測試 |
+| 審計、複審、調查 | 讀檔 ＋ 寫檔（報告落檔）＋ 唯讀查證指令 | 同上，且**報告產出路徑必須落在同一個專案目錄內**；若沿用條目表的唯讀鎖，要把 `config.permission.edit` 放開 |
+| 寫測試、驗證猜想、重現問題 | 讀檔 ＋ 寫測試檔 ＋ 執行測試 | 同上；維持轉接器預設的 `build` 代理，且 `config.permission.bash` 須為 `allow`（條目表預設是 `ask`，等同拒絕）才跑得了測試 |
 | 修改、實作 | 讀 ＋ 寫 ＋ 執行 | 同上 |
 
 - **審計必須自己讀檔**。把檔案內容貼進提示詞不算獨立審計：被派對象只看得到你挑給它的片段，找不出你漏掉的地方，而那正是複審的唯一價值。
@@ -311,10 +326,14 @@ external_directory  | allow | <過去互動時核准過的目錄，逐條累積>
 轉接器的 `config` 會注入該次程序的 `OPENCODE_CONFIG_CONTENT`，其中的 `permission` 可逐項給 `allow`／`ask`／`deny`：
 
 ```javascript
-config: { permission: { edit: 'deny', write: 'deny', bash: 'deny' } }   // 唯讀鎖
+config: { permission: { edit: 'deny', bash: 'ask' } }   // 1.0.34 起之唯讀鎖
 ```
 
-`w-dispatch-ai/src/providers.mjs` 內建的**五個** opencode 條目都帶這把唯讀鎖——因為那些條目是給純文字生成與遞補用的。**派審計、寫測試時要把對應項目放開**（`write`／`edit` 給 `allow`，要跑測試再放 `bash`），否則就是本技能「權限」開頭講的那種下限不足。走條目表時，放開的正規作法是 `resolveProviders` 的 `patch`（見「展開後的後處理」），且因 `patch` 為淺合併，覆寫 `config` 要把第三方條目原本的 `provider` 定義一起寫回。
+**`bash` 是 `ask` 不是 `deny`，這是刻意的**：免費層閘門以「請求的工具清單是否含 bash」當指紋之一，`deny` 會把 bash 自清單移除而被判定非 opencode 客戶端，直接回 403 `FreeTierError`（見「Zen 免費層閘門」）；`ask` 則工具仍在清單內。而 `opencode run` 是非互動的，`ask` 一律自動拒絕（stderr 會出現 `The user rejected permission`），套件金絲雀實測寫檔與 shell 建檔皆未落地——**所以 `ask` 在這裡仍是機械鎖，不是「可能被放行」**。
+
+**但這把鎖有一個前提：呼叫端不可另傳 `--auto`**。`--auto` 會自動核准未被明確拒絕的權限，等於把 `ask` 整個放行，鎖就沒了。
+
+`w-dispatch-ai/src/providers.mjs` 內建的**六個** opencode 條目都帶這把唯讀鎖（套件內以 `OC_READONLY` 常數單一來源管理）——因為那些條目是給純文字生成與遞補用的。**派審計、寫測試時要把對應項目放開**（`edit` 給 `allow`，要跑測試把 `bash` 也給 `allow`），否則就是本技能「權限」開頭講的那種下限不足。走條目表時，放開的正規作法是 `resolveProviders` 的 `patch`（見「展開後的後處理」），且因 `patch` 為淺合併，覆寫 `config` 要把第三方條目原本的 `provider` 定義一起寫回。
 
 ### 權限不足是 exit 0 的假成功，連轉錄都會顯示完成
 
@@ -323,7 +342,9 @@ config: { permission: { edit: 'deny', write: 'deny', bash: 'deny' } }   // 唯�
 | 條件 | stdout | 離開碼 | `out.txt` |
 |---|---|---:|---|
 | `--agent build`，未加 `--auto`（本機代理規則 `*: allow`） | `READ=… WRITE=DONE` | 0 | 已建立 |
-| 同上，加 `config.permission = { edit:'deny', write:'deny', bash:'deny' }` | `READ=… WRITE=FAILED` | 0 | **未建立** |
+| 同上，加 `config.permission = { edit:'deny', write:'deny', bash:'deny' }`（**當時之舊鎖**） | `READ=… WRITE=FAILED` | 0 | **未建立** |
+
+上表是 2026-09-08 以舊鎖做的。1.0.34 起唯讀鎖改為 `{ edit:'deny', bash:'ask' }`（免費層閘門會因 bash 被 deny 而回 403，見「權限」一節），套件以金絲雀重測確認寫檔與 shell 建檔同樣未落地——**鎖的寫法變了，但「exit 0 卻沒落地」這個症狀完全一樣**，判成敗一律看產物。
 
 第二列的轉錄裡甚至出現 `✓ Create out.txt file`（它把建檔轉交子代理，子代理回報成功）——**畫面上打勾、檔案不存在、離開碼 0**。判成敗只能看產物是否落地，不能看有沒有回話、更不能看轉錄的勾。
 
@@ -377,7 +398,7 @@ const probe = await wda.dispatchOpencode(
 | `coolDetect` | 無 | CLI 類限流的唯一入口（依賴注入），例：`(r) => /FreeUsageLimitError/i.test(r.stderr || '')` |
 | `shouldStop` | 無 | 1 小時派工中途要止損的唯一手段：於每次嘗試之間檢查，回 `ABORTED`／`errorType: 'aborted'`。它不會中斷進行中的那一次嘗試 |
 
-**`budgetFor()` 有陷阱，不要照抄**：它**只累加條目自己的 `timeoutMs`**（未帶者以統一預設 300000 計），讀不到你寫在 opt／`defaults` 的那一個；而套件內建的 providers 條目**刻意一條都不帶 `timeoutMs`**（1.0.26 實查 20 條皆無），所以 `budgetFor(內建條目)` 恆為「條目數 × 300000」——比你的 1 小時還小，反而把它壓下去。**本技能教的「直接引用 `providers.mjs`」正好踩中這一點**：要用 `budgetFor()` 就得先把 `timeoutMs: 3_600_000` 逐條寫進每個條目（用 `resolveProviders` 的 `patch` 逐 id 覆寫，別自己 map 回傳值），否則直接寫 `K × 3_600_000`。
+**`budgetFor()` 有陷阱，不要照抄**：它**只累加條目自己的 `timeoutMs`**（未帶者以統一預設 300000 計），讀不到你寫在 opt／`defaults` 的那一個；而套件內建的 providers 條目**刻意一條都不帶 `timeoutMs`**（1.0.34 實查 15 條皆無），所以 `budgetFor(內建條目)` 恆為「條目數 × 300000」——比你的 1 小時還小，反而把它壓下去。**本技能教的「直接引用 `providers.mjs`」正好踩中這一點**：要用 `budgetFor()` 就得先把 `timeoutMs: 3_600_000` 逐條寫進每個條目（用 `resolveProviders` 的 `patch` 逐 id 覆寫，別自己 map 回傳值），否則直接寫 `K × 3_600_000`。
 
 **1 小時派工要留觀測點**：`dispatchAiFallback` 的 `onEvent` 會逐步回報 `'try'`／`'ok'`／`'next-key'`／`'skip-group'`／`'budget-out'`／`'aborted'`／`'cooled'`，失敗事件另帶 `errorType`、被拒回覆與 stderr。沒掛它的話，一小時內看不出是卡在哪一家、還是早就跳完整條鏈在空轉。
 
@@ -397,7 +418,7 @@ const probe = await wda.dispatchOpencode(
 
 所以 opencode 的限流只能事後從失敗結果判讀：CLI 類的限流字樣埋在 stderr，`errorType` 一律是 `exec`（不細分），要偵測就自己給 `coolDetect`（見「逾時」一節）。**不要為了「先查額度再決定派不派」去翻 `src/quota/`**，那裡沒有你要的東西。
 
-## 轉接器契約（w-dispatch-ai 1.0.25）
+## 轉接器契約（w-dispatch-ai 1.0.34）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -405,6 +426,7 @@ const probe = await wda.dispatchOpencode(
 | `model` | 省略 | 展開為 `-m <provider/model>` |
 | `agent` | `build` | 展開為 `--agent build` |
 | `key`、`provider` | 省略 | 兩者同時存在時建立單次程序用的 `OPENCODE_AUTH_CONTENT` |
+| `useStoredAuth` | `true` | **1.0.34 新增**。`false` 時注入空憑證 `{}`，令本次不讀 `auth.json` 而以匿名免費存取；已同時給 `key` 與 `provider` 時不作用。只接受布林值，**不開放自填內容**（實測空字串無效） |
 | `config` | 省略 | 將物件／字串注入為 `OPENCODE_CONFIG_CONTENT` |
 | `env` | 省略 | 額外子程序環境變數 |
 | `extraArgs` | `[]` | 接在 OpenCode 固定參數之後 |
@@ -478,13 +500,15 @@ opencode run --help
 
 2026-09-08 於本機 `opencode-ai` 1.18.29 查核：`opencode run` 之旗標（`--agent`、`-m`、`--variant`、`--dir`、`--auto`、`--format`、`--file`）皆與本技能所載一致。
 
-2026-09-17 對 `w-dispatch-ai` 1.0.26 讀原始碼查核，並逐項以載入實跑驗證（未重跑 CLI 派工，故上段 CLI 事實維持原查核日）：
+2026-09-23 查核：本機 opencode 為 **1.18.31**、`w-dispatch-ai` 最新為 **1.0.34**。以 `opencode models opencode --verbose` 重查預設模型之型錄，並讀 1.0.34 原始碼逐項核對（未重跑 CLI 派工，故上段旗標表維持原查核日）：
 
 | 項目 | 結果 |
 |---|---|
-| `dispatchOpencode()` 固定參數與選項 | 與 1.0.17 起各版相同（`run` → `--agent <值>` → `-m` → `extraArgs`；自用鍵同一組），**呼叫方式不變** |
-| `providers.mjs` | 全表 20 條，`kind: 'opencode'` 者 **6 條**，六條皆自帶唯讀鎖、皆不帶 `timeoutMs` |
+| `dispatchOpencode()` 固定參數 | 與 1.0.17 起各版相同（`run` → `--agent <值>` → `-m` → `extraArgs`），**呼叫方式不變**；自用鍵多一個 `useStoredAuth` |
+| 必要預設值 | `opencode/muse-spark-1.3-contributor-free` ＋ `--variant xhigh` 維持不變；型錄重查確認 `status: active`、`toolcall: true`、variants 仍為 `minimal`／`low`／`medium`／`high`／`xhigh`（**最深是 `xhigh`，沒有 `max`**）、脈絡窗 1,048,576、費用 0 |
+| `providers.mjs` | 全表由 20 條縮為 **15 條**；`kind: 'opencode'` 者仍 6 條但內容換血（移除 deepseek 與 union-alpha，新增 big-pickle 與 mimo-v2.6-flash-free），四個自家條目改為匿名（`useStoredAuth: false`），全部不帶 `timeoutMs` |
+| **唯讀鎖改法** | 由 `{ edit:'deny', write:'deny', bash:'deny' }` 改為 **`{ edit:'deny', bash:'ask' }`**——`deny` bash 會觸發免費層閘門而 403，`ask` 在非互動下等同拒絕仍是機械鎖（前提：呼叫端不可加 `--auto`） |
 | `resolveProviders()` | 回傳為 `{ providers, table, skipped, missing, hints }`，另有 `exes`／`patch` 後處理選項 |
 | `src/quota/` | 三支訂閱額度查詢函數，**不含 opencode** |
 | `errorType` | CLI 類實際用得到的仍只有 `params`／`timeout`／`spawn`／`validation`／`exec` 五種 |
-| 條目之版本漂移 | 1.0.25 把 Agnes 由 2.5 換成 3.0（兩條目同步改名）；1.0.26 新增 `oc:opencode/union-alpha` 與新 kind `api-typesafe-systemone`（決策模型，非文字生成，不可混入文字遞補鏈）。**轉接器不動、條目一直動**，故 id 一律對安裝版核對 |
+| 條目之版本漂移 | 1.0.25 把 Agnes 由 2.5 換成 3.0；1.0.26 新增 union-alpha；**1.0.34 移除 union-alpha 與 deepseek、新增 big-pickle 與 mimo-v2.6-flash-free、自家條目全改匿名**。**轉接器不動、條目一直動**，故 id 一律對安裝版核對 |

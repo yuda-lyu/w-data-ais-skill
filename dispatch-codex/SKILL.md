@@ -5,7 +5,7 @@ description: 當任務需要委派給 Codex，或需要把 Codex 納入多代理
 
 # dispatch-codex
 
-使用 `w-dispatch-ai` 1.0.22+ 的 `dispatchCodex()` 執行自動化 Codex 任務。轉接器會呼叫 `codex exec`、透過 stdin 傳入提示詞、設定沙箱政策、略過 Git 儲存庫限制、管理逾時與程序樹清理，並以結果物件回報失敗。
+使用 `w-dispatch-ai` 的 `dispatchCodex()` 執行自動化 Codex 任務（本技能對照 1.0.34；`dispatchCodex()` 之固定參數與選項自 1.0.17 起未變動，呼叫方式不受版本影響）。轉接器會呼叫 `codex exec`、透過 stdin 傳入提示詞、設定沙箱政策、略過 Git 儲存庫限制、管理逾時與程序樹清理，並以結果物件回報失敗。
 
 需要變更模型／設定旗標、沙箱行為或非互動輸出時，讀取 [references/codex-flags.md](references/codex-flags.md)。
 
@@ -59,7 +59,7 @@ ls ~/.codex/.sandbox/setup_marker.json
 
 ```javascript
 await wda.dispatchCodex(prompt, {
-    model: 'gpt-5.6-sol',
+    model: 'gpt-6-sol',
     sandbox: 'workspace-write',
     extraArgs: [
         '--config', 'model_reasoning_effort="max"',
@@ -108,18 +108,20 @@ Get-Content -LiteralPath <檔案> -TotalCount <行數> -Encoding utf8
 
 除非使用者明確指定其他模型或推理強度，否則每次都必須使用：
 
-- 模型：`gpt-5.6-sol`（GPT-5.6 Sol，型錄 priority 1 之旗艦模型）
+- 模型：`gpt-6-sol`（GPT-6 Sol）
 - 推理強度：`max`
 
-`max` 是最深的單代理推理等級。Codex 另提供 `ultra`，其功能是最大推理加上自動任務委派；這是編排模式，不是更深的推理等級，因此不作為本技能預設值。
+`max` 是最深的單代理推理等級。Codex 另提供 `ultra`，其功能是最大推理加上自動任務委派；這是編排模式，不是更深的推理等級，因此不作為本技能預設值。**合法值域由 API 自己講明**——傳一個不存在的值會回 400 並列出全部：`none`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max`（2026-09-23 以 `model_reasoning_effort="bogusvalue"` 實測取得之錯誤訊息）。要確認值域時用這招，比查文件可靠。
 
-**必須明確傳入 effort**：0.152.1 執行期型錄顯示 `gpt-5.6-sol` 的 `default_reasoning_level` 是 `low`，不傳就是最淺推理。同代另有 `gpt-5.6-terra`（均衡日常）與 `gpt-5.6-luna`（快速廉價），兩者不作為預設。
+**必須明確傳入 effort**：2026-09-23 於 Codex 0.156.1 之執行期型錄（`codex debug models`）顯示 `gpt-6-sol` 的 `default_reasoning_level` 是 `medium`，不傳就只跑到中段。同日以 `high`／`xhigh`／`max` 各實跑一次皆通過（CLI 會在標頭印出 `reasoning effort:` 供核對）。
+
+**`gpt-6-sol` 不是型錄裡最強的那一支**：同型錄 `gpt-6-astra` 為 priority 1、描述 `Frontier intelligence for the most demanding work.`，而 Sol 是 priority 2、描述 `Workhorse model for coding and everyday work.`。本技能仍以 Sol 為必要預設值（使用者 2026-09-23 明確指定），要更強時才改派 astra，並在回報中說明換了模型。同代另有 `gpt-6-luna`（priority 3，快速廉價，**不支援 `ultra`**）。
 
 ```javascript
 import wda from 'w-dispatch-ai';
 
 const result = await wda.dispatchCodex('分析此專案並完成指定修改', {
-    model: 'gpt-5.6-sol',
+    model: 'gpt-6-sol',
     sandbox: 'workspace-write',
     extraArgs: ['--config', 'model_reasoning_effort="max"'],
     cwd: '/absolute/path/to/project',
@@ -158,7 +160,7 @@ workspace-write 的網路權限是獨立設定。只有在任務需要安裝套�
 
 ```javascript
 await wda.dispatchCodex(prompt, {
-    model: 'gpt-5.6-sol',
+    model: 'gpt-6-sol',
     sandbox: 'workspace-write',
     extraArgs: [
         '--config', 'model_reasoning_effort="max"',
@@ -219,7 +221,7 @@ const probe = await wda.dispatchCodex(
 // 只看 stdout 不算數：要確認 probe-out.txt 真的落地，並看 stderr 有無 blocked 字樣
 ```
 
-探測用輕量模型與低推理即可，它驗的是權限不是推理；正式派工再換回 `gpt-5.6-sol` 與 `max`。探測失敗時先修沙箱與目錄，不要改提示詞重試。
+探測用輕量模型與低推理即可，它驗的是權限不是推理；正式派工再換回 `gpt-6-sol` 與 `max`。探測失敗時先修沙箱與目錄，不要改提示詞重試。
 
 ## 逾時：審計、複審、測試類一律 1 小時起跳
 
@@ -271,7 +273,7 @@ const probe = await wda.dispatchCodex(
 
 ```javascript
 await wda.dispatchCodex(prompt, {
-    model: 'gpt-5.6-sol',
+    model: 'gpt-6-sol',
     extraArgs: [
         '--config', 'model_reasoning_effort="max"',
         '--json',
@@ -282,7 +284,7 @@ await wda.dispatchCodex(prompt, {
 
 使用 `--json` 時，不可搭配 `validate: 'json'`，因為 stdout 是 JSONL 事件流。
 
-## 轉接器契約（w-dispatch-ai 1.0.22）
+## 轉接器契約（w-dispatch-ai 1.0.34）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -320,7 +322,7 @@ await wda.dispatchCodex(prompt, {
 
 ## 模型驗證
 
-OpenAI 官方文件將 `gpt-5.6-sol` 定位為 GPT-5.6 旗艦模型（最強的 coding／computer use／research／cybersecurity 能力）。Codex 0.152.1 的執行期模型型錄（`codex debug models`）列出 Sol 支援 `low`、`medium`、`high`、`xhigh`、`max`、`ultra`，`default_reasoning_level` 為 `low`，所以必須明確傳入 `max`。
+Codex 0.156.1 的執行期模型型錄（`codex debug models`，2026-09-23 實查，`visibility: list` 者共 7 支）列出 `gpt-6-sol` 為 priority 2、描述 `Workhorse model for coding and everyday work.`、支援 `low`／`medium`／`high`／`xhigh`／`max`／`ultra`，`default_reasoning_level` 為 `medium`，所以必須明確傳入 `max`。同型錄之 priority 1 為 `gpt-6-astra`（`Frontier intelligence for the most demanding work.`），priority 3 為 `gpt-6-luna`（唯一不支援 `ultra` 者）；GPT-5.6 世代（`gpt-5.6-sol`／`-terra`／`-luna`）仍在型錄內但 priority 已排到 4 之後。
 
 若模型被拒絕，應先檢查 CLI 與帳號，不可靜默切換模型：
 
@@ -344,4 +346,13 @@ codex exec --help
 ls ~/.codex/.sandbox/setup_marker.json   # Windows：存在才代表 elevated 沙箱設定已完成
 ```
 
-截至 2026-09-03 審查時，npm 最新版為 `w-dispatch-ai` 1.0.22、Codex CLI 0.152.1。1.0.22 的 `dispatchCodex()` 固定參數（`exec`、`--sandbox`、`--skip-git-repo-check`、`-m`）與選項預設值和 1.0.17／1.0.19 相同，本技能的呼叫方式不變。Codex 0.152.1 相對 0.149.0 之派工相關差異：`--full-auto` 已移除（實測回 `unexpected argument`），新增 `--enable`／`--disable`／`--approve-for-me`／`--dangerously-bypass-hook-trust`／`--thread-source`／`--color`；詳見 references。
+2026-09-23 查核：npm 最新版為 `w-dispatch-ai` 1.0.34、Codex CLI 0.156.1（本機實裝同版）。
+
+| 項目 | 結果 |
+|---|---|
+| `dispatchCodex()` 固定參數與選項 | 與 1.0.17／1.0.19／1.0.22 相同（`exec`、`--sandbox`、`--skip-git-repo-check`、`-m`），**呼叫方式不變**；1.0.34 只改了 JSDoc 之模型範例（加上 `gpt-6-sol`） |
+| 必要預設模型 | `gpt-5.6-sol` → **`gpt-6-sol`**（使用者指定）。以 `-m gpt-6-sol -c model_reasoning_effort=max --sandbox read-only` 實跑通過，CLI 標頭回報 `model: gpt-6-sol`／`reasoning effort: max` |
+| 推理值域 | 由 API 400 錯誤訊息取得權威清單：`none`／`minimal`／`low`／`medium`／`high`／`xhigh`／`max`；型錄另列 `ultra`（編排模式非更深推理） |
+| `providers.mjs` | 新增 `codex:gpt-6-sol` 條目（`sandbox: 'read-only'`），與既有 `codex:gpt-5.6-luna` 並存；全表由 20 條縮為 15 條 |
+
+Codex 0.152.1 相對 0.149.0 之派工相關差異（沿用前次查核）：`--full-auto` 已移除（實測回 `unexpected argument`），新增 `--enable`／`--disable`／`--approve-for-me`／`--dangerously-bypass-hook-trust`／`--thread-source`／`--color`；詳見 references。**0.156.1 未重新逐項比對旗標表**，Windows elevated 沙箱之行為亦維持 0.149／0.152.1 之查核結論（本機 `setup_marker.json` 存在，`--sandbox read-only` 於 0.156.1 實跑正常）。

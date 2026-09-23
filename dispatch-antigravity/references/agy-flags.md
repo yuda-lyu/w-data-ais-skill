@@ -25,7 +25,7 @@ agy -p "prompt" [flags]
 --model gemini-3.8-flash-high
 ```
 
-2026-09-03 之即時型錄（`agy models` 完整輸出）：
+即時型錄（`agy models` 完整輸出；2026-09-03 首查，**2026-09-23 於 agy 1.2.6 重查，十四項逐行相同**）：
 
 ```text
 gemini-3.8-flash-high     Gemini 3.8 Flash (High)
@@ -44,7 +44,9 @@ claude-opus-4-6-thinking  Claude Opus 4.6 (Thinking)
 gpt-oss-120b-medium       GPT-OSS 120B (Medium)
 ```
 
-**`gemini-3.8-flash-high` 是最新且最深的 Gemini 選項，本技能之預設值。** Gemini 3.8 Flash 隨 agy 1.1.25 進入型錄（changelog：「Added Gemini 3.8 Flash to the model catalog when connecting with a `GEMINI_API_KEY`」），本機以 `agy -p "只回覆兩個字：完成" --model gemini-3.8-flash-high --dangerously-skip-permissions` 實跑通過（8.8 秒、exit 0）。`w-dispatch-ai` 1.0.22 之 providers 表同日由 3.7 升為 3.8，附實測數據：回應 12.5s（3.7 為 62.2s）、讀檔 14.6s（3.7 為 57.6s）。
+**`gemini-3.8-flash-high` 是最新且最深的 Gemini 選項，本技能之預設值。** Gemini 3.8 Flash 隨 agy 1.1.25 進入型錄（changelog：「Added Gemini 3.8 Flash to the model catalog when connecting with a `GEMINI_API_KEY`」），本機以 `agy -p "只回覆兩個字：完成" --model gemini-3.8-flash-high --dangerously-skip-permissions` 實跑通過（2026-09-03 於 1.1.25 為 8.8 秒、exit 0；**2026-09-23 於 1.2.6 再跑一次仍通過**）。`w-dispatch-ai` 之 providers 表於 2026-09-03 由 3.7 升為 3.8，附實測數據：回應 12.5s（3.7 為 62.2s）、讀檔 14.6s（3.7 為 57.6s）；1.0.34 之 `agy:gemini-3.8-flash-high` 條目仍為同一 slug。
+
+**`--effort` 只有 `low|medium|high`，`high` 就是 agy 的最深檔**（1.2.6 之 `--help` 明列）；沒有 Claude／Codex／OpenCode 那種 `xhigh`／`max`／`ultra`。而 3.8 Flash **只提供帶檔位的 slug**（`-high`／`-medium`／`-low`，沒有不帶檔位的 `gemini-3.8-flash`），所以最深思考的正解是直接用 `gemini-3.8-flash-high` 並**省略 `--effort`**——檔位已在 slug 裡，再傳一次只會多一個衝突來源。
 
 **型錄變動速度是本節重點**：2026-08-23 型錄尚有 `gemini-3.5-flash-*` 而無 3.8；2026-09-02 查核時 3.5 已移除、最新仍只到 3.7；2026-09-03 即出現 3.8 三檔。**十一天內三次變動**，故固定任何 slug 前一律先跑 `agy models` 對照，不可依本文件的清單直接寫入。
 
@@ -52,7 +54,9 @@ gpt-oss-120b-medium       GPT-OSS 120B (Medium)
 
 需要非 Gemini 的更強推理時，型錄另有 `claude-opus-4-6-thinking`；但本技能定位為 Gemini 派工，改用前須經使用者同意（且 Enterprise 方案對 Claude／GPT 項目有存取限制）。
 
-## 主要旗標（1.1.25 實際 help）
+## 主要旗標（1.1.25 建表，2026-09-23 於 1.2.6 逐項重查）
+
+1.2.6 之 `--help` 與下表逐行相符，另多一個 `--remote-control`（為本次 CLI session 建立遠端連線）；子指令則新增 `mic-serve`、`plugin`／`plugins`、`remote-control`。三者皆與非互動派工無關，派工不使用。
 
 | 旗標 | 用途 |
 |---|---|
@@ -115,7 +119,7 @@ agy -p "task" --model gemini-3.8-flash-high --output-format stream-json
 
 ## 工作區與認證
 
-agy 透過明確指定的工作區目錄決定檔案可視範圍。未提供 `addDirs` 時，`w-dispatch-ai` 1.0.22 會自動加入實際 `cwd`。
+agy 透過明確指定的工作區目錄決定檔案可視範圍。未提供 `addDirs` 時，`w-dispatch-ai` 1.0.34 會自動加入實際 `cwd`。
 
 無人值守執行前，須先在互動式 `agy` 工作階段完成 Google 認證。`--dangerously-skip-permissions` 不會執行 OAuth。
 

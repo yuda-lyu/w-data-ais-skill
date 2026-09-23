@@ -56,8 +56,8 @@ variant：minimal、low、medium、high、xhigh
 | `nvidia/deepseek-ai/deepseek-v4-flash-0731`、`…/deepseek-v4-pro-0813` | 403 `Authorization failed` |
 | `nvidia/poolside/laguna-xs-2.1` | 403 `Authorization failed` |
 | `cline/deepseek/deepseek-v4-flash` | 型錄為 `reasoning: false`、`variants: {}`，無推理變體 |
-| `opencode/union-alpha`（REST 路徑） | **CLI 路徑可用、REST 路徑不可用**：2026-09-17 以 CLI 1.18.31 實測 6.8s 成功，但 REST 直呼回 403 `FreeTierError`（free tier can only be used from within OpenCode）——限免費模型只開放 opencode 客戶端，屬政策非故障，故套件只收 `oc:` 版 |
-| `opencode/deepseek-v4-flash-free` | 不在 CLI 型錄中。`w-dispatch-ai` 的 `providers` 表同時收錄它的 CLI 條目（`oc:opencode/deepseek-v4-flash-free`，2026-08-21 實測 `UnknownError`）與 REST 條目（`zen:deepseek-v4-flash-free`，同期回 401 `Free promotion has ended`）——兩條都是刻意保留不移除（恢復的偵測就是下次再打），**條目存在不代表現在能用** |
+| **所有免費模型之 REST 路徑** | **2026-09-17 起一律 403 `FreeTierError`**（`OpenCode's free tier can only be used from within OpenCode`）——維護者於 issue #49580 明示這是刻意的反濫用政策，付費模型不受限。**屬政策非故障，再等再試也不會通**，只能走 `oc:` CLI 版。`w-dispatch-ai` 1.0.34 因此把大量 `zen:` REST 條目移除（全表由 20 條縮為 15 條）。唯一例外是 `/systemone` 端點的決策模型（2026-09-22 實測帶金鑰或匿名皆 200） |
+| `opencode/union-alpha`、`opencode/deepseek-v4-flash-free` | **1.0.34 起已自 `providers` 表移除**（union-alpha 曾於 1.0.26 收錄、2026-09-17 以 CLI 實測 6.8s 成功；deepseek 則 2026-08-21 即實測 `UnknownError`）。照抄舊 id 會在 `resolveProviders` 的 `pick` 落入 `missing` |
 
 **前四項在同一天的 `opencode models nvidia --refresh` 中照樣列得出來**——型錄查得到不等於供應商還在服務，這是本技能改用現行預設值的直接原因。
 
@@ -72,7 +72,7 @@ variant：minimal、low、medium、high、xhigh
 | `oc:agnes-ai/agnes-3.0-flash` | `agnes-ai/agnes-3.0-flash` | `agnes-ai` | `AGNES_KEYS` | `https://apihub.agnes-ai.com/v1` | `@ai-sdk/openai-compatible` |
 | `oc:poolside/poolside/laguna-s-2.1` | `poolside/poolside/laguna-s-2.1` | `poolside` | `POOLSIDE_KEYS` | `https://inference.poolside.ai/v1` | `@ai-sdk/openai-compatible` |
 
-走 OpenCode 自家供應商的另外四條（1.0.26 實查）**不需要 provider 定義**，`config` 內只有權限鎖：`oc:opencode/muse-spark-1.3-contributor-free`、`oc:opencode/muse-spark-1.2-contributor-free`、`oc:opencode/deepseek-v4-flash-free`（三者金鑰環境變數皆為 `OPENCODE_KEYS`），以及 **`oc:opencode/union-alpha`（刻意不帶金鑰環境變數，走 opencode 自身免費存取）**。全表之 `kind: 'opencode'` 條目共 6 條，逐條說明見 SKILL.md 之「條目表」。
+走 OpenCode 自家供應商的另外四條（1.0.34 實查）**不需要 provider 定義也不帶金鑰**，`config` 內只有權限鎖，且一律 `useStoredAuth: false` 走匿名免費存取：`oc:opencode/muse-spark-1.3-contributor-free`、`oc:opencode/muse-spark-1.2-contributor-free`、`oc:opencode/big-pickle`、`oc:opencode/mimo-v2.6-flash-free`。**改匿名的理由是帶金鑰反而受該金鑰所屬工作區之模型開關影響**（實測回 `Model access is disabled` 且耗 76s），結果會隨執行機器而異。全表之 `kind: 'opencode'` 條目共 6 條，逐條說明見 SKILL.md 之「條目表」。
 
 上表之 `nvidia/poolside/laguna-xs-2.1`（403）是 **NVIDIA 轉售的另一個 laguna 項目**，與此處 Poolside 官方 REST／CLI 路徑無關，別混為一談。同一個模型經不同路徑屬不同供應商，額度池與故障域各自獨立。
 
@@ -83,10 +83,12 @@ variant：minimal、low、medium、high、xhigh
 同一個 `config` 物件除了 provider 定義，還吃 `permission`，可逐項給 `allow`／`ask`／`deny`：
 
 ```javascript
-config: { permission: { edit: 'deny', write: 'deny', bash: 'deny' } }
+config: { permission: { edit: 'deny', bash: 'ask' } }   // 1.0.34 起之唯讀鎖
 ```
 
-`providers.mjs` 的每個 opencode 條目都帶這把唯讀鎖。2026-09-08 實測：加上此鎖後，讀取照常、建檔失敗且 `out.txt` 未建立，但**離開碼仍為 0、stdout 非空**，轉錄裡甚至出現 `✓ Create out.txt file`（建檔被轉交子代理，子代理回報成功）。派需要寫入的任務時要把對應項目放開，並一律以產物是否落地判成敗。
+`providers.mjs` 的每個 opencode 條目都帶這把唯讀鎖（套件內以 `OC_READONLY` 常數單一來源管理）。**`bash` 刻意用 `ask` 而非 `deny`**：免費層閘門以「請求的工具清單是否含 bash」為指紋之一，`deny` 會把 bash 移出清單而被判定非 opencode 客戶端（403 `FreeTierError`）；`ask` 則工具仍在，而 `opencode run` 為非互動故 `ask` 一律自動拒絕（stderr 出現 `The user rejected permission`），仍是機械鎖。**前提是呼叫端不可加 `--auto`**——那會把 `ask` 放行。
+
+2026-09-08 以舊鎖（`edit`／`write`／`bash` 全 `deny`）實測：讀取照常、建檔失敗且 `out.txt` 未建立，但**離開碼仍為 0、stdout 非空**，轉錄裡甚至出現 `✓ Create out.txt file`（建檔被轉交子代理，子代理回報成功）。改用新鎖後套件以金絲雀重測，寫檔與 shell 建檔同樣未落地。派需要寫入的任務時要把對應項目放開，並一律以產物是否落地判成敗。
 
 型錄會動態變更。應使用 `opencode models <provider> --refresh` 與 `--verbose` 查核，不可猜測模型 ID 或 variant。
 

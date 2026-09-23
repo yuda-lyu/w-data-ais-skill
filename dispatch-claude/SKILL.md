@@ -5,7 +5,7 @@ description: 當任務需要委派給 Claude，或需要把 Claude 納入多代�
 
 # dispatch-claude
 
-使用 `w-dispatch-ai` 1.0.22+ 的 `dispatchClaude()` 執行 Claude Code。轉接器會呼叫 `claude -p`、透過 stdin 傳入提示詞、管理逾時與程序樹清理，並一律回傳結果物件，不會因一般 CLI 失敗而 reject。
+使用 `w-dispatch-ai` 的 `dispatchClaude()` 執行 Claude Code（本技能對照 1.0.34；`dispatchClaude()` 之固定旗標與選項自 1.0.17 起未變動，呼叫方式不受版本影響）。轉接器會呼叫 `claude -p`、透過 stdin 傳入提示詞、管理逾時與程序樹清理，並一律回傳結果物件，不會因一般 CLI 失敗而 reject。
 
 需要變更 CLI 旗標、排查版本差異或改用非預設模型時，讀取 [references/claude-flags.md](references/claude-flags.md)。
 
@@ -77,7 +77,19 @@ console.log(result.stdout);
 - **審計必須自己讀檔**。把檔案內容貼進提示詞不算獨立審計：被派對象只看得到你挑給它的片段，找不出你漏掉的地方，而那正是複審的唯一價值。
 - **驗證猜想必須能寫檔並執行**。不能寫測試就只剩推論；「我認為可能是 X」沒有可重現的執行結果，不是結論。
 - **不想放權時，換的是任務或環境，不是砍權限**。把目標複製或 `git worktree` 出一份到獨立目錄，`cwd` 指向該處並只 `--add-dir` 該目錄，讓被派對象在裡面有完整讀寫執行，事後自己審 diff。給半套權限硬派，是拿「看起來安全」換掉任務本身。
-- **沿用 `w-dispatch-ai/src/providers.mjs` 的條目要先看鎖**：表內 `claude:sonnet` 帶 `--disallowedTools Write,Edit,NotebookEdit,Bash`，那是給純文字生成與遞補用的唯讀檔位；照抄去派審計或寫測試必然交白卷，要先把對應工具放開。
+- **沿用 `w-dispatch-ai/src/providers.mjs` 的條目要先看鎖**：表內 `claude:sonnet` 與 `claude:opus-5.5` 都帶 `--tools Read,Glob,Grep --strict-mcp-config`，那是給純文字生成與遞補用的唯讀檔位；照抄去派審計或寫測試必然交白卷，要先把對應工具放開（見下一節）。
+
+### 唯讀鎖要用白名單，黑名單已被實測打破
+
+套件的 claude 條目原本用黑名單 `--disallowedTools Write,Edit,NotebookEdit,Bash`，**2026-09-23 金絲雀實測證實它擋不住**：Windows 版 Claude Code（2.1.280）另有 PowerShell 工具不在該黑名單內，`claude-opus-5-5` 與 `sonnet` 都改用 PowerShell 的 `Set-Content` 把檔案真的寫出來（以 `--output-format stream-json` 的 `tool_use` 事件確認）。除此之外工具清單還有 Workflow／Task／Cron／SendMessage／Artifact 等三十餘項，以及 claude.ai 連接器帶進來的 MCP 工具（含 create／update／delete，可寫入外部服務）。
+
+**黑名單每逢 CLI 新增工具就破一次**，所以改用白名單：
+
+```text
+--tools Read,Glob,Grep --strict-mcp-config
+```
+
+`--tools` 只暴露列出的內建工具（`""` 停用全部、`default` 取全部），`--strict-mcp-config` 則忽略其他來源的 MCP 設定，避免連接器工具從旁邊繞進來。要給寫入能力時，是在這個白名單上「加」需要的工具，不是回頭去列黑名單。
 
 ### 第四層權限：提示詞前綴（走工作流時預設禁止寫檔）
 
@@ -192,7 +204,7 @@ await wda.dispatchClaude(prompt, {
 
 若需限制結構，再透過 `--json-schema` 傳入 JSON Schema 字串。`stream-json` 會產生 JSONL 事件，不能使用只接受單一 JSON 文件的 `validate: 'json'`。
 
-## 轉接器契約（w-dispatch-ai 1.0.22）
+## 轉接器契約（w-dispatch-ai 1.0.34）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -232,7 +244,7 @@ await wda.dispatchClaude(prompt, {
 
 ## 失敗處理
 
-- 模型或 effort 不存在：檢查 `claude --version` 與 `claude --help`；Claude Code 2.1.258 已實測支援 `claude-fable-5-1` 與 `--effort max`（`--print --output-format json` 之 `modelUsage` 回報實際使用 `claude-fable-5-1`）。`claude` 沒有 `models` 子命令，模型可用性只能以實跑或 `--help` 的別名說明確認。
+- 模型或 effort 不存在：檢查 `claude --version` 與 `claude --help`；Claude Code **2.1.280** 已實測支援 `claude-fable-5-1` 與 `--effort max`（2026-09-23 以 `-p --model claude-fable-5-1 --effort max` 實跑通過；前次 2.1.258 另以 `--output-format json` 之 `modelUsage` 確認實際服務模型即 `claude-fable-5-1`）。`claude` 沒有 `models` 子命令，模型可用性只能以實跑或 `--help` 的別名說明確認。
 - 認證失敗：執行 `claude auth`，或先完成互動式登入。
 - 權限不足：症狀不是卡住也不是報錯，而是 exit 0 卻沒做事（見「權限」一節）。依任務所需的能力下限補 `--allowedTools`／`--permission-mode`，或在可信隔離環境使用 `skipPermissions: true`；補完再跑一次能力探測確認。
 - 被中途砍斷（`errorType: 'timeout'`，或根本沒有結果物件）：先看是哪一層砍的——沒開 `run_in_background` 就是呼叫端砍的，開了才輪到 `timeoutMs`（見「逾時」一節）。審計／複審／測試類一律 1 小時起跳，不要靠拆任務去遷就過短的逾時。
@@ -252,4 +264,13 @@ claude --version
 claude --help
 ```
 
-截至 2026-09-03 審查時，npm 最新版為 `w-dispatch-ai` 1.0.22、Claude Code 2.1.258。1.0.22 的 `dispatchClaude()` 固定旗標（`-p`、`--dangerously-skip-permissions`、`--model`）與選項預設值和 1.0.17 相同，本技能的呼叫方式不變。
+2026-09-23 查核：npm 最新版為 `w-dispatch-ai` 1.0.34、Claude Code 本機實裝 2.1.280。
+
+| 項目 | 結果 |
+|---|---|
+| `dispatchClaude()` 固定旗標與選項 | 與 1.0.17／1.0.22 相同（`-p`、`--dangerously-skip-permissions`、`--model`），**呼叫方式不變**；1.0.34 只改了 JSDoc 之模型範例（補上「全名固定版本 vs 別名隨 CLI 指向最新版」的說明） |
+| 必要預設值 | `claude-fable-5-1` ＋ `--effort max` 維持不變，當日實跑通過；`--help` 明列 `--effort` 值域為 `low, medium, high, xhigh, max`，`max` 即最深 |
+| **唯讀鎖換機制** | 條目由黑名單 `--disallowedTools Write,Edit,NotebookEdit,Bash` 改為白名單 **`--tools Read,Glob,Grep --strict-mcp-config`**——黑名單於 2026-09-23 金絲雀實測被 PowerShell 工具繞過而真的寫出檔案（見「權限」一節） |
+| `providers.mjs` | claude 由 1 條增為 2 條：`claude:sonnet`（預設，遞補先試）與新增的 `claude:opus-5.5`（`model: 'claude-opus-5-5'` 寫全名而非別名 `opus`，以免日後新版 Opus 發布時無聲切換）；全表由 20 條縮為 15 條 |
+
+`--effort` 之值域來自 `claude --help`；本技能未在 2.1.280 逐項重驗其餘旗標表，references 內的旗標清單沿用 2.1.258 之查核結果。
