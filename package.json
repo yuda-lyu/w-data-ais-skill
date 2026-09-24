@@ -2,7 +2,7 @@
   "dependencies": {
     "opencc-js": "^1.4.2",
     "pdfkit": "^0.20.2",
-    "w-dispatch-ai": "^1.0.34",
+    "w-dispatch-ai": "^1.0.36",
     "w-dwdata-hub": "^1.0.18",
     "w-fetch-web": "^1.0.22",
     "w-orm-lmdb": "^1.0.34",
