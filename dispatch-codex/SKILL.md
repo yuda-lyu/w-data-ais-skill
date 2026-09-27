@@ -1,13 +1,15 @@
 ---
 name: dispatch-codex
-description: 當任務需要委派給 Codex，或需要把 Codex 納入多代理工作流程時，透過 w-dispatch-ai 以非互動方式執行 OpenAI Codex CLI。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準：權限不足時 Codex 會以 exit 0 交回看似正常卻沒做事的結果；另含 Windows 上讀非 ASCII（中文）檔案的 UTF-8 正解，預設讀法會拿到亂碼而外表正常。派工逾時：審計／測試類一律 1 小時起跳，且必須背景執行，否則會被呼叫端在 10 分鐘內強制中斷。
+description: 當任務需要委派給 Codex，或需要把 Codex 納入多代理工作流程時，透過 w-dispatch-ai 以非互動方式執行 OpenAI Codex CLI。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準：權限不足時 Codex 會以 exit 0 交回看似正常卻沒做事的結果；Codex 讀檔就是執行 shell，提示詞寫「不能執行指令」等於禁止讀檔（唯讀要靠沙箱，提示詞只禁止修改）；另含 Windows 上讀非 ASCII（中文）檔案的可行讀法（rg 直接輸出），PowerShell 讀法會拿到亂碼而外表正常。派工逾時：審計／測試類一律 1 小時起跳，且必須背景執行，否則會被呼叫端在 10 分鐘內強制中斷。
 ---
 
 # dispatch-codex
 
-使用 `w-dispatch-ai` 的 `dispatchCodex()` 執行自動化 Codex 任務（本技能對照 1.0.34；`dispatchCodex()` 之固定參數與選項自 1.0.17 起未變動，呼叫方式不受版本影響）。轉接器會呼叫 `codex exec`、透過 stdin 傳入提示詞、設定沙箱政策、略過 Git 儲存庫限制、管理逾時與程序樹清理，並以結果物件回報失敗。
+使用 `w-dispatch-ai` 的 `dispatchCodex()` 執行自動化 Codex 任務（本技能對照 1.0.39；`dispatchCodex()` 之固定參數與選項自 1.0.17 起未變動，呼叫方式不受版本影響）。轉接器會呼叫 `codex exec`、透過 stdin 傳入提示詞、設定沙箱政策、略過 Git 儲存庫限制、管理逾時與程序樹清理，並以結果物件回報失敗。
 
 需要變更模型／設定旗標、沙箱行為或非互動輸出時，讀取 [references/codex-flags.md](references/codex-flags.md)。
+
+**長 session 須在派工前重新讀取本技能**：本技能隨實測持續更新，session 早先載入的副本可能已過時。2026-09-27 殷鑑：依早先載入之舊版派工，踩到現行版已逐字記載之坑（提示詞寫「不能執行指令」、只驗非空），且沿用了已被取代的預設模型。
 
 ## 套件裝在哪：技能目錄的上一層，不要自己另裝
 
@@ -74,35 +76,52 @@ await wda.dispatchCodex(prompt, {
 
 被擋時 Codex 常回「請貼上檔案內容」之類的合法字串，會通過 `validate: 'nonempty'` 被當成功。凡需 Codex 讀檔的任務：
 
-- 派長任務前先以「讀某檔並原文引用第 N 行」做最小探測，確認能讀再派正式任務。
+- 派長任務前先以「讀某檔並原文引用第 N 行」做最小探測，確認能讀再派正式任務；**探測提示詞須帶與正式派工逐字相同的限制句**（見「派工前的能力探測」）。
 - `validate`（或工作流的 `check`）應要求回覆引用指定內容，不要只驗非空。
-- 若回覆要求你提供檔案內容、或聲稱找不到／無法讀取明明存在的檔案，第一懷疑對象就是本節的沙箱設定，而非路徑或 prompt。
+- 若回覆要求你提供檔案內容、或聲稱找不到／無法讀取明明存在的檔案，依序排查：①`setup_marker.json` 是否存在（本節之沙箱設定）；②**提示詞有無「不能執行指令／不可用 shell／只能讀檔」之類句子**（見「提示詞之限制句」一節）；③路徑。沙箱設定完成後，②是最常見的原因。
 
-## Windows 讀非 ASCII 檔案：預設會亂碼，要指定 UTF-8 讀法
+## Windows 讀非 ASCII 檔案：只有原生工具直接輸出（rg／cmd /c type）不失真
 
-**症狀**：檔案在磁碟上是 UTF-8，Codex 讀回來卻是亂碼（中文變成 `??ａ?瑼?…` 這類字元）。它會拿這份亂碼去回答、比對、當成 patch 的上下文——審計結論與編輯跟著錯，而外表完全正常。2026-09-08 實測就撞到：同一支中文檔，Codex 一次自行改用讀 byte 轉十六進位才還原出正確內容，另一次直接把亂碼當答案回傳。
+**症狀**：檔案在磁碟上是 UTF-8，Codex 讀回來卻是亂碼（中文變成 `�L WDrawer (�D backstage ��)` 或 `??ａ?瑼?…` 這類字元）。它會拿這份亂碼去回答、比對、當成 patch 的上下文——審計結論與編輯跟著錯，而外表完全正常。模型會自行挑讀法，同一次派工裡常混用：2026-09-27 一次審查派工中，gpt-6-sol 以 `rg` 直接讀的檔案全部完好，改用 `Get-Content -Encoding UTF8` 重讀同一檔的那次卻有 1724 個替換字元（U+FFFD）。
 
-**成因**：Codex 在 Windows 以 `WindowsPowerShell\v1.0\powershell.exe -Command "…"` 執行命令（實測 argv；`$PSVersionTable.PSVersion` 回 `5.1.19041.6456`），也就是 **Windows PowerShell 5.1**；5.1 的 `Get-Content` 未指定編碼時以系統 ANSI 代碼頁解碼，不是 UTF-8。失真只發生在 shell 讀檔這一段——Codex 的 stdout 與 `--output-last-message` 本身是 UTF-8 乾淨的（同日實測中文原樣往返）。
+**成因：兩道編碼邊界**。Codex 在 Windows 以 `WindowsPowerShell\v1.0\powershell.exe -Command "…"` 執行每個命令（**Windows PowerShell 5.1**），並以 UTF-8 解讀其 stdout：
 
-**正解（2026-09-08 於 0.153.4 實測，兩種寫法皆通過）**：
+1. **讀入解碼**：`Get-Content` 未指定編碼時以系統 ANSI 代碼頁解碼。
+2. **輸出編碼**：PowerShell 把字串寫到 stdout 時用主控台輸出代碼頁（本機 zh-TW 為 950）——即使讀入時已指定 `-Encoding utf8`，輸出仍被編成 950，Codex 以 UTF-8 解讀即成 U+FFFD。
 
-```text
-Get-Content -LiteralPath <檔案> -TotalCount <行數> -Encoding utf8
-[System.IO.File]::ReadAllText((Join-Path (Get-Location) '<檔案>'))
-```
+原生工具（`rg`、`cmd /c type`）直接把檔案之 UTF-8 位元組寫到 stdout、不經 PowerShell 轉碼，所以不失真；一旦接上 PowerShell 管線（`| Select-Object`、`| ForEach-Object` 等），輸出就被 PowerShell 接手而再度失真。Codex 自己的最終回覆與 `--output-last-message` 是 UTF-8 乾淨的，失真只發生在 shell 讀檔這一段。
 
-同一支中文檔：未指定編碼時回 `??ａ?瑼?…`，上面兩種寫法都回完全正確的原文。要不要把這條寫進派工提示詞，由執行 agent 自行判斷；本技能的要求是——**凡任務會讀到非 ASCII 內容，就要用上面的讀法，並在收回結果時驗證沒有失真**。
+**沙箱之 PowerShell 為受限語言模式**：2026-09-27 於沙箱內實測 `$ExecutionContext.SessionState.LanguageMode` 回 `ConstrainedLanguage`——.NET 方法呼叫與屬性設定一律被拒（「無法叫用方法。語言模式只支援核心類型上的方法叫用」「無法設定屬性。語言模式只支援核心類型上的屬性設定」），所以 `[System.IO.File]::ReadAllText(…)` 與 `[Console]::OutputEncoding=…` 在沙箱內都不能用。
 
-**驗收（canary）**：提示詞裡指定一個你已知的中文字串，要求 Codex 原文引用，收回後逐字比對。比對不過是編碼問題，不是模型理解問題，不要靠改寫提示詞繞過去。
+**實測表（2026-09-27，Codex 0.156.1，`gpt-6-luna`／low，`--sandbox read-only`，Windows zh-TW 主控台代碼頁 950；以 session 紀錄 `~/.codex/sessions/…/rollout-*.jsonl` 之 `item_completed` 事件的 `aggregated_output` 判定 Codex 實際收到之內容，不經模型轉述；每個命令皆為獨立行程）**：
 
-**寫入方向同樣有坑**：PS 5.1 的 `Out-File` 預設 UTF-16LE，`Set-Content` 與 `>` 走 ANSI。要 Codex 以 shell 寫出含中文的檔案時一律明寫 `-Encoding utf8`，收回後驗檔案內容。
+| 讀法 | 結果 |
+|---|---|
+| `rg -n '^' -- <檔>` | **完好** |
+| `rg -n -m 3 '^' -- <檔>` | **完好**（限行數用 rg 自己的參數） |
+| `cmd /c type "<檔>"` | **完好** |
+| `rg -n '^' -- <檔> \| Select-Object -First 3` | 失真（U+FFFD 14） |
+| `Get-Content -LiteralPath <檔> -TotalCount 3 -Encoding utf8` | 失真（U+FFFD 32） |
+| `chcp 65001 > $null; Get-Content … -Encoding utf8` | 失真（U+FFFD 32） |
+| `Get-Content -LiteralPath <檔> -TotalCount 3`（未指定編碼） | 失真（ANSI 誤解碼之亂碼） |
+| `[System.IO.File]::ReadAllText(…)` | **被拒**（受限語言模式） |
+| `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-Content … -Encoding utf8` | **被拒**（受限語言模式） |
 
-**不要拿這兩招當解**：
+**正解**：讀檔一律用 `rg -n '^' -- <檔>`；要限範圍用 rg 自己的 `-m <N>`／`-A`／`-B`／`-C`，不要接 `| Select-Object`；要原樣位元組用 `cmd /c type "<檔>"`。`rg` 由 Codex 環境提供（本機 PowerShell 之 PATH 未必有 rg，Codex 沙箱內可用）。**派工提示詞要寫明這個讀法**——模型會自行挑讀法而混用 `Get-Content`，不寫就會部分失真。
 
-- `chcp 65001` 改的是主控台代碼頁，不是 `Get-Content` 解碼所用的系統 ANSI 代碼頁，對本症狀沒有作用。
-- `[Console]::OutputEncoding = [Text.Encoding]::UTF8` 是屬性設定，在 PowerShell 受限語言模式下會被擋（上游 issue #9767 回報 Codex 自己下這行時就撞到）。本機實測 `$ExecutionContext.SessionState.LanguageMode` 為 `FullLanguage`，但那是本機沙箱設定的結果，不能假設每台機器都一樣。
+**驗收（canary）**：提示詞裡指定一個你已知的中文字串，要求 Codex 原文引用，收回後逐字比對。比對不過是編碼問題，不是模型理解問題，不要靠改寫提示詞繞過去。要確認 Codex 實際讀到什麼，看 session 紀錄之 `aggregated_output`（同一事件另有 `item_started`，其輸出為空，須取 `item_completed`）。
 
-**影響全機的檔位（需使用者同意，本技能未實測）**：在 `$PROFILE` 加 `$PSDefaultParameterValues['Get-Content:Encoding']='utf8'`（實測所見 argv 未帶 `-NoProfile`，profile 應會載入），或改用 Windows 區域設定的「Beta：使用 Unicode UTF-8 提供全球語言支援」把系統 ANSI 代碼頁改成 65001。兩者都會影響本機其他程式，採用前先徵得使用者同意。
+**更正舊記載**：原載「`Get-Content -Encoding utf8` 與 `ReadAllText` 兩種寫法皆通過（2026-09-08 於 0.153.4 實測）」於 2026-09-27、0.156.1 之沙箱不成立：前者輸出端仍被編成 950 而失真，後者被受限語言模式拒絕；原載「本機實測 LanguageMode 為 FullLanguage」亦不成立（沙箱內為 ConstrainedLanguage）。當時為何通過未查證（推測當時之輸出代碼頁或語言模式與現況不同）。**非沙箱重現時的陷阱**：非沙箱之 FullLanguage 下 `[Console]::OutputEncoding=UTF8` 可用，但它改的是**整個主控台**的輸出代碼頁（`SetConsoleOutputCP`），同一主控台下之後啟動的行程全都改用 UTF-8 輸出——本機以同一 node 行程連續 spawn 驗證時（2026-09-27），第一回合 10 種讀法中 8 種失真（只有兩種先設 `[Console]::OutputEncoding` 者完好），第二回合 10 種全數「完好」，差別只在第一回合中途執行過這行。重現實驗每種讀法都要在乾淨主控台或以輸出位元組比對，不要讓前一個命令污染後一個。
+
+**寫入方向同樣有坑**（未於 2026-09-27 重驗）：PS 5.1 的 `Out-File` 預設 UTF-16LE，`Set-Content` 與 `>` 走 ANSI。要 Codex 以 shell 寫出含中文的檔案時一律明寫 `-Encoding utf8`，收回後驗檔案內容；能不經 shell 寫檔（`apply_patch` 或 `--output-last-message`）就不經 shell。
+
+**不要拿這些當解**：
+
+- `chcp 65001`：2026-09-27 實測無效（見上表）。
+- `[Console]::OutputEncoding = [Text.Encoding]::UTF8`：沙箱之受限語言模式直接拒絕（實測；上游 issue #9767 亦回報 Codex 自己下這行時撞到）。
+- `$PROFILE` 加 `$PSDefaultParameterValues['Get-Content:Encoding']='utf8'`：只修讀入端，輸出端仍被編成 950（依上表 `-Encoding utf8` 之結果推論，未另測）。
+
+**影響全機的檔位（需使用者同意，本技能未實測）**：Windows 區域設定的「Beta：使用 Unicode UTF-8 提供全球語言支援」把系統 ANSI 代碼頁改成 65001（推測可同時修讀入與輸出兩端）。會影響本機其他程式，採用前先徵得使用者同意。
 
 ## 必要預設值
 
@@ -126,7 +145,7 @@ const result = await wda.dispatchCodex('分析此專案並完成指定修改', {
     extraArgs: ['--config', 'model_reasoning_effort="max"'],
     cwd: '/absolute/path/to/project',
     timeoutMs: 3_600_000,   // 審計／複審／測試類 1 小時起跳，見「逾時」一節
-    validate: 'nonempty',
+    validate: 'nonempty',   // 只驗非空僅適用於不需讀檔之任務；需讀檔者改傳自訂函數，要求回覆引用指定內容（見「靜默失敗警語」）
 });
 
 if (!result.ok) {
@@ -144,7 +163,7 @@ console.log(result.stdout);
 | 任務類型 | 能力下限 | Codex 的給法 |
 |---|---|---|
 | 純生成、翻譯、改寫（素材全在提示詞內） | 無 | `sandbox: 'read-only'` |
-| 探索、調研、讀碼回答 | 讀檔＋跑唯讀命令 | `sandbox: 'read-only'`；Codex 讀檔就是執行 shell，Windows 須先完成「Windows 前置」一節的一次性沙箱設定，否則連唯讀命令都被擋 |
+| 探索、調研、讀碼回答 | 讀檔＋跑唯讀命令 | `sandbox: 'read-only'`；Codex 讀檔就是執行 shell，Windows 須先完成「Windows 前置」一節的一次性沙箱設定，否則連唯讀命令都被擋；提示詞只禁止修改，不可寫「不能執行指令」（見「提示詞之限制句」） |
 | 審計、複審、調查 | 讀檔 ＋ 寫檔（報告落檔）＋ 唯讀查證指令 | 報告要落檔就得 `sandbox: 'workspace-write'`；結果只走 stdout 時才可維持 `read-only` |
 | 寫測試、驗證猜想、重現問題 | 讀檔 ＋ 寫測試檔 ＋ 執行測試 | `sandbox: 'workspace-write'`；工作根用 `-C`，工作區外還要寫的目錄用 `--add-dir`（help 原文：additional directories that should be **writable**）；要裝套件才另開網路 |
 | 修改、實作 | 讀 ＋ 寫 ＋ 執行 | 轉接器預設的 `workspace-write` |
@@ -171,6 +190,16 @@ await wda.dispatchCodex(prompt, {
 
 除非 Codex 本身在專用強化沙箱內執行，否則不可使用 `--dangerously-bypass-approvals-and-sandbox`。
 
+### 提示詞之限制句：唯讀靠沙箱，提示詞只禁止修改
+
+**Codex 讀檔就是執行 shell**（每讀一次檔就是一次 `powershell.exe -Command`），所以提示詞裡任何「不能執行指令／不可使用終端／只能讀檔、不能跑命令」之類的句子，都會被 Codex 解讀成**連讀檔都禁止**：它會停下來詢問或回「請提供檔案內容」，離開碼 0、回覆非空，`validate: 'nonempty'` 放行——與沙箱未設定、權限不足完全同型的假成功。
+
+- **唯讀由沙箱在 OS 層保證**（`sandbox: 'read-only'`）；提示詞只寫「不得修改、建立或刪除任何檔案，不得執行測試或啟動服務」，並**明示可用唯讀查檔指令**（例如 `rg`，讀法見「Windows 讀非 ASCII 檔案」一節）。
+- **同一份任務派給 Claude 與 Codex 時，限制句要分開寫**：Claude 之唯讀靠 `--tools Read,Glob,Grep` 白名單，寫「不能執行指令」無妨；照抄給 Codex 就會交白卷。
+- 探測提示詞要帶與正式派工逐字相同的限制句（見「派工前的能力探測」）；只探「讀得到」而正式提示詞另加限制，探測就驗不到。
+
+2026-09-27 實例：審查派工提示詞寫「你只能讀檔，不能執行指令」，`gpt-6-sol` 3 分鐘即結束，回「沒有獨立的 Read／Glob／Grep 讀檔工具，只有終端工具；使用它讀檔會違反『不能執行指令』之限制……請提供檔案內容」，離開碼 0；改寫為「可執行唯讀查檔指令（rg 等），不得修改任何檔案」後即正常讀檔。第四層前綴之舊措辭（「禁止執行任何指令」）是同一個坑的另一個來源（見下節）。
+
 ### 第四層權限：提示詞前綴（走工作流時預設禁止寫檔）
 
 權限共有四層，前三層在你手上、第四層在套件手上：①CLI 沙箱檔位與旗標 ②轉接器選項（`sandbox`）③`providers.mjs` 條目自帶的鎖 ④**提示詞前綴**。
@@ -181,7 +210,7 @@ await wda.dispatchCodex(prompt, {
 
 **要落檔就必須顯式關閉**：傳 `promptPrefix: ''`。注意**只有空字串才算關閉**，傳 `null`／`undefined`／省略都會回退成掛上。直接呼叫 `dispatchCodex()` 不受影響——該前綴只在工作流層自動掛。
 
-**附帶**：該前綴的舊措辭曾寫成「禁止執行任何指令」，把 Codex 的**讀檔**也一併擋掉（Codex 讀檔就是執行 shell），使它回「請貼上檔案內容」並通過 `validate: 'nonempty'`——與「靜默失敗警語」一節是同一個坑的兩個來源。
+**附帶**：該前綴的舊措辭曾寫成「禁止執行任何指令」，把 Codex 的**讀檔**也一併擋掉（Codex 讀檔就是執行 shell），使它回「請貼上檔案內容」並通過 `validate: 'nonempty'`——與「靜默失敗警語」一節是同一個坑的兩個來源。**直接呼叫 `dispatchCodex()` 雖不會自動掛前綴，自己寫的提示詞同樣會踩到**，規則見上節「提示詞之限制句」。
 
 ### 沙箱擋寫的實際樣子（2026-09-08 於 0.153.4 實測）
 
@@ -222,6 +251,8 @@ const probe = await wda.dispatchCodex(
 ```
 
 探測用輕量模型與低推理即可，它驗的是權限不是推理；正式派工再換回 `gpt-6-sol` 與 `max`。探測失敗時先修沙箱與目錄，不要改提示詞重試。
+
+**探測提示詞須帶與正式派工逐字相同的限制句**：把正式提示詞的限制段落（例如「不得修改任何檔案」「可用唯讀查檔指令」）原樣接在探測提示詞後面。提示詞之限制句本身就是一層權限（見「提示詞之限制句」），探測時沒有、正式時才出現，探測就驗不到它（2026-09-27 殷鑑：探測通過，正式派工因多一句「不能執行指令」而交白卷）。
 
 ## 逾時：審計、複審、測試類一律 1 小時起跳
 
@@ -284,7 +315,7 @@ await wda.dispatchCodex(prompt, {
 
 使用 `--json` 時，不可搭配 `validate: 'json'`，因為 stdout 是 JSONL 事件流。
 
-## 轉接器契約（w-dispatch-ai 1.0.34）
+## 轉接器契約（w-dispatch-ai 1.0.39）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -345,6 +376,8 @@ codex --version
 codex exec --help
 ls ~/.codex/.sandbox/setup_marker.json   # Windows：存在才代表 elevated 沙箱設定已完成
 ```
+
+2026-09-27 補查：技能根實裝 `w-dispatch-ai` 1.0.39，`src/dispatchCodex.mjs` 之參數與固定旗標與 1.0.34 相同（`exe`／`model`／`sandbox`／`extraArgs`／`timeoutMs`／`cwd`／`validate`／`maxRetries`，旗標順序 `exec` → `--sandbox` → `--skip-git-repo-check` → `-m` → `extraArgs`）；Codex CLI 0.156.1。同日實測沙箱內 PowerShell 為受限語言模式與中文讀法（見「Windows 讀非 ASCII 檔案」），並新增「提示詞之限制句」一節。
 
 2026-09-23 查核：npm 最新版為 `w-dispatch-ai` 1.0.34、Codex CLI 0.156.1（本機實裝同版）。
 
