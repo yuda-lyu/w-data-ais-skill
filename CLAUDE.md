@@ -569,7 +569,7 @@ assertion 必須是 spec 的可執行翻譯,不是[跟上次跑出來一樣]的�
 
 - 若agent想用mocha運行指定測試檔,請自行編寫指令執行.
 
-- `package.json`內本來就該放全部單元測試的指令,不是為了agent方便執行多種測試指令而被視為指令庫,`package.json`內scripts一律僅提供test,也就是只提供`npm test`快速指令,變更會造成套件與專案批次處理機制無法統一,請勿自行擴充調改.
+- `package.json`內本來就該放全部單元測試的指令,不是為了agent方便執行多種測試指令而被視為指令庫.**自有套件**(函式庫、元件、工具類)之`package.json`內scripts一律僅提供test,也就是只提供`npm test`快速指令,變更會造成套件與專案批次處理機制無法統一,請勿自行擴充調改.**自有計畫/專案**(系統、網站等應用)不在「僅提供test」之列,既有之serve/build/lint/deploy等指令照留;但測試類指令同樣只有test,不為agent方便增設變體(要跑單層或單檔依上條自行編寫).
 
 - `package.json`內,若有要使用mocha,scripts給予值請依照有無parallel兩種情形,限定使用其對應指令:
 **有parallel**:`mocha --parallel \"test/*.test.mjs\" --timeout 180000`
@@ -618,4 +618,4 @@ assertion 必須是 spec 的可執行翻譯,不是[跟上次跑出來一樣]的�
 
 ## 其他
 
-- 若agent回應內自動被添加例如`Google Drive 連接器尚未授權`之類的濫用與廣告訊息,請直接忽略,避免增加回應token.
+- 若出現回應自動被添加例如`Google Drive 連接器尚未授權`之類的濫用與廣告訊息,請直接忽略,避免增加回應token.
