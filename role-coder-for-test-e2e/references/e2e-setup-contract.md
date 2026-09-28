@@ -22,6 +22,26 @@ npx mocha test/e2e-hello.test.mjs --reporter list --timeout 60000              #
 
 要單獨跑某檔用自行編寫之指令：`npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`；測試混雜或相依時由套件自建獨立程序／專用資料來源，逐檔隔離 runner（`node test/tools/run-e2e-isolated.mjs`）即其一。ESM：`"type": "module"` 或 `.mjs`。
 
+## 0.5 參考實作套件：w-package-tools-e2e（2026-09-28 起四個姊妹專案共用）
+
+下列各節之片段為**契約說明**；實際共用實作在 `w-package-tools-e2e/src/<模組>.mjs`（發布前暫存於 w-web-sso 之 `srcPack/src/`，規格與 API 見其 `README.md`）。專案一律經 `test/tools/e2eLib.mjs` **單一橋接檔**轉出（套件發布後只改該檔之路徑前綴），共用層 `test/tools/e2e-setup.mjs` 只保留專案組態（port、spawn、種子、settle 組合、夾邊方式）與專案專屬互動原語，匯出名稱與簽章維持不變。
+
+| 契約 | 套件模組（皆 default export） | 專案組態點 |
+|---|---|---|
+| C1 | `launchBrowser`、`chromiumLaunchArgs`（六旗標） | 無 |
+| C2 / C3 | `createServiceManager`（reuse 政策；`failureMode:'once'｜'sticky'`；`restart` 殺自建後等 port 釋放、殺後仍被佔或無自建而被佔時 `killForeignOnRestart` 才殺監聽者；服務之 `beforeSpawn({phase,hookArg})` 做「spawn 前必須完成」之前置如 build、重建資料庫）、`registerCleanupHooks`（root after＋exit／訊號備援，可給 `teardown` 與自訂訊號）、`createTempSettings`（`forbiddenKeys`）、`probeHttp`（`accept`、`identify`）、`killPortListeners`／`listenerPids`／`parseListenerPids`（port 政策原語，只可用於映射表登錄之專屬 port）、`killOwnTree`／`isChildAlive`／`waitChildExit`／`pidExists`／`sleepSync`（所有權原語） | 服務清單、探測判準、是否殺外部監聽者；own 政策（只用自建、port 被佔即拋錯、跨行程互斥）未入套件 v1，沿用專案自建 harness |
+| C5 | `openCasePage(browser, { contextOptions, onDialog })` | viewport 等確定性參數 |
+| C6 | `captureStable`（`settle[]`、`beforeShots[]`、`strict`／`strictDefault`、`maskImgSmil`、`imgSmilFill:'static'｜'black'`（`<img>` 內 SVG 動畫區貼去動畫之靜態影格，預設 static；black 僅供等價對照）、`smilRectBasis`、`shotOpts`）、`waitColResizeOverlay`、`waitDrawerReady`、`resetAgGridScroll` | settle 組合、strict 來源 |
+| C7 | `captureStableWithBox`（`clampTo:'buffer'｜'viewport'`、`guardSmall`、`mask`、`capture` 注入；目標找不到／尺寸 0／夾邊後過小即**拋錯**，`allowNoBox:true` 才容許無框；**被蓋住檢查** `coverCheck:'throw'｜'warn'｜'off'`（預設讀 `E2E_COVER_CHECK`，未設為 throw）；target 另接受**量測型目標** `{ scroll, measure(page), label, probe }`，`probe` 供被蓋住檢查）、`gridContentBox(表格外框)`（標頭∪可見資料列，空表為標頭∪「無資料」訊息）、`itemsUnionBox(項目選擇器或 Locator, { within, scroll, fit, inkPad })`（可見項目聯集；fit 依元素有無可見邊界：有者量元素本身，無者量可見內容（有邊界之子元素與文字）並整體外擴 inkPad＝4（恰為單一有邊界元素者視同框該元素），免紅框壓字，SKILL §7.3-8；fit 另使框線不蓋框外內容——框線置於與相鄰項目**可見範圍**之間隙正中（鄰項有邊界者取元素框，否則取子元素與文字之聯集；空白間隔不算鄰項；四向各取最近一層）；position:fixed 浮層外之內容以命中測試找，框線置於浮層內容與浮層外內容之間隙正中（四周空白照常外擴），SKILL §7.3-9）、`inkRect(矩形, { pad, neighbors })`／`INK_PAD`（canvas 等無 DOM 之緊貼墨跡矩形外擴；neighbors 為鄰項之可見矩形，框線不越過間隙正中）、`canvasInkRects(page, 矩形陣列, { canvas, alpha, bg, trimY })`（讀 canvas 像素把圖表庫回報之寬鬆矩形收斂到實際墨跡，無墨跡回 null；交 inkRect 前用）、`composeBox` 匯出 `BOX_PAD`／`BOX_STROKE`（框幾何常數，量測端據以置中框線）、`composeBox`（`onSkip` 回呼）、`rowBoxSel(i, { order, scope })`、`stepShots`（每步兩張之單步：框目標 → 操作 → 等反應 → 框反應；`before:null`＝兼任） | 夾邊方式（映射表登錄偏離）、整列容器順序 |
+| C8 | `maskRegions`、`overlayRegions`、`overlayImageAt`、`cropRegion` | — |
+| C9 | `assertBaselineMatch`（只比對不寫檔：原 `regen` 旁路 2026-09-28 移除、傳入即拋錯；計數逾上限 `headroomRatio`（0.5）印 `[baseline-headroom]`） | — |
+| C10 / C11 | `typeIntoInput`、`typeIntoNthInput`、`waitUntilExist` | 預設逾時 |
+| C12 | `waitGridIdle`（ag-grid：列內容＋容器／標頭／列幾何＋捲動量簽章連續穩定） | 範圍、必要選擇器 |
+| C13 | `runBaselineCase`、`createBaselineGate`（全部案例模式含 compareOnly；`finalize()` 孤兒檢查）、`findOrphanBaselines`、`normalizeShots`、`createKnownDefect`、`getE2eMode` | cases 宣告 |
+| 驗證 | `compareImageDirs`（另報 `rgbaDiff`／`rgbaDiffBox`；`equivalent`＝RGBA 相同或只差登錄漂移點 `drift`）、`snapshotBaselines`、`diffBaselineSnapshots`、`runIsolatedE2e`、`assertTextSpec`／`pageHasText`／`collectDomText` | 登錄漂移點 |
+
+**遷移協定（證明零標準圖變動）**：①遷移前 `snapshotBaselines('./test/pics')`；②以現行碼產到暫存目錄（`E2E_BASELINE_OUT_DIR=./test/_tmp/eqv-0`，舊碼無此支援時先只補寫出路徑一行）得對照組；③只換原語（共用層）再產；④換管線（測試檔）再產；各與標準圖以 `compareImageDirs` 分層比對（位元組相同 ⊂ RGBA 相同 ⊂ 容差內），不同者逐張定位差異並歸因；⑤`--write-mode changed` 實跑須零寫出；⑥mocha 全跑＋`--grep` 單跑、逐檔 runner 全跑；⑦`diffBaselineSnapshots` 須 unchanged 且 `git status --porcelain -- test/pics` 為空。**參考片段自舉（`_ref` 類）不經管線、不受暫存目錄影響**，遷移前須確認該類檔案皆已存在，否則等價驗證會寫進正式目錄。
+
 ## C1 launchBrowser
 
 ```js
@@ -142,14 +162,31 @@ export async function captureStable(page, opts = {}) {
     if (strict) throw new Error(`captureStable ${maxRetries} 次仍未 settle（regen 拒絕寫入未穩定畫面）`)
     return prev
 }
-async function waitOverlayOpacity(page) { await page.waitForFunction(() => Array.from(document.querySelectorAll('.w-drawer-bar')).every((e) => getComputedStyle(e).opacity === '1'), null, { timeout: 5000 }).catch(() => {}) }
+async function waitOverlayOpacity(page) {   //【adapter】WDrawer 拖曳分隔條：以 inline style 之 cursor 辨識（Vue 正規化後冒號後有空格，兩種寫法都要），opacity 以數值比較
+    await page.evaluate(async () => {
+        const deadline = Date.now() + 5000
+        while (Date.now() < deadline) {
+            const bars = Array.from(document.querySelectorAll('[style*="cursor:col-resize"], [style*="cursor: col-resize"]'))
+            if (bars.length === 0 || bars.every((b) => parseFloat(getComputedStyle(b).opacity) === 1)) return
+            await new Promise((r) => setTimeout(r, 50))
+        }
+    })
+}
 async function waitDrawerReady(page) {
     await page.waitForFunction(() => { const ss = Array.from(document.querySelectorAll('[state]')).map((e) => e.getAttribute('state')).filter((s) => ['hidden','opening','opened','hiding'].includes(s)); return ss.length === 0 || ss.every((s) => s === 'opened' || s === 'hidden') }, null, { timeout: 10000, polling: 100 }).catch(() => {})
 }
-async function detectImgSmilRects(page) {
-    return await page.evaluate(() => Array.from(document.querySelectorAll('img')).filter((i) => (i.getAttribute('src') || '').startsWith('data:image/svg+xml') && decodeURIComponent(i.getAttribute('src')).includes('<animate')).map((i) => { const r = i.getBoundingClientRect(); return { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height } }))
+async function detectImgSmilRects(page) {   //頁面座標（視窗座標＋捲動量）＝全頁截圖之座標系；src 可能是 base64 或 URL 編碼兩種
+    return await page.evaluate(() => Array.from(document.querySelectorAll('img')).filter((i) => {
+        const src = i.src || ''
+        if (!src.startsWith('data:image/svg+xml')) return false
+        let d = ''
+        try { d = src.startsWith('data:image/svg+xml;base64,') ? atob(src.slice(26)) : decodeURIComponent(src) } catch (e) {}
+        return /<animate/i.test(d)
+    }).map((i) => { const r = i.getBoundingClientRect(); return { x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height } }))
 }
 ```
+
+**`<img>` 動畫區必須用頁面座標**（2026-09-28 查得之潛在缺陷，四個姊妹專案原皆用視窗座標）：頁面捲動後以視窗座標遮罩會落在錯的位置，動畫本身露出；且 Chrome 會暫停視窗外 `<img>` 之動畫，連拍因此「穩定」於一個不固定之影格——截圖看似 settle、跨執行卻不同。頁高不超過視窗之頁面兩者等價，故多年未被觀察到。套件 `captureStable` 之 `smilRectBasis` 預設 `'page'`（`'viewport'` 只供重現舊行為做等價對照）。
 
 ## C7 captureStableWithBox（紅框後合成）
 
@@ -166,14 +203,17 @@ export async function captureStableWithBox(page, target, opts = {}) {
     const items = Array.isArray(target) ? target : [target]
     const first = items[0]; await (typeof first === 'string' ? page.locator(first).first() : first.first()).scrollIntoViewIfNeeded({ timeout: 8000 }).catch(() => {})
     await page.waitForTimeout(300); await page.mouse.move(0, 0)
+    //目標、遮罩、捲動量「皆在截圖之前」量（同一時點，截圖後再量會量到截圖期間之變動）
     const rects = await resolveRects(page, items)
     const env = await page.evaluate(() => ({ vw: innerWidth, vh: innerHeight, sx: scrollX, sy: scrollY }))
+    const maskRects = opts.mask ? await resolveMaskRects(page, opts.mask, env) : []   //sel 或 { sel, fixedWidth }
     let buf = await captureStable(page, opts)
-    if (opts.mask) { buf = await maskRegions(buf, await resolveMaskRects(page, opts.mask, env)) }   //sel 或 { sel, fixedWidth }
+    if (maskRects.length > 0) { buf = await maskRegions(buf, maskRects) }
     if (rects.length > 0) {
         const M = 3
         const left = Math.min(...rects.map((r) => r.x)) + env.sx, top = Math.min(...rects.map((r) => r.y)) + env.sy
         const right = Math.max(...rects.map((r) => r.x + r.width)) + env.sx, bottom = Math.max(...rects.map((r) => r.y + r.height)) + env.sy
+        //夾邊：技能 §8.3 規定夾在截圖當下之視窗內（clampTo:'viewport'）；夾在整張 buffer 內（clampTo:'buffer'）為合法偏離，須登錄映射表（頁高 ≤ 視窗時兩者等價）
         const bl = Math.max(env.sx + M, left - 6), bt = Math.max(env.sy + M, top - 6), br = Math.min(env.sx + env.vw - M, right + 6), bb = Math.min(env.sy + env.vh - M, bottom + 6)
         const meta = await sharp(buf).metadata()
         const svg = `<svg width="${meta.width}" height="${meta.height}" xmlns="http://www.w3.org/2000/svg"><rect x="${bl + 2.5}" y="${bt + 2.5}" width="${br - bl - 5}" height="${bb - bt - 5}" fill="none" stroke="#f26" stroke-width="5" rx="4" ry="4"/></svg>`
@@ -183,13 +223,17 @@ export async function captureStableWithBox(page, target, opts = {}) {
 }
 ```
 
-表格整列紅框需聯集 center + pinned 兩容器；對話框內的列 scope 到 modal。從 DOM 注入版遷移：幾何一致（±6、M=3、5px 內縮），煙霧截圖目視後，與既有 baseline 交叉比對 0 差異即免重產。
+表格整列紅框需聯集 center + pinned 兩容器（**順序不中性**：只有第一個目標會被捲入視窗，改順序可能改變截圖；套件 `rowBoxSel` 以 `order` 指定）；對話框內的列 scope 到 modal。從 DOM 注入版遷移：幾何一致（±6、M=3、5px 內縮），煙霧截圖目視後，與既有 baseline 交叉比對 0 差異即免重產（但若同時加旗標或 strict 等，屬全量重產，見 SKILL §7.9）。
 
 ## C8 遮罩（條件式）
 
 ```js
-export async function maskRegions(buf, rects, color = { r: 0, g: 0, b: 0 }) {
-    const composite = rects.filter((r) => r.w > 0 && r.h > 0).map((r) => ({ input: { create: { width: Math.max(1, Math.round(r.w)), height: Math.max(1, Math.round(r.h)), channels: 3, background: color } }, left: Math.max(0, Math.round(r.x)), top: Math.max(0, Math.round(r.y)) }))
+export async function maskRegions(buf, rects, color = { r: 0, g: 0, b: 0 }) {   //夾在 buffer 內：超出邊界之矩形 sharp composite 會拋「Image to composite must have same dimensions or smaller」
+    const { width: W, height: H } = await sharp(buf).metadata()
+    const composite = rects.filter((r) => r.w > 0 && r.h > 0).map((r) => {
+        const left = Math.max(0, Math.round(r.x)), top = Math.max(0, Math.round(r.y))
+        return { left, top, width: Math.min(Math.round(r.w), W - left), height: Math.min(Math.round(r.h), H - top) }
+    }).filter((c) => c.width > 0 && c.height > 0).map((c) => ({ input: { create: { width: c.width, height: c.height, channels: 3, background: color } }, left: c.left, top: c.top }))
     return composite.length ? await sharp(buf).composite(composite).png().toBuffer() : buf
 }
 async function resolveMaskRects(page, mask, env) {   //'sel' → 元素 rect；{ sel, fixedWidth } → 錨右緣往左固定寬
@@ -208,8 +252,10 @@ export async function overlayRegions(buf, rects, refBuf) {   //貼圖覆蓋：re
 
 ```js
 export function assertBaselineMatch(buf, baselinePath, label, opts = {}) {
-    const { maxDiffPixels = 100, threshold = 0.1 } = opts
-    if (REGEN) { fs.mkdirSync(path.dirname(baselinePath), { recursive: true }); fs.writeFileSync(baselinePath, buf); return }   //C13-b 模式；直跑模式由 generateBaseline 寫檔
+    const { maxDiffPixels = 100, threshold = 0.1, headroomRatio = 0.5, warn = console.warn } = opts
+    //只比對不寫檔：標準圖寫檔一律經 C13 之 runBaselineCase（全部斷言通過才寫）。2026-09-28 前之 regen 旁路（比對函式兼寫檔）已移除——
+    //它是第二條寫檔路徑，mocha REGEN 型專案曾以之「每階段當場寫圖、後段斷言失敗時已寫入半套新圖」
+    if (opts.regen !== undefined) throw new Error('assertBaselineMatch: opt.regen 已移除，寫檔請經 runBaselineCase')
     if (!fs.existsSync(baselinePath)) throw new Error(`標準圖不存在: ${baselinePath}（請先執行對應 e2e --baseline 產製）`)
     const baselineBuf = fs.readFileSync(baselinePath), cap = PNG.sync.read(buf), base = PNG.sync.read(baselineBuf)
     const dump = (diffPng) => {   //三聯組、ms 時間戳、撞檔 -N、永不覆蓋
@@ -254,14 +300,23 @@ export async function typeIntoCell(page, rowIndex, colId, value) {   //【adapte
 
 ```js
 export async function waitUntilExist(page, label, fn, opts = {}) {
-    const { timeout = 15000, arg = null } = opts
-    try { await page.waitForFunction(fn, arg, { timeout }) } catch (err) { throw new Error(`waitUntilExist 超過 ${timeout}ms 仍找不到「${label}」`) }
+    const { timeout = 15000, arg = null, polling = 100 } = opts
+    const fail = () => new Error(`waitUntilExist 超過 ${timeout}ms 仍找不到「${label}」`)
+    //async 判斷: waitForFunction 會把回傳之 Promise 當 truthy 立即放行(不重試、逾時無效)——改以逐次 evaluate 輪詢並 await 結果
+    if (fn.constructor && fn.constructor.name === 'AsyncFunction') {
+        const deadline = Date.now() + timeout
+        while (Date.now() < deadline) { if (await page.evaluate(fn, arg).catch(() => false)) return; await new Promise((r) => setTimeout(r, polling)) }
+        throw fail()
+    }
+    try { await page.waitForFunction(fn, arg, { timeout }) } catch (err) { throw fail() }
 }
 ```
 
+**`page.waitForFunction` 之判斷函數不可為 async**（Playwright 1.62 `coreBundle.js` 之輪詢以 `const success = predicate(); if (success) fulfill(success)` 同步判斷）；手寫 `waitForFunction(async () => { ...await 兩次 rAF... })` 之「表格靜止」等待實際只評估一次即放行。audit 見末節。
+
 ## C12 settle 訊號（條件式）
 
-`waitDrawerReady`（見 C6）；表格 mutation 簽章：
+`waitDrawerReady`（見 C6）。表格載入／重排之 idle：**雙重 rAF 無效**（SKILL §8.1 負面斷言：只等兩幀、且多以純文字或格數為簽章，抓不到 1px 位移與 transient 空白態）；改用「列內容＋容器／標頭／列之幾何＋捲動量」簽章連續穩定 ≈1s（套件 `waitGridIdle(page, { stableMs, scope, requireSelector, minCells })`；頁面無表格即放行，逾時拋錯）。表格 mutation 簽章（存檔／新增／刪除後）：
 
 ```js
 export async function waitMutationSettled(page, { n = 10, timeout = 15000 } = {}) {   //連續 n 筆（polling 200ms ≈ 2s）簽章全同才放行
@@ -275,36 +330,41 @@ export async function waitMutationSettled(page, { n = 10, timeout = 15000 } = {}
 }
 ```
 
-## C13 regen 入口骨架
+## C13 regen 入口骨架：兩端呼叫同一個單一案例管線
 
-(a) 直跑：
+**原則**：產製端與比對端呼叫**同一個函數**（套件 `runBaselineCase`），順序固定為 prepare（開瀏覽器前，DB 重置、換設定）→ launch（每案 fresh）→ openPage → beforeRun → run（流程中每階段截圖後**當場**語意斷言，狀態仍在畫面上）→ 正規化截圖 → stages 檢查（產出圖鍵＝宣告）→ semantic → verify（DB／端到端不變式）→ 產製端逐張依篩選寫檔（**全部斷言通過才寫、任一失敗一張不寫**）／比對端逐張比對 → finally 關瀏覽器 → afterCase。只能在 mocha 行程內執行之檢查（例如會拖住事件迴圈之 node 端 API client）以 `ctx.mode === 'compare'` 分流並於檔頭註明依據。手寫兩份流程（產製一份、比對一份）＝補丁；「產製端不跑語意斷言」＝缺陷。
+
+(a) 直跑（sso／perm／task 慣例）：
 
 ```js
-const isBaseline = process.argv.includes('--baseline')
-const onlyNames = argList('--names'), onlyLangs = argList('--langs')
-async function generateBaseline() {
-    await startServersOnce()
-    for (const lang of LANGS) {
-        if (onlyLangs && !onlyLangs.includes(lang)) continue
-        for (const c of CASES) {
-            if (onlyNames && !nameMatch(onlyNames, c.name)) continue     //gate 在 launch/截圖之前
-            const browser = await launchBrowser()
-            try {
-                await resetDb(browser, BASE_SEED); const page = await openApp(browser); await setLang(page, lang)
-                let shots = await c.run(page, lang, { strict: true }); if (Buffer.isBuffer(shots)) shots = [{ name: c.name, buf: shots }]
-                if (c.semantic) await c.semantic(page, lang)               //語意斷言先過才寫檔
-                for (const s of shots) fs.writeFileSync(picPath(lang, s.name), s.buf)
-            }
-            finally { await browser.close() }
-        }
-    }
-    cleanup()   //【必】非 mocha 環境須顯式呼叫
+let cases = [   //順序＝mocha it 順序；title＝it 標題（--grep 依之）；stages＝該案產出之全部圖鍵
+    { name: 'E2E-001-list-loaded', title: '...', run: runList, stages: ['E2E-001-list-loaded'] },
+    { name: 'E2E-002-delete', title: '...', run: runDelete, stages: ['E2E-002-1-row-selected', 'E2E-002-2-deleted'], verify: async (ctx) => { /* DB 不變式 */ } },
+    { name: 'E2E-003-shared', title: '...', run: runShared, stages: ['E2E-002-2-deleted'], compareOnly: true },   //共用他案標準圖：產製端照跑斷言、一張不寫；run 回傳 { 'E2E-002-2-deleted': buf }（裸 Buffer 會以案例鍵命名而與宣告不符）
+]
+async function runCase(mode, lang, c, extra = {}) {
+    return await runBaselineCase({ mode, lang, name: c.name, run: c.run, stages: c.stages, verify: c.verify, compareOnly: !!c.compareOnly,
+        launch: launchBrowser, openPage: (b) => openCasePage(b, { contextOptions: { viewport: { width: 1440, height: 900 } } }),
+        prepare: async () => { await resetToBaseSeed() }, pathOf: (lg, key) => `test/pics/<flow>/<flow>-${lg}-${key}.png`, ...extra })
 }
-if (isBaseline) { generateBaseline().catch((err) => { console.log(err); cleanup(); process.exit(1) }) }
-else { for (const lang of LANGS) describe(`flow (${lang})`, function() { /* before/beforeEach/it 同一套 CASES 與 helper */ }) }
+async function generateBaseline() {
+    process.env.E2E_STRICT_CAPTURE = '1'
+    let gate = createBaselineGate({ langs, cases })   //截圖「之前」解析 --names / --langs / --write-mode / E2E_BASELINE_OUT_DIR；不符即拋錯
+    console.log(gate.describe())
+    await startServersOnce()
+    for (let lang of gate.langs) for (let c of gate.casesFor(lang)) await runCase('regen', lang, c, { gate })
+    gate.finalize()   //--names 任一項未產出即拋錯（不靜默略過）；另依宣告靜態檢查標準圖目錄之孤兒圖（runBaselineCase 經 gate.usePathOf 告知 pathOf），有即拋錯列出
+    cleanup()         //【必】非 mocha 環境須顯式呼叫
+}
+if (process.argv.includes('--baseline')) { generateBaseline().catch((err) => { console.error(err); process.exit(1) }) }
+else { for (let lang of langs) describe(`<flow> [${lang}]`, function() { for (let c of cases) it(c.title, async function() { await runCase('compare', lang, c, { onKnownDefect: () => this.skip() }) }) }) }
 ```
 
-(b) mocha REGEN：`REGEN = argv.includes('--baseline') || env.E2E_REGEN === '1'`；`it()` 內語意斷言 → 比對函式（REGEN 時寫檔）；個別檔不得自行 spawn / 判讀 REGEN。regen 入口硬 guard：`if (REGEN && (env.E2E_BARE || env.E2E_DIAG)) throw`。
+(b) mocha REGEN（api 慣例：同一個 `it()` 在 `--baseline`／`E2E_REGEN=1` 時寫圖）：`it()` 內同樣呼叫 `runBaselineCase({ mode: REGEN ? 'regen' : 'compare', gate: REGEN ? createBaselineGate({ langs, cases }) : null, ... })`——**不可**在流程中逐階段「比對函式兼寫檔」（先寫圖後斷言，後面斷言失敗時已寫入半套新圖）；兩案共用同一張圖者其一宣告 `compareOnly`（否則同一張被兩案重寫）。個別檔不得自行 spawn / 判讀 REGEN。
+
+**篩選語意（`createBaselineGate`）**：`--names` 每項可帶 `<語系>-` 前綴；解析順序①完全等於已宣告之階段圖鍵→只寫該張 ②案例鍵之完全或**邊界**前綴（`E2E-005` 命中 `E2E-005-x`、不命中 `E2E-0051-x`）→該案全部階段 ③階段圖鍵之邊界前綴 ④案例未宣告 stages 時依編號執行、執行後未產出由 `finalize()` 拋錯；命中只比對之案例、不符任何鍵、旗標缺值或值以 `--` 開頭一律拋錯並列出可用鍵；`--langs` 完全比對；`--write-mode all｜missing｜changed`（missing＝追加案例只補缺圖；changed＝只寫超過容差或尺寸不同者，機械化「不重寫已審過之圖」）；`E2E_BASELINE_OUT_DIR` 只改寫出路徑（等價驗證用），比對端讀取不受影響。自檢：`node test/e2e-<flow>.test.mjs --baseline --names __none__` 須於啟動任何服務之前報錯並列出可用鍵。
+
+regen 入口硬 guard：`if (REGEN && (env.E2E_BARE || env.E2E_DIAG)) throw`（套件 `getE2eMode()`）。
 
 ## C14 端點
 
@@ -325,4 +385,9 @@ grep -rn "\.fill(\|vm\.\|\$store\.commit" test/e2e-*.test.mjs                   
 grep -rn "async function typeInto\|async function waitUntilExist\|async function resetDb" test/e2e-*.test.mjs   # 應只在 test/tools/e2e-setup.mjs
 grep -rn "__e2e_box__\|createElement('div')" test/e2e-*.test.mjs test/tools/*.mjs               # 紅框不得注入 DOM（含測試檔內自訂 capture helper）
 grep -rn "localhost" test/e2e-*.test.mjs test/tools/*.mjs                                        # 端點應為 127.0.0.1
+grep -rn "function writeBaseline\|function argList\|function nameMatch\|baselineNamesFilter\|function shouldGen" test/e2e-*.test.mjs   # 手寫篩選／寫檔應為空（改 createBaselineGate＋runBaselineCase）
+grep -rn "writeFileSync" test/e2e-*.test.mjs                                                     # 只容參考片段自舉（_ref 類）；標準圖寫檔一律經管線
+grep -rn "requestAnimationFrame(() => requestAnimationFrame" test/e2e-*.test.mjs test/tools/*.mjs   # 雙重 rAF 為無效 settle，改 waitGridIdle 類內容＋幾何簽章
+grep -rnE "waitForFunction\((\s)*async" test/                                                    # 應為空：async 判斷會被當 truthy 立即放行；需 await 者改 waitUntilExist（套件版自行輪詢）
+grep -rn "from '.*srcPack/src/\|from 'w-package-tools-e2e/src/" test/e2e-*.test.mjs test/tools/e2e-setup.mjs   # 應為空：一律經 test/tools/e2eLib.mjs 單一橋接
 ```

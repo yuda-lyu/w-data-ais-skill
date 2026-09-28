@@ -14,10 +14,11 @@
 | w-screenctl | `node node_modules/w-screenctl/g.mjs`（port 7000，被佔用另選） |
 | seed 腳本 | `g_initialTestData.mjs`（hermetic：e2e 進場先刪 DB 目錄再跑；偵測 stdout `finish.`） |
 | e2e 執行 | 單獨跑某檔：`npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout NNNNNN` / 逐檔隔離（獨立程序）：`node test/tools/run-e2e-isolated.mjs` |
+| 共用實作 | `test/tools/e2eLib.mjs` 單一橋接 → `w-package-tools-e2e/src/`（發布前：w-web-sso `srcPack/src/`）；`e2e-setup.mjs` 只留組態與專案專屬原語 |
 
 ### 契約映射
 
-| 契約 | 本專案實名 / 模式 | 偏離與依據 |
+| 契約 | 本專案實名 / 模式（括號內為套件模組與選項） | 偏離與依據 |
 |---|---|---|
 | C1 launch wrapper | `launchBrowser()`；旗標組：六旗標 / 四旗標（列出） | 例：四旗標含 `--font-render-hinting=none`，依據＝本專案 2026-xx 字形重畫症狀；尚未升級六旗標因需全量重產 |
 | C2 server lifecycle | `startServersOnce({ backendOnly })` / `cleanup()`；root `after` + 直跑顯式 cleanup | |
@@ -31,7 +32,7 @@
 | C10 輸入 | `typeIntoInput(page, locator, value)`；表格 `typeIntoCell` / `fillAgGridCell` | |
 | C11 偵測等待 | `waitUntilExist(page, label, fn, { timeout, arg })` | |
 | C12 settle 訊號 | `waitDrawerReady`（`[state]`）/ `waitMutationSettled`（簽章） | |
-| C13 regen 入口 | (a) `node test/e2e-x.test.mjs --baseline [--names] [--langs]` + `generateBaseline()` 末尾 `cleanup()` / (b) `npx mocha … --baseline` 或 `E2E_REGEN=1` | |
+| C13 regen 入口 | (a) `node test/e2e-x.test.mjs --baseline [--names] [--langs] [--write-mode]` + `generateBaseline()` 末尾 `cleanup()` / (b) `npx mocha … --baseline` 或 `E2E_REGEN=1`；兩端皆 `runBaselineCase`、篩選 `createBaselineGate`、等價驗證 `E2E_BASELINE_OUT_DIR` | 例：某檔仍手寫篩選或兩份流程＝缺口，列入已知缺口 |
 | C14 端點 | `baseUrl` / `apiBaseUrl`（127.0.0.1） | |
 
 ### 專案特有機制
@@ -46,4 +47,6 @@
 
 - 例：`chromium.launch` 散落 N 處，待收斂為 wrapper
 - 例：紅框仍 DOM 注入，待改 sharp 合成（幾何一致可免重產，需交叉比對證明）
+- 例：N 檔產製端不跑語意斷言／手寫 `startsWith` 篩選，待改 runBaselineCase＋createBaselineGate（改後以暫存目錄重產做等價驗證）
+- 例：表格 idle 仍用雙重 rAF N 處，待改內容＋幾何簽章（waitGridIdle）
 ```
