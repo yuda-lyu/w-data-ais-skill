@@ -157,6 +157,9 @@ description: |
 
 每步先偵測對象存在 / 就緒才進下一步（`waitUntilExist`；`fn` 跨 process 序列化不能 closure，傳值用 `arg`）。**`page.waitForFunction` 之判斷函數不可為 async**：Playwright 同步呼叫判斷函數，async 回傳之 Promise 為 truthy → 第一次即放行、不重試、逾時無效，條件不成立也照樣通過（2026-09-28 盤點姊妹專案共 20 處「看似在等、其實沒等」）；判斷內須 await（如頁面內 fetch 後端再判斷）者改用 `waitUntilExist`——套件版偵測到 async 函數即改以逐次 `page.evaluate` 輪詢並 await 結果。audit：`grep -rn "waitForFunction(async" test/`、`waitUntilExist(.*async` 逐處確認走套件版。可單獨用 `waitForTimeout` 的僅：跨頁 redirect 前 buffer（舊頁殘留 DOM 會 false-positive，數值依專案校準）、editor mount 後 type 前 settle、截圖前 final settle（captureStable 已含）。
 
+- **固定等待以「非同步來源」判，不以秒數判**：盤點全部 `waitForTimeout`（共用層 `tools/auditWaits`，依前後語句分出「後接截圖／讀取／斷言而前無偵測」之候選），逐一判讀前一動作到預期狀態之間有無非同步來源——伺服器往返、轉址、後端或前端計時器、廣播同步、防抖；有則改偵測：頁面內條件用 `waitUntilExist`／`Locator.waitFor`，瀏覽器外之結果（後端週期計時器寫資料庫、背景程序產檔）用測試行程端輪詢（共用層 `pollUntil`）至成立，含伺服器往返者上限給 60s 級（上限只影響失敗多久才報，不影響通過多快）。以秒數門檻（「5 秒以上」）盤點會漏掉變數秒數（`waitForTimeout(waitMs)`）與 2–3 秒級等後端 2 秒計時器者（殷鑑：固定 3 秒等封鎖計時器，負載高時讀到尚未寫入之資料）。前端同步重繪後之短暫 settle、Locator 操作前之 settle 照留。
+- **改偵測前先列出原固定等待「順帶」等到的所有事**：轉址、提示浮窗消失、動畫、debounce。只改成等目標出現，會在轉址途中讀取（`Execution context was destroyed`；殷鑑：原固定 10 秒順帶等過登入轉址，改等權杖寫入 LS 後隨即 evaluate，落在轉址途中）或截到未消失之浮窗（§8.1）。偵測條件寫成**終態**：「無密碼欄且已見使用者頁且權杖已寫入」，不是「權杖已寫入」。
+- **規格語意之時間不是同步手段，照留，但補確定性觀察**：spec 規定之等待（封鎖到期、「10 秒後仍為連線中才能斷定被擋」之觀察期）與負向斷言之觀察窗照等；其判斷若會被負載誤導（正常連線本身慢於觀察期時「仍為連線中」也成立 → 測試假通過），另補一個確定性觀察（網路層回應標頭、DB 狀態）並寫進 spec。
 - **把目標帶進視野也走使用者動作**：虛擬捲動的樹／清單只渲染可見列，目標不在畫面時用該畫面本來就有的過濾／搜尋把它列出，不用滾輪或程式捲動去找——滾輪會連帶捲到別的容器（主選單），`locator.click` 的自動捲入會改版面，兩者都製造正式路徑不會有的假現象；已渲染列數是版面產物，不能當資料筆數斷言。
 - **切換頁面／系統後先等可互動**：過場覆蓋層（浮動抽屜遮罩、內容切換遮罩）會短暫攔截指標事件，多數執行早已消失、偶爾仍在；點擊前以 `elementFromPoint` 確認目標即最上層，否則點擊被吃掉、截圖拍到整片泛白的過場。
 
@@ -400,6 +403,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 - [ ] case 對照表：spec 每 bullet × 語系 → it() → baseline，gap 已分類
 - [ ] 6 步 user path 在每個新 case 註解；抹平步驟標「未走 UI」；按鈕 covered/uncovered 已輸出
 - [ ] act 無 L4–L6；assert 每條對應 spec；動作鏈步數 ≥ spec；彈窗內元素以最上層彈窗為範圍
+- [ ] 固定等待已盤點（`auditWaits`）：後接截圖／讀取／斷言之候選逐一判讀非同步來源，有者已改偵測（頁面內 `waitUntilExist`，瀏覽器外 `pollUntil`），偵測條件為終態（原等待順帶等到之轉址／浮窗／debounce 已列入）；照留者屬 spec 時間、負向觀察窗或偵測後 settle
 - [ ] 每 case fresh browser + DB 重置；所有語系皆跑；regen 端與比對端呼叫同一案例函數（runBaselineCase），產製端寫檔前語意斷言與不變式皆過
 - [ ] 篩選以 createBaselineGate（邊界前綴、不符即報錯、--langs 完全比對、--write-mode、E2E_BASELINE_OUT_DIR）；`--names __none__` 於啟動服務前報錯；共用圖之另一案 compareOnly
 - [ ] 改共用層或管線時已走等價驗證協定（暫存目錄重產 → compareImageDirs 分層 → write-mode changed 零寫出 → test/pics 快照與 git status 不變）；共用實作經 test/tools/e2eLib.mjs 單一橋接

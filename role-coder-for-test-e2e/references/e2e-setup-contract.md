@@ -314,6 +314,8 @@ export async function waitUntilExist(page, label, fn, opts = {}) {
 
 **`page.waitForFunction` 之判斷函數不可為 async**（Playwright 1.62 `coreBundle.js` 之輪詢以 `const success = predicate(); if (success) fulfill(success)` 同步判斷）；手寫 `waitForFunction(async () => { ...await 兩次 rAF... })` 之「表格靜止」等待實際只評估一次即放行。audit 見末節。
 
+**瀏覽器外之非同步結果用測試行程端輪詢（套件 `pollUntil(label, fn, { timeout, interval })`）**：後端週期計時器寫資料庫（封鎖、補登記）、背景程序產檔等不在頁面內，`waitUntilExist` 等不到；`fn` 於測試行程執行、可用閉包、可 async，拋錯視為未成立，回傳 truthy 值即為結果（例：`let ips = await pollUntil('ips 補登記', async () => { let rs = await woItems.ips.select({ ip }); return rs.length ? rs : null }, { timeout: 60000 })`）。取代「固定等 N 秒再讀 DB」——計時器於負載高時延遲（SKILL §4.4）。
+
 ## C12 settle 訊號（條件式）
 
 `waitDrawerReady`（見 C6）。表格載入／重排之 idle：**雙重 rAF 無效**（SKILL §8.1 負面斷言：只等兩幀、且多以純文字或格數為簽章，抓不到 1px 位移與 transient 空白態）；改用「列內容＋容器／標頭／列之幾何＋捲動量」簽章連續穩定 ≈1s（套件 `waitGridIdle(page, { stableMs, scope, requireSelector, minCells })`；頁面無表格即放行，逾時拋錯）。表格 mutation 簽章（存檔／新增／刪除後）：
@@ -390,4 +392,5 @@ grep -rn "writeFileSync" test/e2e-*.test.mjs                                    
 grep -rn "requestAnimationFrame(() => requestAnimationFrame" test/e2e-*.test.mjs test/tools/*.mjs   # 雙重 rAF 為無效 settle，改 waitGridIdle 類內容＋幾何簽章
 grep -rnE "waitForFunction\((\s)*async" test/                                                    # 應為空：async 判斷會被當 truthy 立即放行；需 await 者改 waitUntilExist（套件版自行輪詢）
 grep -rn "from '.*srcPack/src/\|from 'w-package-tools-e2e/src/" test/e2e-*.test.mjs test/tools/e2e-setup.mjs   # 應為空：一律經 test/tools/e2eLib.mjs 單一橋接
+node <共用層>/tools/auditWaits.mjs --only C,E,R .                                                # 固定等待候選：逐一判讀有無非同步來源（SKILL §4.4），有則改偵測／pollUntil
 ```
