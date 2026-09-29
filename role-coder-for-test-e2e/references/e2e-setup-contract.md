@@ -24,7 +24,7 @@ npx mocha test/e2e-hello.test.mjs --reporter list --timeout 60000              #
 
 ## 0.5 參考實作套件：w-package-tools-e2e（2026-09-28 起四個姊妹專案共用）
 
-下列各節之片段為**契約說明**；實際共用實作在 `w-package-tools-e2e/src/<模組>.mjs`（發布前暫存於 w-web-sso 之 `srcPack/src/`，規格與 API 見其 `README.md`）。專案一律經 `test/tools/e2eLib.mjs` **單一橋接檔**轉出（套件發布後只改該檔之路徑前綴），共用層 `test/tools/e2e-setup.mjs` 只保留專案組態（port、spawn、種子、settle 組合、夾邊方式）與專案專屬互動原語，匯出名稱與簽章維持不變。
+下列各節之片段為**契約說明**；實際共用實作在 `w-package-tools-e2e/src/<模組>.mjs`（專案以 devDependency 安裝，1.0.2 起；規格與 API 見套件 `README.md`）。專案一律經 `test/tools/e2eLib.mjs` **單一橋接檔**轉出（升版只改 `package.json` 版號，橋接檔不動），共用層 `test/tools/e2e-setup.mjs` 只保留專案組態（port、spawn、種子、settle 組合、夾邊方式）與專案專屬互動原語，匯出名稱與簽章維持不變。
 
 | 契約 | 套件模組（皆 default export） | 專案組態點 |
 |---|---|---|
@@ -391,6 +391,6 @@ grep -rn "function writeBaseline\|function argList\|function nameMatch\|baseline
 grep -rn "writeFileSync" test/e2e-*.test.mjs                                                     # 只容參考片段自舉（_ref 類）；標準圖寫檔一律經管線
 grep -rn "requestAnimationFrame(() => requestAnimationFrame" test/e2e-*.test.mjs test/tools/*.mjs   # 雙重 rAF 為無效 settle，改 waitGridIdle 類內容＋幾何簽章
 grep -rnE "waitForFunction\((\s)*async" test/                                                    # 應為空：async 判斷會被當 truthy 立即放行；需 await 者改 waitUntilExist（套件版自行輪詢）
-grep -rn "from '.*srcPack/src/\|from 'w-package-tools-e2e/src/" test/e2e-*.test.mjs test/tools/e2e-setup.mjs   # 應為空：一律經 test/tools/e2eLib.mjs 單一橋接
-node <共用層>/tools/auditWaits.mjs --only C,E,R .                                                # 固定等待候選：逐一判讀有無非同步來源（SKILL §4.4），有則改偵測／pollUntil
+grep -rn "from 'w-package-tools-e2e/src/" test/e2e-*.test.mjs test/tools/e2e-setup.mjs            # 應為空：一律經 test/tools/e2eLib.mjs 單一橋接
+node node_modules/w-package-tools-e2e/tools/auditWaits.mjs --only C,E,R .                                                # 固定等待候選：逐一判讀有無非同步來源（SKILL §4.4），有則改偵測／pollUntil
 ```

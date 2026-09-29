@@ -116,7 +116,7 @@ description: |
 | C15 | 程序級假時鐘（preload 模組 + 種子 / 執行期兩個錨點） | 畫面含由程式取當下時間寫入的欄位 |
 | — | 逐檔隔離 runner、in-memory 計數清除 API、fixture log | 後端跨檔留狀態 / rate limit / 統計頁 |
 
-參考實作、最小可執行骨架（含 imports / dependencies / scripts）、audit 指令：[references/e2e-setup-contract.md](references/e2e-setup-contract.md)。**共用實作套件**：C1–C14 之通用部分已抽成 `w-package-tools-e2e/src/<模組>.mjs`（發布前暫存於 w-web-sso 之 `srcPack/src/`；契約→模組對照與遷移時之等價驗證協定見 contract §0.5）；專案一律經 `test/tools/e2eLib.mjs` 單一橋接檔引用，`e2e-setup.mjs` 只留專案組態與專案專屬原語，不再各自手寫截圖、比對、篩選、生命週期——手寫第二份＝補丁堆積。**輔助工具的位置**：setup 模組、逐檔隔離 runner、baseline 產生器一律放 `test/tools/*.mjs`（不帶 `.test.` 中綴，免被 runner 抓成測試檔）；測試檔本身放 `test/` 一層，以 `e2e-` 前綴分類，不開 `e2e/` 子目錄。**helper 不重複**：同一 helper 只在 setup 模組定義一次；測試檔內第二份近似實作＝補丁堆積，先收斂再寫新 case。紅框量測 helper 屬 flow 共用模組，設計原則見 §7.4。
+參考實作、最小可執行骨架（含 imports / dependencies / scripts）、audit 指令：[references/e2e-setup-contract.md](references/e2e-setup-contract.md)。**共用實作套件**：C1–C14 之通用部分已抽成 `w-package-tools-e2e/src/<模組>.mjs`（專案以 devDependency 安裝，1.0.2 起；契約→模組對照與遷移時之等價驗證協定見 contract §0.5）；專案一律經 `test/tools/e2eLib.mjs` 單一橋接檔引用，`e2e-setup.mjs` 只留專案組態與專案專屬原語，不再各自手寫截圖、比對、篩選、生命週期——手寫第二份＝補丁堆積。**輔助工具的位置**：setup 模組、逐檔隔離 runner、baseline 產生器一律放 `test/tools/*.mjs`（不帶 `.test.` 中綴，免被 runner 抓成測試檔）；測試檔本身放 `test/` 一層，以 `e2e-` 前綴分類，不開 `e2e/` 子目錄。**helper 不重複**：同一 helper 只在 setup 模組定義一次；測試檔內第二份近似實作＝補丁堆積，先收斂再寫新 case。紅框量測 helper 屬 flow 共用模組，設計原則見 §7.4。
 
 ## 4. Act：走 user-facing input
 
@@ -359,8 +359,9 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 | email round-trip（重設密碼、變更通知、註冊驗證信） | 先三步探測（建收件匣→產品寄信→API 讀全文）再擴案例；一收信者一個 API 可讀之收件匣，收件匣不足時多帳號＋「收件匣→金鑰」對應；涉信案例才用真實 SMTP，其餘指向拒絕埠；假時鐘會讓 Date 標頭落在過去而送不到，後端殼補 `date: Date.now()`；輪詢取信（案例起始減 1 分鐘、同主旨多封以識別碼排除）；憑證缺 fail-fast 不 skip；信件標準圖用固定版式檢視器頁（無時間、密碼／識別碼黑條），不截儀表板；先盤點產品全部寄信點（grep 寄信呼叫與設定之信件鍵），每個寄信點至少一個收信案例，不只做最先想到的那種信；斷言以逐行純文字對 spec〈信件對照〉；模板或文案改版（版式、點名所屬系統、結果頁文案）時模板檔、spec〈信件對照〉、測試之期望文字三處同步並 grep 舊主旨，只重產含信件與結果頁之圖；只能由套件改的文案先寫建議檔、升版後再改三處。全文：[references/mail-roundtrip-verification.md](references/mail-roundtrip-verification.md) |
 | 統計 / 依時間漂移 | 後端確定性優先：假時鐘（§8.2）、mock 資料集（settings 開關）、fixture log（非 ISO 檔名繞過輪替清理）、合成 log 目錄 + `restartBackend`；仍漂移才貼圖覆蓋 |
 | 成功訊息 | 停留 modal 不用 toast；既有 toast 者等滑入定位後縮短初始等待截圖 |
-| 按鈕視覺鎖 | `pm.resolve()` 放 handler 第一行，否則 e2e 永遠截到 loading 態 |
-| 雙擊 / 並發防護 | 前端真雙擊 UI；後端 mutex 以 `api-` 測試 `Promise.allSettled` 並行 2 次，契約（一成功一 reject / 皆成功無 lost-update）依專案 |
+| 按鈕視覺鎖 | 有副作用之按鈕鎖交給送出流程（`runSubmit`），於請求結束（`updateLoading(false)`）釋放、結果訊息框出現時按鈕已恢復——不是在 handler 第一行 `pm.resolve()`（2026-09-29 實測：第一行解鎖使鍵盤連按送出 2 次）；寫法見 skill[role-coder-for-vue-ui] §3。截到 loading 態表示該流程漏了「開訊息框前先 `updateLoading(false)`」 |
+| 雙擊 / 並發防護 | 前端：真瀏覽器對「焦點在按鈕／輸入框連按 Enter」量測（間隔 5ms；全頁 loading 只擋滑鼠、不搶焦點，只測滑鼠雙擊會漏），請求數以後端日誌計數；後端以 `api-` 測試 `Promise.allSettled` 並行 2 次，只斷言時序無關之不變式（至少 1 成功、被拒者只能是占位 key、資料終態），契約依專案（同一操作者 reject 不排隊／不同操作者序列化皆成功）；占位核心以受控 deferred 單元測試 |
+| 提示框殘留（w-component-vue WButtonCircle） | promiseUnlock 之按鈕以 `v-if` 換掉游標下之圖示後出現遮罩，移開游標 tooltip 仍不消失——元件缺陷，不是「遮罩擋住 mouseleave 之可接受狀態」；截圖前（游標已移開）偵測殘留即拋 knownDefect 標 pending（§7.5），不凍結為標準圖；元件修正後恢復比對，已凍結殘留之既有標準圖經授權重產 |
 | 回應含 build hash / 日期 | 正規化或遮 header 區塊 |
 | 檔案上傳 | fixture 入版控；`filechooser` 事件接真檔；上傳模式選單等文字出現再點 |
 | 另開分頁 | `context.waitForEvent('page')` 先掛再點；新分頁以頁面內容斷言（網址常帶不透明 hash）；新分頁自動開的彈窗才是要框的東西 |

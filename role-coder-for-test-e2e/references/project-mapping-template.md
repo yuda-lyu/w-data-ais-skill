@@ -14,7 +14,7 @@
 | w-screenctl | `node node_modules/w-screenctl/g.mjs`（port 7000，被佔用另選） |
 | seed 腳本 | `g_initialTestData.mjs`（hermetic：e2e 進場先刪 DB 目錄再跑；偵測 stdout `finish.`） |
 | e2e 執行 | 單獨跑某檔：`npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout NNNNNN` / 逐檔隔離（獨立程序）：`node test/tools/run-e2e-isolated.mjs` |
-| 共用實作 | `test/tools/e2eLib.mjs` 單一橋接 → `w-package-tools-e2e/src/`（發布前：w-web-sso `srcPack/src/`）；`e2e-setup.mjs` 只留組態與專案專屬原語 |
+| 共用實作 | `test/tools/e2eLib.mjs` 單一橋接 → `w-package-tools-e2e/src/`（devDependency，寫明版號）；`e2e-setup.mjs` 只留組態與專案專屬原語 |
 
 ### 契約映射
 
