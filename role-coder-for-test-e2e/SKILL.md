@@ -290,7 +290,7 @@ regen 與 mocha 的 browser 取得、per-case fresh、DB 重置、假時鐘、`s
 
 `<img>` 內 SMIL 動態區一律以**頁面座標**（視窗座標＋捲動量，與全頁截圖同座標系）量測後填黑。2026-09-28 查得四個姊妹專案原皆用視窗座標：頁面捲動後遮罩落在錯的位置、動畫露出，且 Chrome 暫停視窗外之 `<img>` 動畫，連拍因而「穩定」於一個不固定之影格——看似 settle、跨執行卻不同；頁高不超過視窗者兩者等價，故長期未被觀察到。
 
-**點擊後 capture 前必 park mouse** 並等 hover-leave + chain animation（1500ms 級）。tooltip：park 觸發 mouseleave 即消失；點擊立即彈 dialog 者被全屏遮罩擋住 mouseleave，截圖含 tooltip 視為可接受，不可用合成事件強清。提示訊息（toast）只停留數秒：等滑入定位後以縮短的初始等待截圖。反過來，**反應目標不是 toast 時（同一訊息另有行內紅字）要等 toast 消失再截**——toast 在不在畫面上取決於時序；原本「固定等 8 秒」恰好等過 toast，改成偵測式等待後文字一出現就截，會截到還沒消失的 toast（共用層 `waitAlertGone`）。**由游標（caret）而非滑鼠決定的 UI**（編輯器在游標所在區塊顯示的小工具列、依游標定位的提示區浮層）park 不掉，也不是壞畫面——那是使用者插入內容後真實看到的狀態，照實凍結並在 spec 註明；不可為了畫面乾淨改變狀態（如插入後再點別處移走焦點）。
+**點擊後 capture 前必 park mouse** 並等 hover-leave + chain animation（1500ms 級）。tooltip：park 觸發 mouseleave 即消失；全屏遮罩（dialog）出現時，瀏覽器於版面變動後不需移動游標即重新命中，並對遮罩下之觸發區派發 mouseleave——遮罩不會擋住 mouseleave（2026-09-29 實測）。park 後 tooltip 仍在就不是可接受狀態，依 §10〈提示框／hover 殘留〉判別成因，不凍結為標準圖，也不可用合成事件強清。提示訊息（toast）只停留數秒：等滑入定位後以縮短的初始等待截圖。反過來，**反應目標不是 toast 時（同一訊息另有行內紅字）要等 toast 消失再截**——toast 在不在畫面上取決於時序；原本「固定等 8 秒」恰好等過 toast，改成偵測式等待後文字一出現就截，會截到還沒消失的 toast（共用層 `waitAlertGone`）。**由游標（caret）而非滑鼠決定的 UI**（編輯器在游標所在區塊顯示的小工具列、依游標定位的提示區浮層）park 不掉，也不是壞畫面——那是使用者插入內容後真實看到的狀態，照實凍結並在 spec 註明；不可為了畫面乾淨改變狀態（如插入後再點別處移走焦點）。
 
 ### 8.2 動態內容：先讓資料確定性，再談遮罩
 
@@ -361,7 +361,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 | 成功訊息 | 停留 modal 不用 toast；既有 toast 者等滑入定位後縮短初始等待截圖 |
 | 按鈕視覺鎖 | 有副作用之按鈕鎖交給送出流程（`runSubmit`），於請求結束（`updateLoading(false)`）釋放、結果訊息框出現時按鈕已恢復——不是在 handler 第一行 `pm.resolve()`（2026-09-29 實測：第一行解鎖使鍵盤連按送出 2 次）；寫法見 skill[role-coder-for-vue-ui] §3。截到 loading 態表示該流程漏了「開訊息框前先 `updateLoading(false)`」 |
 | 雙擊 / 並發防護 | 前端：真瀏覽器對「焦點在按鈕／輸入框連按 Enter」量測（間隔 5ms；全頁 loading 只擋滑鼠、不搶焦點，只測滑鼠雙擊會漏），請求數以後端日誌計數；後端以 `api-` 測試 `Promise.allSettled` 並行 2 次，只斷言時序無關之不變式（至少 1 成功、被拒者只能是占位 key、資料終態），契約依專案（同一操作者 reject 不排隊／不同操作者序列化皆成功）；占位核心以受控 deferred 單元測試 |
-| 提示框殘留（w-component-vue WButtonCircle） | promiseUnlock 之按鈕以 `v-if` 換掉游標下之圖示後出現遮罩，移開游標 tooltip 仍不消失——元件缺陷，不是「遮罩擋住 mouseleave 之可接受狀態」；截圖前（游標已移開）偵測殘留即拋 knownDefect 標 pending（§7.5），不凍結為標準圖；元件修正後恢復比對，已凍結殘留之既有標準圖經授權重產 |
+| 提示框／hover 殘留（游標下節點被移除） | 徵狀：點擊後 park、或關閉訊息框再移動，提示框或按鈕 hover 底色仍在。成因：點擊使游標正下方之節點被移除或替換（`v-if` 換成載入圖示、停用遮罩移除），其後第一次命中落在觸發區外（同一輪出現之全頁遮罩，或點擊後立即移開）時，未採「命中節點被移除後以最近仍在 DOM 之祖先為目標」之瀏覽器不對觸發區派發 mouseleave。Chrome 144 起預設採用（`BoundaryEventDispatchTracksNodeRemoval`），真 Chrome 使用者不會遇到；**Playwright ≤1.62 之預設啟動參數停用此功能**（1.63.0 起不再停用），故 e2e 重現而使用者畫面不會。判別：以同版 Chromium 解除停用重跑（`ignoreDefaultArgs` 移除預設之 `--disable-features=…` 整串、`args` 補回不含該項之清單；只加 `--enable-features` 無效），不殘留即屬環境差異。w-component-vue 已於 2026-09-29 修正 WButtonCircle（圖示容器與停用遮罩 `pointer-events:none`，命中恆為按鈕層，不依瀏覽器語意；WDialog 標題列儲存鈕隨之修正），以已安裝之 `WButtonCircle.vue` 圖示容器是否帶 `pointer-events:none` 判斷是否已含修正。處置：元件未升版前，截圖前（游標已移開）偵測**任何**仍可見之提示框即拋 knownDefect 標 pending（§7.5），不限特定語系鍵；元件升版後恢復比對，已凍結殘留之既有標準圖經授權重產。升 Playwright 至 1.63+ 亦使徵狀消失，但同時換 Chromium 版本並改變全部邊界事件語意（如節點移除後不再重複 mouseenter），須全量重跑並審差異。自寫元件同理：游標下會被移除替換之內層（圖示、載入圖示、純視覺遮罩）設 `pointer-events:none`；勿改用 `v-show`——元件根元素 `:style` 含 display 者，元件一重繪就把 v-show 之 none 蓋掉 |
 | 回應含 build hash / 日期 | 正規化或遮 header 區塊 |
 | 檔案上傳 | fixture 入版控；`filechooser` 事件接真檔；上傳模式選單等文字出現再點 |
 | 另開分頁 | `context.waitForEvent('page')` 先掛再點；新分頁以頁面內容斷言（網址常帶不透明 hash）；新分頁自動開的彈窗才是要框的東西 |
