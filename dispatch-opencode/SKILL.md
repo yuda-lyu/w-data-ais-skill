@@ -7,7 +7,7 @@ description: 當任務需要委派給 OpenCode，或需要使用 OpenCode 支援
 
 使用 `w-dispatch-ai` 的 `dispatchOpencode()` 執行自動化 OpenCode 任務。轉接器會呼叫 `opencode run`、選擇代理與模型、透過 stdin 傳入提示詞、視需要注入僅限當次程序的供應商設定與憑證，並以結果物件回報失敗。
 
-**本技能對照的是 1.0.34**（`dispatchOpencode()` 之固定參數自 1.0.17 起未變動；1.0.34 新增一個 `useStoredAuth` 選項，見「免費模型走匿名」）。但**條目會隨版本增刪改名，改動頻率遠高於轉接器本身**——近幾版就有三起：1.0.25 把 `oc:agnes-ai/agnes-2.5-flash` 改名為 `oc:agnes-ai/agnes-3.0-flash`（官方 2026-09-11 發布 3.0，探測五題 3.0 答對推理題而 2.5 答錯、總耗時 41s 對 281s，兩條目同步換掉），1.0.26 新增 `oc:opencode/union-alpha`，**1.0.34 又把 union-alpha 與 deepseek 一起移除、換成 `big-pickle` 與 `mimo-v2.6-flash-free`，並把 opencode 自家條目全改為匿名取用**。**寫死 id 前先對安裝版核一次**，不要照抄本技能或別處的字面值；`pick` 打錯或用到已移除的 id 會靜默少一條（接法見「展開條目」）。實際安裝版一律讀 `<技能根>/node_modules/w-dispatch-ai/package.json` 的 `version`。
+**本技能對照的是 1.0.40**（`dispatchOpencode()` 之固定參數自 1.0.17 起未變動；1.0.34 新增一個 `useStoredAuth` 選項，見「免費模型走匿名」）。但**條目會隨版本增刪改名，改動頻率遠高於轉接器本身**——近幾版就有三起：1.0.25 把 `oc:agnes-ai/agnes-2.5-flash` 改名為 `oc:agnes-ai/agnes-3.0-flash`（官方 2026-09-11 發布 3.0，探測五題 3.0 答對推理題而 2.5 答錯、總耗時 41s 對 281s，兩條目同步換掉），1.0.26 新增 `oc:opencode/union-alpha`，**1.0.34 又把 union-alpha 與 deepseek 一起移除、換成 `big-pickle` 與 `mimo-v2.6-flash-free`，並把 opencode 自家條目全改為匿名取用**。**寫死 id 前先對安裝版核一次**，不要照抄本技能或別處的字面值；`pick` 打錯或用到已移除的 id 會靜默少一條（接法見「展開條目」）。實際安裝版一律讀 `<技能根>/node_modules/w-dispatch-ai/package.json` 的 `version`。
 
 需要變更模型、供應商、variant、認證或輸出旗標時，讀取 [references/opencode-flags.md](references/opencode-flags.md)。
 
@@ -112,26 +112,29 @@ await wda.dispatchOpencode(prompt, {
 
 `opencode models` 只列得出 CLI 已認證或已設定的供應商，但 `config` 注入是**當次程序**生效的，所以型錄查不到的供應商照樣派得動。**`Provider not found` 只代表沒註冊在 CLI 端，不是「這個模型不能用」的結論**——要判斷能不能用，看的是有沒有 provider 定義與金鑰。
 
-## 條目表：`providers.mjs` 的 6 個 opencode 條目
+## 條目表：`providers.mjs` 的 7 個 opencode 條目
 
-`w-dispatch-ai` 自帶一份實測可用的條目表 `w-dispatch-ai/src/providers.mjs`，直接引用即可，不必自己重試一遍。**它是本技能所有模型資訊的上游**，與本技能不一致時以它為準。截至 1.0.34 全表 15 條，其中 `kind: 'opencode'` 者 6 條：
+`w-dispatch-ai` 自帶一份實測可用的條目表 `w-dispatch-ai/src/providers.mjs`，直接引用即可，不必自己重試一遍。**它是本技能所有模型資訊的上游**，與本技能不一致時以它為準。截至 1.0.40 全表 17 條，其中 `kind: 'opencode'` 者 7 條：
 
-| 條目 id | `model` | 取用方式 | 備註（條目註解之實測紀錄） |
-|---|---|---|---|
-| `oc:opencode/muse-spark-1.3-contributor-free` | `opencode/muse-spark-1.3-contributor-free` | **匿名**（`useStoredAuth: false`） | **即本技能必要預設模型**；2026-09-03 實測 6.1s。同模型走 zen REST 回 HTTP 500，只有 CLI 路徑可用 |
-| `oc:opencode/muse-spark-1.2-contributor-free` | `opencode/muse-spark-1.2-contributor-free` | **匿名** | 2026-09-03 實測 8.1s |
-| `oc:opencode/big-pickle` | `opencode/big-pickle` | **匿名** | **1.0.34 新增**；id 不帶 `-free` 後綴但官方〈Pricing〉列為 Free，屬限時免費之 stealth 模型。2026-09-22 匿名 CLI 實測 7.1s。**官方〈Privacy〉載明免費期間所收資料可能用於改進模型**，敏感內容勿走此條（各 `*-free` 模型亦同） |
-| `oc:opencode/mimo-v2.6-flash-free` | `opencode/mimo-v2.6-flash-free` | **匿名** | **1.0.34 新增**；2026-09-22 匿名 CLI 實測 7.0s |
-| `oc:agnes-ai/agnes-3.0-flash` | `agnes-ai/agnes-3.0-flash` | 金鑰 `AGNES_KEYS` | 第三方，baseURL `https://apihub.agnes-ai.com/v1`。1.0.25 由 `agnes-2.5-flash` 改名，REST 版 `agnes:agnes-3.0-flash` 同步改名 |
-| `oc:poolside/poolside/laguna-s-2.1` | `poolside/poolside/laguna-s-2.1` | 金鑰 `POOLSIDE_KEYS` | 第三方，baseURL `https://inference.poolside.ai/v1` |
+| 條目 id | `model` | 取用方式 | 自帶 variant | 備註（條目註解之實測紀錄） |
+|---|---|---|---|---|
+| `oc:opencode/muse-spark-1.3-contributor-free` | `opencode/muse-spark-1.3-contributor-free` | **匿名**（`useStoredAuth: false`） | `high` | **即本技能必要預設模型**；2026-09-03 實測 6.1s。同模型走 zen REST 回 HTTP 500，只有 CLI 路徑可用 |
+| `oc:opencode/muse-spark-1.2-contributor-free` | `opencode/muse-spark-1.2-contributor-free` | **匿名** | `high` | 2026-09-03 實測 8.1s |
+| `oc:opencode/space-bunny-free` | `opencode/space-bunny-free` | **匿名** | `high` | **1.0.40 新增**（2026-09-24 收錄）；限時免費之 stealth 推理模型，context 1M、可輸入圖片與影片。匿名 CLI 實測簡答 8.1s、推理題 34.9s 答對、讀相對路徑 13.2s 正確、要求寫檔被唯讀鎖擋下未落地 |
+| `oc:opencode/big-pickle` | `opencode/big-pickle` | **匿名** | 無檔位 | id 不帶 `-free` 後綴但官方〈Pricing〉列為 Free，屬限時免費之 stealth 模型。2026-09-22 匿名 CLI 實測 7.1s。**官方〈Privacy〉載明免費期間所收資料可能用於改進模型**，敏感內容勿走此條（各 `*-free` 模型亦同） |
+| `oc:opencode/mimo-v2.6-flash-free` | `opencode/mimo-v2.6-flash-free` | **匿名** | 無檔位 | 2026-09-22 匿名 CLI 實測 7.0s |
+| `oc:agnes-ai/agnes-3.0-flash` | `agnes-ai/agnes-3.0-flash` | 金鑰 `AGNES_KEYS` | 無檔位 | 第三方，baseURL `https://apihub.agnes-ai.com/v1`。1.0.25 由 `agnes-2.5-flash` 改名，REST 版 `agnes:agnes-3.0-flash` 同步改名 |
+| `oc:poolside/poolside/laguna-s-2.1` | `poolside/poolside/laguna-s-2.1` | 金鑰 `POOLSIDE_KEYS` | 無檔位 | 第三方，baseURL `https://inference.poolside.ai/v1` |
 
-**1.0.34 的兩項換血**：`oc:opencode/deepseek-v4-flash-free` 與 `oc:opencode/union-alpha` 已自表內移除，換成 `big-pickle` 與 `mimo-v2.6-flash-free`；全表也由 20 條縮為 15 條（zen REST 系大量退場，原因見下節之免費層閘門）。**照抄舊 id 會落入 `missing`**。
+**五個 opencode 自家條目一律匿名取用**（`useStoredAuth: false`、不帶 `envVar`），這是 2026-09-18 起的政策性改動，理由見下節。第三方兩條仍走金鑰。
 
-**四個 opencode 自家條目一律匿名取用**（`useStoredAuth: false`、不帶 `envVar`），這是 2026-09-18 起的政策性改動，理由見下節。第三方兩條仍走金鑰。
+**條目自帶的 variant 是 `high`，不是本技能必要預設值的 `xhigh`**：套件 2026-09-30 起把各家條目的思考強度統一設為 `high`，opencode 側即 `extraArgs: ['--variant','high']`。但**只有實際有檔位的模型才帶**——同日以 `opencode models opencode --verbose` 查得 muse-spark 1.2／1.3 與 space-bunny 有檔位，`big-pickle`、`mimo` 沒有，第三方自訂 provider 亦無，那些條目就不帶。照抄條目只有 high；要本技能的 `xhigh` 得自己覆寫，且**覆寫 `extraArgs` 時要把原本的 variant 一併帶回**。
+
+**條目換得很快，照抄舊 id 會落入 `missing`**：1.0.34 移除 `deepseek-v4-flash-free` 與 `union-alpha`、換上 `big-pickle` 與 `mimo-v2.6-flash-free`；1.0.40 又加 `space-bunny-free`。全表則由 20 條（1.0.26）縮到 15 條（1.0.34，zen REST 系大量退場，見免費層閘門）再回到 17 條（1.0.40）。
 
 **Poolside 的 `model` 是三段**：供應商名 `poolside` ＋ 模型 id `poolside/laguna-s-2.1`（模型 id 本身就含斜線），不是寫錯。
 
-**全取條目表時會混進非文字生成的條目**：kind `api-typesafe-systemone`（決策模型，輸入是待評估狀態、輸出是型別化答案，呼叫時必須另給 `questions`）在 1.0.34 有 2 條。它的輸出形狀與文字生成完全不同，**不可與文字生成條目混在同一條遞補鏈**；全取時它會因缺 `questions` 以 `params` 錯誤在 0ms 失敗後換下一家，不影響其他家，但要它就得用 `pick` 單獨取出。
+**全取條目表時會混進非文字生成的條目**：kind `api-typesafe-systemone`（決策模型，輸入是待評估狀態、輸出是型別化答案，呼叫時必須另給 `questions`）在 1.0.40 有 2 條。它的輸出形狀與文字生成完全不同，**不可與文字生成條目混在同一條遞補鏈**；全取時它會因缺 `questions` 以 `params` 錯誤在 0ms 失敗後換下一家，不影響其他家，但要它就得用 `pick` 單獨取出。
 
 ### Zen 免費層閘門：REST 直呼免費模型一律 403，只能走 CLI
 
@@ -398,7 +401,7 @@ const probe = await wda.dispatchOpencode(
 | `coolDetect` | 無 | CLI 類限流的唯一入口（依賴注入），例：`(r) => /FreeUsageLimitError/i.test(r.stderr || '')` |
 | `shouldStop` | 無 | 1 小時派工中途要止損的唯一手段：於每次嘗試之間檢查，回 `ABORTED`／`errorType: 'aborted'`。它不會中斷進行中的那一次嘗試 |
 
-**`budgetFor()` 有陷阱，不要照抄**：它**只累加條目自己的 `timeoutMs`**（未帶者以統一預設 300000 計），讀不到你寫在 opt／`defaults` 的那一個；而套件內建的 providers 條目**刻意一條都不帶 `timeoutMs`**（1.0.34 實查 15 條皆無），所以 `budgetFor(內建條目)` 恆為「條目數 × 300000」——比你的 1 小時還小，反而把它壓下去。**本技能教的「直接引用 `providers.mjs`」正好踩中這一點**：要用 `budgetFor()` 就得先把 `timeoutMs: 3_600_000` 逐條寫進每個條目（用 `resolveProviders` 的 `patch` 逐 id 覆寫，別自己 map 回傳值），否則直接寫 `K × 3_600_000`。
+**`budgetFor()` 有陷阱，不要照抄**：它**只累加條目自己的 `timeoutMs`**（未帶者以統一預設 300000 計），讀不到你寫在 opt／`defaults` 的那一個；而套件內建的 providers 條目**刻意一條都不帶 `timeoutMs`**（1.0.40 實查 17 條皆無），所以 `budgetFor(內建條目)` 恆為「條目數 × 300000」——比你的 1 小時還小，反而把它壓下去。**本技能教的「直接引用 `providers.mjs`」正好踩中這一點**：要用 `budgetFor()` 就得先把 `timeoutMs: 3_600_000` 逐條寫進每個條目（用 `resolveProviders` 的 `patch` 逐 id 覆寫，別自己 map 回傳值），否則直接寫 `K × 3_600_000`。
 
 **1 小時派工要留觀測點**：`dispatchAiFallback` 的 `onEvent` 會逐步回報 `'try'`／`'ok'`／`'next-key'`／`'skip-group'`／`'budget-out'`／`'aborted'`／`'cooled'`，失敗事件另帶 `errorType`、被拒回覆與 stderr。沒掛它的話，一小時內看不出是卡在哪一家、還是早就跳完整條鏈在空轉。
 
@@ -418,7 +421,7 @@ const probe = await wda.dispatchOpencode(
 
 所以 opencode 的限流只能事後從失敗結果判讀：CLI 類的限流字樣埋在 stderr，`errorType` 一律是 `exec`（不細分），要偵測就自己給 `coolDetect`（見「逾時」一節）。**不要為了「先查額度再決定派不派」去翻 `src/quota/`**，那裡沒有你要的東西。
 
-## 轉接器契約（w-dispatch-ai 1.0.34）
+## 轉接器契約（w-dispatch-ai 1.0.40）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -500,7 +503,18 @@ opencode run --help
 
 2026-09-08 於本機 `opencode-ai` 1.18.29 查核：`opencode run` 之旗標（`--agent`、`-m`、`--variant`、`--dir`、`--auto`、`--format`、`--file`）皆與本技能所載一致。
 
-2026-09-23 查核：本機 opencode 為 **1.18.31**、`w-dispatch-ai` 最新為 **1.0.34**。以 `opencode models opencode --verbose` 重查預設模型之型錄，並讀 1.0.34 原始碼逐項核對（未重跑 CLI 派工，故上段旗標表維持原查核日）：
+2026-09-30 查核：本機 opencode 為 **1.18.33**、`w-dispatch-ai` 最新為 **1.0.40**（技能根實裝 1.0.39）。以 `opencode models opencode --verbose` 重查預設模型之型錄，並讀 1.0.40 原始碼核對（未重跑旗標表）：
+
+| 項目 | 結果 |
+|---|---|
+| 必要預設值 | `opencode/muse-spark-1.3-contributor-free` ＋ `--variant xhigh` 維持不變；型錄重查確認 `status: active`、`reasoning: true`、`toolcall: true`、variants 仍為 `minimal`／`low`／`medium`／`high`／`xhigh`（**最深是 `xhigh`，沒有 `max`**） |
+| 以預設值實跑 | `opencode run --agent build -m opencode/muse-spark-1.3-contributor-free --variant xhigh` 回覆正確 |
+| `providers.mjs` | 全表由 15 條增為 **17 條**；`kind: 'opencode'` 者由 6 條增為 **7 條**（新增 `oc:opencode/space-bunny-free`），自家條目由四條增為五條且仍全為匿名 |
+| **條目新增自帶 variant** | 有檔位的三條（muse-spark 1.2／1.3、space-bunny）帶 `['--variant','high']`；`big-pickle`、`mimo` 與第三方兩條無檔位故不帶。**是 `high` 不是本技能的 `xhigh`** |
+| REST 側 | 新增 `zen:space-bunny-free`（`api-openai-compat`），是對話型免費模型中少數 REST 可通者——免費層閘門對它未套用（匿名與帶金鑰皆 200），**但套件註解明寫此例外可能隨時收回**；其 `max_tokens` 刻意設 32768 而非慣例的 8192，因推理 token 計入該上限，8192 易截斷 |
+| 唯讀鎖 | 仍為 `{ edit:'deny', bash:'ask' }`，未再變動 |
+
+以下為 2026-09-23 於 opencode 1.18.31 ＋ 套件 1.0.34 之查核（部分項目已被上表取代，保留以對照沿革）：
 
 | 項目 | 結果 |
 |---|---|

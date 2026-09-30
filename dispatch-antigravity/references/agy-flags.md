@@ -46,7 +46,9 @@ gpt-oss-120b-medium       GPT-OSS 120B (Medium)
 
 **`gemini-3.8-flash-high` 是最新且最深的 Gemini 選項，本技能之預設值。** Gemini 3.8 Flash 隨 agy 1.1.25 進入型錄（changelog：「Added Gemini 3.8 Flash to the model catalog when connecting with a `GEMINI_API_KEY`」），本機以 `agy -p "只回覆兩個字：完成" --model gemini-3.8-flash-high --dangerously-skip-permissions` 實跑通過（2026-09-03 於 1.1.25 為 8.8 秒、exit 0；**2026-09-23 於 1.2.6 再跑一次仍通過**）。`w-dispatch-ai` 之 providers 表於 2026-09-03 由 3.7 升為 3.8，附實測數據：回應 12.5s（3.7 為 62.2s）、讀檔 14.6s（3.7 為 57.6s）；1.0.34 之 `agy:gemini-3.8-flash-high` 條目仍為同一 slug。
 
-**`--effort` 只有 `low|medium|high`，`high` 就是 agy 的最深檔**（1.2.6 之 `--help` 明列）；沒有 Claude／Codex／OpenCode 那種 `xhigh`／`max`／`ultra`。而 3.8 Flash **只提供帶檔位的 slug**（`-high`／`-medium`／`-low`，沒有不帶檔位的 `gemini-3.8-flash`），所以最深思考的正解是直接用 `gemini-3.8-flash-high` 並**省略 `--effort`**——檔位已在 slug 裡，再傳一次只會多一個衝突來源。
+**`--effort` 之值域在 1.2.13 已擴為 `low|medium|high|max`**（1.2.6 時只有 `low|medium|high`），**但那是 CLI 層的字面值域，不是每個模型都吃**。2026-09-30 實測：`gemini-3.8-flash` 的 available 為 `low, medium, high`、`gemini-3.7-flash` 同、`gemini-3.1-pro` 只有 `low, high`、Claude 系直接回「`--effort` is not supported」。**當前沒有任何 Gemini 接受 `max`**，故 `high` 仍是 3.8 Flash 的最深檔。
+
+`agy models` 只列帶檔位的 slug（`-high`／`-medium`／`-low`），但**不帶檔位的基礎 slug 其實解析得出來**（實測 `--model gemini-3.8-flash` 會先認出模型、再抱怨 effort 不支援）。最深思考的正解仍是直接用 `gemini-3.8-flash-high` 並**省略 `--effort`**——檔位已在 slug 裡，再傳一次只會多一個衝突來源（實測 `gemini-3.8-flash-high` ＋ `--effort max` 回 `conflicts with`）。
 
 **型錄變動速度是本節重點**：2026-08-23 型錄尚有 `gemini-3.5-flash-*` 而無 3.8；2026-09-02 查核時 3.5 已移除、最新仍只到 3.7；2026-09-03 即出現 3.8 三檔。**十一天內三次變動**，故固定任何 slug 前一律先跑 `agy models` 對照，不可依本文件的清單直接寫入。
 
@@ -64,7 +66,7 @@ gpt-oss-120b-medium       GPT-OSS 120B (Medium)
 | `--prompt <text>` | `--print` 的別名 |
 | `-i`、`--prompt-interactive <text>` | 帶初始提示詞進入互動模式；派工不可使用 |
 | `--model <slug>` | 固定使用 `agy models` 中的模型 |
-| `--effort low\|medium\|high` | 設定推理強度 |
+| `--effort low\|medium\|high\|max` | 設定推理強度。**1.2.13 起才列出 `max`，且未必被模型接受**（每模型之 available 清單以錯誤訊息實查，見「必要模型與最深推理」） |
 | `--dangerously-skip-permissions` | 自動核准所有工具權限請求 |
 | `--print-timeout <duration>` | 限制 print 模式等待時間；預設 `5m0s` |
 | `--add-dir <path>` | 增加工作區目錄；可重複使用 |

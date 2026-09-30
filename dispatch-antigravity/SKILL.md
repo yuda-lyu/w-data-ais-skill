@@ -37,7 +37,19 @@ const wda = req(path.join(skillsRoot, 'node_modules', 'w-dispatch-ai'));
 - 模型：`gemini-3.8-flash-high`
 - 推理強度：模型 slug 已內嵌的 `high`
 
-`high` 是 Antigravity 目前提供的最深等級（`--effort` 只有 `low|medium|high`，沒有 xhigh／max）。預設時不要再傳入 `effort: 'high'`；模型 slug 已包含等級，重複設定沒有必要，而且維持單一設定來源可避免日後發生 slug／effort 衝突。
+`high` 是 **Gemini 3.8 Flash** 能給到的最深等級。預設時不要再傳入 `effort: 'high'`；模型 slug 已包含等級，重複設定沒有必要，而且維持單一設定來源可避免 slug／effort 衝突。
+
+**注意 `--help` 的值域不等於模型支援的值域**：agy 1.2.13 的 `--help` 已把 `--effort` 列為 `low|medium|high|max`（1.2.6 時只有 `low|medium|high`），但 **3.8 Flash 並不支援 `max`**。2026-09-30 實測三種組合，agy 的錯誤訊息才是每個模型的權威清單：
+
+| 傳法 | agy 回應 |
+|---|---|
+| `--model gemini-3.8-flash-high --effort max` | `--model gemini-3.8-flash-high conflicts with --effort=max`（slug 已帶檔位，與 effort 不一致就衝突） |
+| `--model gemini-3.8-flash --effort max` | `gemini-3.8-flash has no "max" effort (available: low, medium, high)` |
+| `--model gemini-3.1-pro --effort max` | `gemini-3.1-pro has no "max" effort (available: low, high)` |
+
+同日另測 `--model claude-opus-4-6 --effort max` 回 `--effort is not supported for model "claude-opus-4-6"`。**當前型錄裡沒有任何一支 Gemini 接受 `max`**，所以 `gemini-3.8-flash-high` 仍是本技能能拿到的最深檔。日後 `agy models` 出現 `gemini-*-max` 或某支基礎 slug 的 available 清單含 `max` 時，才有升級空間——判準是**用錯誤訊息實查那一支模型**，不是看 `--help`。
+
+附帶發現：不帶檔位的基礎 slug（如 `gemini-3.8-flash`）**agy 其實解析得出來**（它是先認出模型才抱怨 effort），只是不列在 `agy models` 的輸出裡。
 
 **為何是 3.8**：Gemini 3.8 Flash 於 agy **1.1.25** 進入型錄（changelog 記為「Added Gemini 3.8 Flash to the model catalog when connecting with a `GEMINI_API_KEY`」），2026-09-03 本機 `agy models` 已實際列出三檔 slug，並以 `agy -p ... --model gemini-3.8-flash-high` 實跑通過（8.8 秒、exit 0）。`w-dispatch-ai` 1.0.34 之 providers 表同日自 3.7 升為 3.8，附實測：**回應 12.5s（3.7 為 62.2s）、讀檔 14.6s（3.7 為 57.6s）**。
 
@@ -286,12 +298,21 @@ agy update       # 版本低於 1.1.25 時升級
 
 無人值守／無介面執行前，須先以互動方式完成 Google 認證。
 
-2026-09-23 查核：npm 最新版 `w-dispatch-ai` 為 1.0.34，本機 agy 為 **1.2.6**。
+2026-09-30 查核：npm 最新版 `w-dispatch-ai` 為 **1.0.40**（技能根實裝 1.0.39），本機 agy 為 **1.2.13**。
+
+| 項目 | 結果 |
+|---|---|
+| 必要預設值 | `gemini-3.8-flash-high` 維持不變，當日於 1.2.13 實跑通過 |
+| **`--effort` 值域擴充但不影響結論** | `--help` 由 `low|medium|high` 擴為 `low|medium|high|max`；但實測 3.8 Flash 之 available 仍只有 `low, medium, high`，**無任何 Gemini 接受 `max`**，故 `high` 仍為最深（三種傳法之錯誤訊息見「必要預設值」一節） |
+| `agy models` 型錄 | 3.8 Flash 三檔 slug 仍在 |
+| `providers.mjs` | `agy:gemini-3.8-flash-high` 條目不變（仍帶 `skipPermissions: false` 與 `addDirs: ['.']`），**且刻意不帶 `effort`**——套件同版把其他三家條目都補上 `high` 強度，agy 則因 slug 已內嵌檔位而不另帶（與本技能一致）；全表由 15 條增為 17 條 |
+
+以下為 2026-09-23 於 agy 1.2.6 之查核（旗標表與型錄清單未於 1.2.13 逐項重驗，僅重查 `--effort` 與 3.8 slug）。
 
 | 項目 | 結果 |
 |---|---|
 | `dispatchAntigravity()` 固定旗標與選項 | 與 1.0.17／1.0.22 相同（`--dangerously-skip-permissions`、`--print-timeout`、`--model`、`--effort`、`--add-dir`、`--print`），自用鍵仍為八個，**呼叫方式不變** |
-| 必要預設值 | `gemini-3.8-flash-high` 維持不變，當日於 1.2.6 實跑通過；`--effort` 值域仍只有 `low|medium|high`，`high` 即最深，且因 slug 已內嵌檔位故照舊省略 `effort` |
+| 必要預設值 | `gemini-3.8-flash-high` 維持不變，當日於 1.2.6 實跑通過；**當時 `--effort` 值域只有 `low|medium|high`**（1.2.13 已擴為含 `max`，但模型仍不支援，結論不變——見上表） |
 | `agy models` 型錄 | 與 2026-09-03 查得之十四項**逐行相同**，3.8 Flash 三檔仍在 |
 | `agy --help` | 與 references 之旗標表逐行相符，另多 `--remote-control`；子指令新增 `mic-serve`／`plugin`／`remote-control`，皆與非互動派工無關 |
 | `providers.mjs` | `agy:gemini-3.8-flash-high` 條目不變（仍帶 `skipPermissions: false` 之防寫鎖與 `addDirs: ['.']`）；全表由 20 條縮為 15 條 |

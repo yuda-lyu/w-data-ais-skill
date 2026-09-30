@@ -5,7 +5,7 @@ description: 當任務需要委派給 Claude，或需要把 Claude 納入多代�
 
 # dispatch-claude
 
-使用 `w-dispatch-ai` 的 `dispatchClaude()` 執行 Claude Code（本技能對照 1.0.34；`dispatchClaude()` 之固定旗標與選項自 1.0.17 起未變動，呼叫方式不受版本影響）。轉接器會呼叫 `claude -p`、透過 stdin 傳入提示詞、管理逾時與程序樹清理，並一律回傳結果物件，不會因一般 CLI 失敗而 reject。
+使用 `w-dispatch-ai` 的 `dispatchClaude()` 執行 Claude Code（本技能對照 1.0.40；`dispatchClaude()` 之固定旗標與選項自 1.0.17 起未變動，呼叫方式不受版本影響）。轉接器會呼叫 `claude -p`、透過 stdin 傳入提示詞、管理逾時與程序樹清理，並一律回傳結果物件，不會因一般 CLI 失敗而 reject。
 
 需要變更 CLI 旗標、排查版本差異或改用非預設模型時，讀取 [references/claude-flags.md](references/claude-flags.md)。
 
@@ -37,7 +37,11 @@ const wda = req(path.join(skillsRoot, 'node_modules', 'w-dispatch-ai'));
 - 模型：`claude-fable-5-1`（Claude Fable 5.1，目前最強）
 - 推理強度：`max`
 
-`w-dispatch-ai` 沒有 Claude 專用的 effort 選項，因此每次都須透過 `extraArgs` 傳入 `--effort max`。
+`w-dispatch-ai` 沒有 Claude 專用的 effort 選項，因此每次都須透過 `extraArgs` 傳入 `--effort max`。`max` 是 `claude --help` 所列 `low, medium, high, xhigh, max` 的最深一檔（2026-09-30 於 2.1.285 重查仍為此五檔）。
+
+**不傳就是 medium，不是最深**：套件之條目註解記載，未給 `--effort` 時 `-p` 模式實測為 `medium`（Claude Code 2.1.285，以 session 紀錄之 effort 欄確認）。
+
+**條目表的強度是 `high`，不是本節的 `max`**：`providers.mjs` 的 `claude:sonnet` 與 `claude:opus-5.5` 都自帶 `['--tools','Read,Glob,Grep','--strict-mcp-config','--effort','high']`（套件 2026-09-30 起把各家條目的思考強度統一設為 `high`）。照抄條目只有 high——要 `max` 得自己覆寫，且**覆寫 `extraArgs` 時必須把唯讀白名單與強度一併帶回**，否則連防寫都一起掉掉。
 
 必須寫完整模型名稱，不可用別名。`fable` 別名目前解析到 Fable 5.1，但別名會隨新版滾動；派工要的是可重現的固定版本，所以固定寫 `claude-fable-5-1`。
 
@@ -77,7 +81,7 @@ console.log(result.stdout);
 - **審計必須自己讀檔**。把檔案內容貼進提示詞不算獨立審計：被派對象只看得到你挑給它的片段，找不出你漏掉的地方，而那正是複審的唯一價值。
 - **驗證猜想必須能寫檔並執行**。不能寫測試就只剩推論；「我認為可能是 X」沒有可重現的執行結果，不是結論。
 - **不想放權時，換的是任務或環境，不是砍權限**。把目標複製或 `git worktree` 出一份到獨立目錄，`cwd` 指向該處並只 `--add-dir` 該目錄，讓被派對象在裡面有完整讀寫執行，事後自己審 diff。給半套權限硬派，是拿「看起來安全」換掉任務本身。
-- **沿用 `w-dispatch-ai/src/providers.mjs` 的條目要先看鎖**：表內 `claude:sonnet` 與 `claude:opus-5.5` 都帶 `--tools Read,Glob,Grep --strict-mcp-config`，那是給純文字生成與遞補用的唯讀檔位；照抄去派審計或寫測試必然交白卷，要先把對應工具放開（見下一節）。
+- **沿用 `w-dispatch-ai/src/providers.mjs` 的條目要先看鎖**（1.0.40 起兩條目之 `extraArgs` 尾端另帶 `--effort high`）：表內 `claude:sonnet` 與 `claude:opus-5.5` 都帶 `--tools Read,Glob,Grep --strict-mcp-config`，那是給純文字生成與遞補用的唯讀檔位；照抄去派審計或寫測試必然交白卷，要先把對應工具放開（見下一節）。
 
 ### 唯讀鎖要用白名單，黑名單已被實測打破
 
@@ -204,7 +208,7 @@ await wda.dispatchClaude(prompt, {
 
 若需限制結構，再透過 `--json-schema` 傳入 JSON Schema 字串。`stream-json` 會產生 JSONL 事件，不能使用只接受單一 JSON 文件的 `validate: 'json'`。
 
-## 轉接器契約（w-dispatch-ai 1.0.34）
+## 轉接器契約（w-dispatch-ai 1.0.40）
 
 | 選項 | 轉接器預設值 | 行為 |
 |---|---:|---|
@@ -274,3 +278,14 @@ claude --help
 | `providers.mjs` | claude 由 1 條增為 2 條：`claude:sonnet`（預設，遞補先試）與新增的 `claude:opus-5.5`（`model: 'claude-opus-5-5'` 寫全名而非別名 `opus`，以免日後新版 Opus 發布時無聲切換）；全表由 20 條縮為 15 條 |
 
 `--effort` 之值域來自 `claude --help`；本技能未在 2.1.280 逐項重驗其餘旗標表，references 內的旗標清單沿用 2.1.258 之查核結果。
+
+2026-09-30 追加查核：npm 最新版 `w-dispatch-ai` 為 **1.0.40**（技能根實裝 1.0.39），本機 Claude Code 為 **2.1.285**。
+
+| 項目 | 結果 |
+|---|---|
+| 必要預設值 | `claude-fable-5-1` ＋ `--effort max` 維持不變；`--help` 之 `--effort` 值域仍為 `low, medium, high, xhigh, max`，`max` 即最深 |
+| **不傳 effort 的實際檔位** | 套件條目註解記載：`-p` 未給 `--effort` 時實測為 `medium`（2.1.285，以 session 紀錄之 effort 欄確認）——所以「不傳」不等於「跑最深」 |
+| `providers.mjs` | `claude:sonnet` 與 `claude:opus-5.5` 兩條之 `extraArgs` **新增 `--effort high`**（套件同版把各家條目強度統一為 `high`，以常數單一來源管理）；全表由 15 條增為 17 條 |
+| 覆寫條目的陷阱 | 套件註解明寫「條目覆寫 `extraArgs` 時須一併帶上強度常數與防寫常數」——只寫 `--effort max` 會把唯讀白名單一起覆蓋掉 |
+
+本次未於 2.1.285 重驗旗標表其餘項目，僅重查 `--effort` 值域與模型可用性。
