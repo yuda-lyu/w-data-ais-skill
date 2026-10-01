@@ -234,7 +234,7 @@ description: |
 
 「自文字往上找第一個尺寸落在某區間的祖先」是碰運氣：對短文字框到整列、對長文字只框到文字、對含圖示的標籤只框到字。每個視覺單位一個判準：標籤找「有底色或邊框且尺寸為標籤級」的祖先；樹 / 清單取各項目列的聯集；表格取標頭∪可見列夾在表格框內；抽屜以標頭識別文字為錨往上找面板級祖先；彈窗取遮罩層內第一個小於遮罩層的面板、已最大化則取遮罩層；連結用 Range 量墨跡；表單欄位取標籤列∪對應輸入框；訊息等定位後量。helper 改動後**重產受影響的圖並目視**，不是只跑比對。樣板見 reference §3。
 
-框之對象由頁面內容決定（表格有幾列、清單有幾項）者，量測要在**捲入與等待之後、截圖之前**做：共用層提供「量測型目標」`{ scroll, measure(page) }`，例 `gridContentBox(表格外框)`（標頭∪可見資料列∪空表訊息，夾在表格框內）、`itemsUnionBox(項目選擇器或 Locator, { within, fit })`（可見項目聯集；`fit` 依元素**有無可見邊界**決定量法——有底色（異於背後）、邊框、陰影者量元素本身，無者量可見內容並整體外擴 4px，見 §7.3-8；框線與框外內容之關係見 §7.3-9）。量不到回 `null` 即依 §7.3-7 拋錯。
+框之對象由頁面內容決定（表格有幾列、清單有幾項）者，量測要在**捲入與等待之後、截圖之前**做：共用層提供「量測型目標」`{ scroll, measure(page) }`，例 `gridContentBox(表格外框)`（標頭∪可見資料列∪空表訊息，夾在表格框內；空表訊息為無邊界文字，外擴 4px 後才取聯集，同 `fit` 之文字外擴）、`itemsUnionBox(項目選擇器或 Locator, { within, fit })`（可見項目聯集；`fit` 依元素**有無可見邊界**決定量法——有底色（異於背後）、邊框、陰影者量元素本身，無者量可見內容並整體外擴 4px，見 §7.3-8；框線與框外內容之關係見 §7.3-9）。量不到回 `null` 即依 §7.3-7 拋錯。
 
 ### 7.5 壞掉的畫面不得凍結為標準圖（已知缺陷協定）
 
@@ -340,7 +340,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 ### 9.2 restartBackend 與逐檔隔離
 
 - `restartBackend`：先殺自己 spawn 的；port 仍被佔（reuse / 手動啟動之**同專案**後端）走 OS 層 `netstat` / `taskkill`（posix `lsof` / `kill`），等 port 真釋放再 spawn——這是「只重啟自己 PID」規則的明文例外，前提是該 port 專屬本專案（映射表載明）。需特殊 settings 的 case 以 `try/finally` 還原預設；環境變數覆寫收斂在 `envOverride`。
-- 逐檔隔離 runner：多 e2e 檔塞單一 mocha 進程會共用被前面測試改過狀態的後端（RPC 正規化過欄位序 → 列序與 solo 產的 baseline 不符）。每檔獨立 mocha 進程 + 全新後端；無狀態且啟動慢的前端暖機共用；`readdirSync` 動態白名單。測試之間過於混雜或相依時，套件自己負責建立獨立程序、專用資料來源或獨立儲存區——逐檔隔離 runner 即此類機制之一，放 `test/tools/`，以 `node test/tools/run-e2e-isolated.mjs` 直跑。
+- 逐檔隔離 runner：多 e2e 檔塞單一 mocha 進程會共用被前面測試改過狀態的後端（RPC 正規化過欄位序 → 列序與 solo 產的 baseline 不符）。每檔獨立 mocha 進程 + 全新後端；無狀態且啟動慢的前端暖機共用；`readdirSync` 動態白名單。測試之間過於混雜或相依時，套件自己負責建立獨立程序、專用資料來源或獨立儲存區——逐檔隔離 runner 即此類機制之一，放 `test/tools/`，以 `node test/tools/run-e2e-isolated.mjs` 直跑。依差異範圍只重跑受影響案例時，以套件 `runIsolatedE2e` 之 `targets`（檔＋`--grep`）指定：每檔仍換新後端，grep 對不到任何案例即失敗（自動 `--fail-zero`，不假綠）；有本地 mocha 時不經 shell，正則原樣送達（contract §0.5）。
 - cwd：以專案根為 cwd 執行，setup 內相對路徑以 `projRoot` 解析；cwd 錯會整檔「標準圖不存在」假紅。
 - **測試中介資料一律落 `test/_tmp/`（gitignore），測完即刪**：臨時 settings、fixture 副本、合成 log 目錄、資料庫快照等放 `test/_tmp/<用途>/`，由該測試檔 `after` 或 setup `cleanup()` 刪除（追蹤本進程建立的檔案逐一 `rm`，目錄空了再 `rmdir`）。**絕不可放專案 `./tmp/`**——那是 AI 代理的暫存區，隨時會被整個清除，測試執行途中被刪即假失敗（殷鑑：三專案 `genTempSettings` 原寫 `./tmp/`；golden 產生器留在 `./tmp/` 隨清除佚失）。fixture 資產（golden logs、expected、`_staref`、上傳用 xlsx）不是中介資料，放 `test/<fixture>/` 入版控。**失敗證據也不是中介資料**：baseline 比對失敗之三聯組一律 dump 到專案根 `./testPending/`（gitignore、ms 時間戳、永不覆蓋、**不自動刪除**——偶發 flake 的當次證據常在隔天才分析），這是本技能既定規則（§7.7、contract C9），不因「臨時資料放 test/_tmp」而改變；三者分工：`test/_tmp/`＝中介資料（測完即刪）、`./testPending/`＝失敗證據（人工清理）、`./tmp/`＝AI 暫存區（測試禁用）。
 
