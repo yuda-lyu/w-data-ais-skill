@@ -8,6 +8,7 @@ g_mem*.md
 zAI*.md
 
 tmp
+package-lock.json
 
 skills/role-writer-report/res
 skills/role-writer-report/test
