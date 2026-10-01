@@ -24,7 +24,7 @@ npx mocha test/e2e-hello.test.mjs --reporter list --timeout 60000              #
 
 ## 0.5 參考實作套件：w-package-tools-e2e（2026-09-28 起四個姊妹專案共用）
 
-下列各節之片段為**契約說明**；實際共用實作在 `w-package-tools-e2e/src/<模組>.mjs`（專案以 devDependency 安裝，1.0.2 起；規格與 API 見套件 `README.md`）。專案一律經 `test/tools/e2eLib.mjs` **單一橋接檔**轉出（升版只改 `package.json` 版號；套件新增模組時橋接檔補一行轉出，如 1.0.3 之 `probeStuckTooltip`），共用層 `test/tools/e2e-setup.mjs` 只保留專案組態（port、spawn、種子、settle 組合、夾邊方式）與專案專屬互動原語，匯出名稱與簽章維持不變。
+下列各節之片段為**契約說明**；實際共用實作在 `w-package-tools-e2e/src/<模組>.mjs`（專案以 devDependency 安裝，1.0.2 起；規格與 API 見套件 `README.md`）。專案一律經 `test/tools/e2eLib.mjs` **單一橋接檔**轉出（升版只改 `package.json` 版號；套件新增模組時橋接檔補一行轉出，如 1.0.3 之 `probeStuckTooltip`。升版之差異清單要含套件之 `dependencies`：src 逐檔相同而 playwright 升版者，截圖用之 Chromium 即換版——比 `node_modules/playwright-core/browsers.json` 之 chromium revision 新舊，不同即全部標準圖比對；1.0.6 實例為 revision 1234 → 1243、Chromium 151 → 153），共用層 `test/tools/e2e-setup.mjs` 只保留專案組態（port、spawn、種子、settle 組合、夾邊方式）與專案專屬互動原語，匯出名稱與簽章維持不變。
 
 | 契約 | 套件模組（皆 default export） | 專案組態點 |
 |---|---|---|
