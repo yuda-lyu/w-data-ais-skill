@@ -5,14 +5,44 @@ description: 凡涉及 .docx 檔案之任務皆須使用本技能——不論該
 
 # OfficeCLI DOCX 技能
 
-## 安裝
+## 安裝與呼叫
 
-若 `officecli` 不存在:
+`officecli` 由 npm 套件 `@officecli/officecli` 提供,安裝在**技能根**——本技能目錄的上一層(本技能目錄之絕對路徑由載入本技能時取得).版本只由技能根之 `package.json` 管理:使用者在技能根執行 `npm i` 即完成安裝,升降版由使用者改 `package.json` 後再 `npm i`.
 
-- **macOS / Linux**: `curl -fsSL https://d.officecli.ai/install.sh | bash`
-- **Windows (PowerShell)**: `irm https://d.officecli.ai/install.ps1 | iex`
+**每個 shell 指令區塊的第一行先定義 `officecli` 函式**,之後本技能所有 `officecli ...` 範例照原樣執行.工具呼叫之間 shell 狀態不保留,所以每個區塊都要重新定義.`<技能根>` 換成實際絕對路徑,Windows 寫成 `C:/Users/...` 之正斜線形式.
 
-以 `officecli --version` 驗證(若 PATH 尚未生效請開新終端機).安裝失敗時可自 https://github.com/iOfficeAI/OfficeCLI/releases 下載執行檔.
+```bash
+officecli() { OFFICECLI_SKIP_UPDATE=1 OFFICECLI_NO_AUTO_INSTALL=1 node "<技能根>/node_modules/@officecli/officecli/officecli.js" "$@"; }
+```
+
+只能用 PowerShell 時改用下式(本技能之範例皆為 bash 語法,有 bash 就用 bash):
+
+```powershell
+function officecli { $env:OFFICECLI_SKIP_UPDATE = '1'; $env:OFFICECLI_NO_AUTO_INSTALL = '1'; node "<技能根>/node_modules/@officecli/officecli/officecli.js" @args }
+```
+
+函式裡的兩個旗標不可省略,省略即失去版本鎖定:
+
+- `OFFICECLI_SKIP_UPDATE=1`:關閉自動升版.officecli 每次執行都會在背景檢查新版,並把**正在執行的那個執行檔**就地換成最新版——npm 安裝的這份也會被換,實際版本便悄悄脫離 `package.json`.
+- `OFFICECLI_NO_AUTO_INSTALL=1`:關閉自我安裝.不帶任何參數執行 `officecli` 時,它會把自己複製成全域版,寫入 PATH,並把官方技能裝進 `~/.claude/skills` 等各 agent 之技能目錄.
+
+兩者之依據見文末〈CLI 機制〉之〈版本鎖定〉.
+
+**不要做的事:**
+
+- 不要在未定義函式時打裸指令 `officecli`:它走 PATH,可能命中另行安裝的全域版(版本不同,且每天自動升版),或根本找不到.
+- 不要用官方安裝腳本(`install.sh` / `install.ps1`)或 `officecli install` 安裝,升級或修復:那會多出第二個版本來源.
+- 找不到 `<技能根>/node_modules/@officecli/officecli/officecli.js` 時,回報使用者到技能根執行 `npm i`,不要自己另找地方安裝.
+
+**每個工作階段第一次使用前驗證一次:**
+
+```bash
+officecli() { OFFICECLI_SKIP_UPDATE=1 OFFICECLI_NO_AUTO_INSTALL=1 node "<技能根>/node_modules/@officecli/officecli/officecli.js" "$@"; }
+officecli --version
+node -p "require('<技能根>/node_modules/@officecli/officecli/package.json').version"
+```
+
+兩行輸出之版本號須相同.首次執行會自動下載與套件版本相符的執行檔(數十 MB,需網路,自動比對 SHA256),之後離線可用;技能根 `npm i` 時出現 `install scripts blocked`(allowScripts)屬正常,不影響.版本號不同表示執行檔曾被未帶旗標的呼叫自動升版:停止並回報使用者兩個版本號;修復方式(經使用者同意後執行)是刪除 `<技能根>/node_modules/@officecli/officecli/vendor/` 再執行一次 `officecli --version`,即重新下載鎖定的版本.
 
 ## ⚠️ Help 優先鐵則
 
@@ -32,6 +62,8 @@ help 內容與已安裝之 CLI 版本綁定.**本技能與 help 衝突時, 以 h
 `.docx` 是一包 XML 部件的 ZIP(`document.xml`, `styles.xml`, `numbering.xml`, `header*.xml`, `footer*.xml`, `comments.xml` …).使用者看到的一切——標題, 表格, 頁碼, 目錄, 追蹤修訂——都是該 ZIP 內的 XML.`officecli` 於其上提供語意路徑 API(`/body/p[1]/r[2]`), 故幾乎不必碰原始 XML;非碰不可時才用 `raw-set`(見 XML 附錄).
 
 ## Shell 與執行紀律
+
+**先定義函式.** 每個 shell 區塊的第一行定義 `officecli` 函式(見〈安裝與呼叫〉),以下所有指令都經由它執行;未定義時裸 `officecli` 會改走 PATH.
 
 docx 路徑含 `[]`, 部分屬性值含 `$`, 兩者皆為 shell 元字元.跳脫分三層發生, 須分清楚:
 
@@ -566,6 +598,18 @@ echo "Delivery Gate PASS"
 ## CLI 機制(引擎層, 三種格式共用)
 
 自原通用 `officecli` 技能併入, 使本技能自足.以上皆為 docx 工藝, 本節則是 CLI 本身的行為.
+
+### 版本鎖定:自動升版,技能同步與自我安裝
+
+官方執行檔內建三個會改動本機的機制,都只看執行檔自己的位置,不分安裝方式.〈安裝與呼叫〉函式裡的兩個旗標就是用來關閉它們(2026-10-02 依官方 1.0.153 原始碼查核):
+
+| 機制 | 觸發 | 動作 | 關閉方式 |
+|---|---|---|---|
+| 自動升版 | 幾乎每次執行(`config` / `skills` / `load_skill` / `mcp` / `install` 除外);使用者層設定 `autoUpdate` 預設為開 | 每 24 小時於背景查一次新版並下載;下一次執行時把正在執行的執行檔換成新版(Windows 會留下 `.old`) | `OFFICECLI_SKIP_UPDATE=1`;另有使用者層設定 `officecli config autoUpdate false`(存於 `~/.officecli/config.json`,本機所有 officecli 共用,是否更改由使用者決定) |
+| 官方技能同步 | 執行檔版本變動後之第一次執行 | 把內建之官方技能覆寫到各 agent 技能目錄中**已存在**的官方技能(不新增) | 只有 `OFFICECLI_SKIP_UPDATE=1`(`autoUpdate false` 擋不住此項) |
+| 自我安裝 | 不帶任何參數執行,且執行檔所在目錄不在 PATH 上 | 全域版不存在:複製自己為全域版(Windows `%LOCALAPPDATA%\OfficeCli`,其他 `~/.local/bin`),寫入使用者 PATH,把官方 `officecli` 技能裝進所有偵測到的 agent 技能目錄(含 `~/.claude/skills`);全域版較舊:以自己覆蓋 | `OFFICECLI_NO_AUTO_INSTALL=1` |
+
+自動升版只豁免 Homebrew 與 Scoop 管理的路徑,npm 的 `node_modules` 不在豁免之列;而 npm 套件只在執行檔不存在時才下載,`npm i` 不會把被換掉的版本換回來——所以版本鎖定只能靠旗標,不能靠 npm.officecli 自行啟動之常駐行程會繼承這兩個旗標.
 
 ### 常駐模式與 flush
 
