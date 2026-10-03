@@ -1,7 +1,7 @@
 ---
 name: role-setup-scheduler-for-session
 description: |
-  讓 Claude session 自己「稍後醒來繼續做事」的完整做法——涵蓋使用者要求的定時任務（定時巡檢並自主診斷修復、「N 分鐘後叫醒我」、「幾點以後才開始」、多步串接任務）與 agent 自發的延後執行（等排程輪次跑完、等背景指令結束、等外部服務就緒、等檔案或日誌出現變化之後再做下一步）。**硬性第一步：任何要「現在停下、之後被叫醒」的動作之前，先自檢執行環境是 VS Code 外掛（headless）還是終端機 TUI**——外掛內 `CronCreate`／`ScheduleWakeup` 建得成、列得出、但永遠不觸發，只有背景 `sleep`／`until` 輪詢計時器（`run_in_background`）與 `Monitor` 會叫醒 agent；沒做這一步的 agent 不會注意到自己在外掛內，也不會正確使用叫醒機制。依真實流程排序：第一步辨識執行環境（附一行自檢指令、實證與日誌判據）；第二步依需求選機制（cron／背景 `sleep` 計時器／條件輪詢／`Monitor`／管線內建巡檢／作業系統排程）之決策表與取捨總表；第三步先驗證機制再依靠（nonce 探針、兩分鐘計時器協定、Monitor 最小實驗，沉默不等於正常）；第四步撰寫自足任務書之六項必備（絕對路徑、可機械判定之判準、離開碼 0 不等於成功、處置授權與「絕不可改」清單、結果落檔、回報格式）；第五步各機制之建立配方；巡檢執行要點（重複時段、升降級判準、最小可逆處置、已知常態白名單須成套、同類訊息去重）；紀錄檔規範（含「決定不處理」）；維護與生命週期；實測數據附錄。
+  讓 Claude session 自己「稍後醒來繼續做事」的完整做法——涵蓋使用者要求的定時任務（定時巡檢並自主診斷修復、「N 分鐘後叫醒我」、「幾點以後才開始」、多步串接任務）與 agent 自發的延後執行（等排程輪次跑完、等背景指令結束、等外部服務就緒、等檔案或日誌出現變化之後再做下一步）。**硬性第一步：任何要「現在停下、之後被叫醒」的動作之前，先自檢執行環境是 VS Code 外掛（headless）還是終端機 TUI**——外掛內 `CronCreate`／`ScheduleWakeup` 建得成、列得出、但永遠不觸發，只有背景 `sleep`／`until` 輪詢計時器（`run_in_background`）與 `Monitor` 會叫醒 agent，且兩者都有時限（背景指令沒給 `timeout` 30 分鐘、最長 2 小時即被終止；`Monitor` 最長 30 分鐘），等待超過就要分段重掛、超過 2 小時的工作本身須 detached 執行；沒做這一步的 agent 不會注意到自己在外掛內，也不會正確使用叫醒機制。依真實流程排序：第一步辨識執行環境（附一行自檢指令、實證與日誌判據）；第二步依需求選機制（cron／背景 `sleep` 計時器／條件輪詢／`Monitor`／管線內建巡檢／作業系統排程）之決策表與取捨總表；第三步先驗證機制再依靠（nonce 探針、兩分鐘計時器協定、Monitor 最小實驗，沉默不等於正常）；第四步撰寫自足任務書之六項必備（絕對路徑、可機械判定之判準、離開碼 0 不等於成功、處置授權與「絕不可改」清單、結果落檔、回報格式）；第五步各機制之建立配方（每段明給 `timeout`、超過 115 分鐘分段，超長工作 detached 執行並以結果檔／PID 分段等待）；巡檢執行要點（重複時段、升降級判準、最小可逆處置、已知常態白名單須成套、同類訊息去重）；紀錄檔規範（含「決定不處理」）；維護與生命週期；實測數據附錄。
   觸發條件：不限於使用者用了「排程／定時」字眼——凡 agent 打算「現在停下、之後被叫醒繼續」即觸發。包括：使用者要求「定時巡檢」「每小時檢查排程有沒有正常」「讓 Claude 自己定時看管線狀況」「CronCreate」「ScheduleWakeup」「session 排程」「排程任務的監控與自動修復」「巡檢紀錄怎麼寫」「cron 沒反應／沒觸發」「N 分鐘／小時後叫醒你」「幾點以後才開始執行」「延後啟動」「定時一次或多次任務」「VS Code 外掛排程沒觸發」「背景 sleep 計時器」；以及 agent 自己要等一個背景工作／`run_in_background` 指令／排程輪次／外部程序完成再做下一步、要輪詢某檔案或日誌、要延後執行、或要用 `Monitor`／`sleep`／`CronCreate`／`ScheduleWakeup` 任一者時。
 ---
 
@@ -30,7 +30,7 @@ description: |
 **三條鐵則**：
 
 1. **先辨識環境再選工具**。VS Code 外掛內 `CronCreate` 與 `ScheduleWakeup` 建得成、列得出、但永遠不會響（§2）。在外掛內建 cron 然後等它，是本技能所有失敗案例的共同起點。這一步不因情境小而省略——只是「等一個背景工作跑完再繼續」也算；agent 自己安排的等待與使用者要求的排程一視同仁。
-2. **任何推送機制上線前先驗證**。cron 送進來的 prompt 與人手貼的文字在對話中一模一樣，沒有來源標記；「一直沒動靜」與「正常但沒事發生」看起來也完全相同。沒有 §4 的證據就不能把它當監控依靠。
+2. **任何推送機制上線前先驗證，連同它的時限**。cron 送進來的 prompt 與人手貼的文字在對話中一模一樣，沒有來源標記；「一直沒動靜」與「正常但沒事發生」看起來也完全相同。叫醒機制本身也有時限：背景指令到 `timeout` 即被終止（沒給是 30 分鐘、最長 2 小時），`Monitor` 單次最長 30 分鐘——等待超過時限而沒分段，叫醒就變成「被終止」。沒有 §4 的證據就不能把它當監控依靠。
 3. **喚醒後要做的事必須自足且落檔**。排程排的是一段 prompt（cron）或一次「叫醒」（計時器），不是任務本身；醒來時讀不到「前面說過的」，做完的結論也會隨 session 消失。
 
 ---
@@ -43,8 +43,8 @@ description: |
 |---|---|
 | **session 排程（cron）** | `CronCreate` 把一段 prompt 排入「本對話」的佇列；時間到，它以一則普通 user message 送進來，由主 agent 在自己的 context 內執行。不會另外 spawn agent，也沒有回報管道。工具契約原文：「Schedule a prompt to be **enqueued** at a future time」，`prompt` 參數為「The prompt to **enqueue** at each fire time」。 |
 | **`ScheduleWakeup`** | `/loop` 動態模式用的喚醒工具，內部轉成一次性 cron，故與 cron 同命運。 |
-| **背景計時器** | `Bash` 以 `run_in_background: true` 執行 `sleep N`；行程結束時 harness 送 `task-notification` 叫醒主 agent。**排的是「叫醒」，不是 prompt**——醒來要做什麼，必須寫在檔案裡。 |
-| **`Monitor`** | 背景行程把 stdout 每一行變成通知推給主 agent；事件驅動，不需要任何 turn 來輪詢。 |
+| **背景計時器** | `Bash` 以 `run_in_background: true` 執行 `sleep N`；行程結束時 harness 送 `task-notification` 叫醒主 agent。**排的是「叫醒」，不是 prompt**——醒來要做什麼，必須寫在檔案裡。**它自己也有時限**：`timeout` 沒給是 1800000（30 分鐘）、最長 7200000（2 小時），到期即被終止（通知為 killed），所以每個計時器都要明給 `timeout`，等待超過 115 分鐘要分段（§6.2）。 |
+| **`Monitor`** | 背景行程把 stdout 每一行變成通知推給主 agent；事件驅動，不需要任何 turn 來輪詢。單次最長 1800000（30 分鐘，給更大值會被夾回），到期送一則到期通知，要繼續就重掛；已無 `persistent` 參數。 |
 | **管線內建巡檢** | 被監控的管線在自己的收尾階段順手做機械檢查並寫紀錄檔；不依賴任何 session。 |
 | **作業系統排程** | Windows 工作排程器等；持續存在、準時，但只能依預寫規則動作，不能判讀與修復。 |
 | **自足任務書** | 醒來後要執行的完整指令（prompt 或 md 檔），不依賴對話脈絡即可照做。 |
@@ -54,7 +54,7 @@ description: |
 
 1. **prompt 必須自足**——它是新一輪對話的開場，讀不到先前脈絡（§5）。
 2. **歷次巡檢共用同一個 context**——可跨次比較（「近三時段耗時 13 → 187 → 26 秒」不必回頭讀檔），但也因此持續累積，長時間運行會觸發 context 壓縮，故結論仍須落檔（§8）。
-3. **Monitor 與 cron 的差異只在觸發層**。實際工作同樣由主 agent 在對話內做；`persistent: true` 的定義是「until TaskStop **or the session ends**」。**若卡住的原因是 session 結束，換 Monitor 沒有幫助。**
+3. **Monitor 與 cron 的差異只在觸發層**。實際工作同樣由主 agent 在對話內做；Monitor 單次最長 30 分鐘、到期須重掛，而且同樣隨 session 結束而消失。**若卡住的原因是 session 結束，換 Monitor 沒有幫助。**
 
 ### 1.2 cron 的硬限制
 
@@ -124,6 +124,7 @@ description: |
 | 「N 分鐘後提醒我一次」「幾點以後才開始」 | `CronCreate` + `recurring: false`（準時，無 jitter） | 背景計時器配方 A |
 | 做完 A、等一段時間、再做 B | 一次性 cron 串接 | 背景計時器配方 B（md 驅動） |
 | agent 自發：等某條件成立再繼續（排程輪次跑完、背景指令結束、檔案／日誌出現變化） | 背景條件輪詢配方 D（§6.2）或 `Monitor` | 同左——外掛內這是**唯一**會叫醒 agent 的方式 |
+| 等一個會超過 115 分鐘、或要撐過 session 重開的工作（長批次、長派工） | 工作本身以 detached 啟動、結果與 PID 落檔，等待用配方 E（§6.2）分段 | 同左 |
 | 檔案／行程／指令輸出**一有變化就立刻知道** | `Monitor`（事件驅動） | `Monitor` |
 | 永遠有紀錄、不依賴 session | 管線內建巡檢（§6.4） | 同左 |
 | 視窗關了也要準時啟動 | 作業系統排程拉起 headless claude（§6.5，未實測） | 同左 |
@@ -135,8 +136,9 @@ description: |
 | 觸發來源 | 排程佇列（recurring 有 jitter） | 背景行程結束之完成通知（延遲 5～15 秒） | 背景行程推送 stdout | 管線自身收尾 | 系統排程器 |
 | 可用環境 | 只有終端機 TUI | TUI 與外掛皆可 | TUI 與外掛皆可 | 不依賴 session | 不依賴 session |
 | 需要 session 存活 | 是 | 是 | 是 | **否** | **否** |
+| 單次最長 | 不適用（任務 7 天到期） | `timeout` 沒給 30 分鐘、最長 2 小時，到期即被終止 | 30 分鐘，到期須重掛 | 不適用 | 不適用 |
 | 能判讀與修復 | 是 | 是 | 是 | 否，只能機械檢查與落檔 | 否，只能依預寫規則 |
-| 週期任務 | 內建 recurring，7 天到期 | 每次喚醒須重掛，不到期 | 迴圈內建 | 隨管線 | 內建 |
+| 週期任務 | 內建 recurring，7 天到期 | 每次喚醒須重掛（每段 ≤ 115 分鐘），不到期 | 迴圈內建，但每 30 分鐘須重掛 | 隨管線 | 內建 |
 | 主動推送到使用者眼前 | 是 | 是 | 是 | 否，需自行查檔 | 否 |
 
 **建議組合**：以管線內建巡檢保底（永遠有紀錄），再依環境擇一做即時推送與判讀——TUI 用 cron 或 Monitor，外掛用背景計時器或 Monitor。
@@ -170,15 +172,16 @@ nonce 出現＝機制成立，順帶量到實際延遲。既有巡檢任務不�
 1. 背景執行 `sleep 60; node <小程式>` → 應在 60 秒後收到通知，且能自 `output-file` 讀到程式輸出。
 2. 背景執行 `sleep 60` → 通知抵達後讀一份 md 並照做 → md 內要求再掛一個 `sleep 60` → 第二次通知後執行 B。
 3. 同時對照 `CronCreate`（一次性、下一分鐘）與 `ScheduleWakeup(60)`：TUI 應觸發，外掛不會。
+4. 驗時限：背景以 `timeout: 60000` 執行 `echo start; sleep 100; echo end` → 應於 60 秒收到 killed 通知、輸出只有 `start`。harness 改版曾改變這項行為（§10.4），新環境或懷疑時重驗。
 
-通過 1、2 才可把計時器當作正式排程。
+通過 1、2 才可把計時器當作正式排程；4 的結果決定每個計時器的 `timeout` 怎麼給（§6.2）。
 
 ### 4.3 Monitor：最小實驗
 
 ```
 Monitor({
   description: '最小實驗：每分鐘推送一行，驗證能否定時喚醒',
-  persistent: false, timeout_ms: 600000,
+  timeout_ms: 600000,   // 上限 1800000，給更大的值會被夾回；工具已無 persistent 參數，給了也被忽略、照樣到期
   command: 'n=0; while [ "$n" -lt 8 ]; do sleep 60; n=$((n+1)); echo "WAKE-TEST #${n} $(date +%H:%M:%S)"; done',
 })
 ```
@@ -269,7 +272,7 @@ Monitor({
 5. 異常時：<照 §5.4 寫授權與絕不可改清單>
 6. 結果以 Edit 追加到紀錄檔，格式：<照 §8>
 7. 回報：正常一行，異常展開。
-8. （背景計時器模式）最後一步：重掛下一個 sleep <秒數> 的背景計時器，並把下次到期時刻寫進紀錄檔。
+8. （背景計時器模式）最後一步：重掛下一個背景計時器（`sleep <秒數>`，秒數 ≤ 6900，明給 `timeout: 7200000`），並把下次到期時刻寫進紀錄檔。
 ```
 
 ---
@@ -295,41 +298,54 @@ CronCreate({
 
 ### 6.2 背景 `sleep` 計時器（TUI 與外掛皆可）
 
-原理：`run_in_background: true` 的行程結束時 harness 送通知叫醒主 agent；不受前景 timeout 約束（60 分鐘實測準時；同 session 曾有背景工作連跑 89 分鐘以上未被砍）。
+原理：`run_in_background: true` 的行程結束時 harness 送通知叫醒主 agent。**但背景指令自己有時限**：`timeout` 沒給是 1800000（30 分鐘）、最長 7200000（2 小時），到期即被終止、通知為 killed（2026-10-03 實測，§10.4；早期曾觀察到背景工作連跑 89 分鐘未被砍，那是舊版 harness 的行為，已不成立）。所以**每個計時器都明給 `timeout`，且大於該指令最長會跑的秒數**：單段 `sleep` 或迴圈一律 ≤ 6900 秒、搭 `timeout: 7200000`，留 5 分鐘餘裕；更長的等待分段，每段醒來再掛下一段。
 
-**配方 A：一次性，指定牆鐘時刻**
-
-```
-Bash({ run_in_background: true, description: '計時到 <HH:MM> 後叫醒',
-  command: 't=$(( $(date -d "<YYYY-MM-DD HH:MM:SS>" +%s) - $(date +%s) )); echo "armed at $(date +%H:%M:%S), wait ${t}s"; [ "$t" -gt 0 ] && sleep "$t"; echo "timer expired at $(date +%H:%M:%S)"' })
-```
-
-通知抵達後先 `date` 確認時刻，再讀任務書開始工作。
-
-**配方 B：多步串接（md 驅動）**——第一個計時器到期 → 讀 `taskA.md` → 做 A → **立即再掛**第二個計時器 → 到期讀 `taskB.md` → 做 B。每段的 md 都要自足（§5 六項同樣適用）。
-
-**配方 C：週期巡檢**——每次喚醒的最後一步是**重掛下一個計時器**（`sleep 3600`），並把「下次到期時刻」寫進紀錄檔。與 cron 的差異：沒有 jitter（延遲 5～15 秒）；不會自動到期；**忘記重掛就斷鏈**，任務書內必須明寫「完成後重掛」；仍綁 session。
-
-**配方 D：條件輪詢等待**（agent 自發的「等它跑完再繼續」）——把「條件成立」寫成 shell 判斷，`until` 迴圈配 `sleep`，條件成立即結束，通知抵達即可接手：
+**配方 A：一次性，指定牆鐘時刻**（超過 115 分鐘自動分段）
 
 ```
-Bash({ run_in_background: true, description: '等 <對象> 完成後叫醒',
-  command: 'n=0; until grep -q "<完成標記>" "<日誌絕對路徑>" 2>/dev/null || [ $((n+=1)) -gt 90 ]; do sleep 20; done; echo "wait ended at $(date +%H:%M:%S), polls=$n"; tail -5 "<日誌絕對路徑>"' })
+Bash({ run_in_background: true, timeout: 7200000, description: '計時到 <HH:MM> 後叫醒（本段至多 115 分鐘）',
+  command: 't=$(( $(date -d "<YYYY-MM-DD HH:MM:SS>" +%s) - $(date +%s) )); s=$(( t > 6900 ? 6900 : t )); echo "armed at $(date +%H:%M:%S), remaining ${t}s, this segment ${s}s"; [ "$s" -gt 0 ] && sleep "$s"; echo "segment ended at $(date +%H:%M:%S), remaining $(( t > 6900 ? t - 6900 : 0 ))s"' })
 ```
 
-三個要求：①條件要有「永不成立」的出口——加最長等待次數或秒數（上例 90×20 秒＝30 分鐘），否則對象崩潰時會永遠等下去，且「一直沒動靜」與「還在跑」在使用者眼裡完全相同；②醒來要做的事寫進 `./tmp/<案名>/task.md`（等待期間 context 可能被壓縮，醒來先讀它）；③等待對象的路徑一律取自其設定或使用者指定（§5.1），不自行假設。實測（2026-09-06，VS Code 外掛）：`sleep 60; node …` 準時 60 秒觸發、通知 6 秒後抵達；`until … sleep 20` 等一輪 17 分鐘的管線亦正常叫醒。
+通知抵達後先看輸出的 `remaining`：大於 0 就原指令重掛下一段；等於 0 才 `date` 確認時刻、讀任務書開始工作。
+
+**配方 B：多步串接（md 驅動）**——第一個計時器到期 → 讀 `taskA.md` → 做 A → **立即再掛**第二個計時器 → 到期讀 `taskB.md` → 做 B。每段的 md 都要自足（§5 六項同樣適用）；每個計時器照配方 A 明給 `timeout`、單段 ≤ 6900 秒。
+
+**配方 C：週期巡檢**——每次喚醒的最後一步是**重掛下一個計時器**（`sleep 3600`，明給 `timeout: 7200000`；週期超過 115 分鐘者照配方 A 分段），並把「下次到期時刻」寫進紀錄檔。與 cron 的差異：沒有 jitter（延遲 5～15 秒）；不會自動到期；**忘記重掛就斷鏈**，任務書內必須明寫「完成後重掛」；仍綁 session。
+
+**配方 D：條件輪詢等待**（agent 自發的「等它跑完再繼續」）——把「條件成立」寫成 shell 判斷，`until` 迴圈配 `sleep`，條件成立或本段到期即結束，通知抵達即可接手：
+
+```
+Bash({ run_in_background: true, timeout: 7200000, description: '等 <對象> 完成後叫醒（本段至多 115 分鐘）',
+  command: 'end=$(( $(date +%s) + 6900 )); until grep -q "<完成標記>" "<日誌絕對路徑>" 2>/dev/null || [ "$(date +%s)" -ge "$end" ]; do sleep 20; done; if grep -q "<完成標記>" "<日誌絕對路徑>" 2>/dev/null; then echo "DONE $(date +%H:%M:%S)"; else echo "STILL-WAITING $(date +%H:%M:%S)"; fi; tail -5 "<日誌絕對路徑>"' })
+```
+
+三個要求：①條件要有「永不成立」的出口——本段滿 6900 秒即自行結束並回 `STILL-WAITING`；重掛前先查證對象是否還活著（看日誌、看行程），任務書寫明總共最多等幾段，否則對象崩潰時會永遠等下去，且「一直沒動靜」與「還在跑」在使用者眼裡完全相同；②醒來要做的事寫進 `./tmp/<案名>/task.md`（等待期間 context 可能被壓縮，醒來先讀它）；③等待對象的路徑一律取自其設定或使用者指定（§5.1），不自行假設。實測（2026-09-06，VS Code 外掛）：`sleep 60; node …` 準時 60 秒觸發、通知 6 秒後抵達；`until … sleep 20` 等一輪 17 分鐘的管線亦正常叫醒。
+
+**配方 E：等待超長工作**（工作本身預估超過 115 分鐘，或不可因 session 中斷而重跑）——工作不能掛在任何工具呼叫上，否則會在 2 小時（沒給 `timeout` 時 30 分鐘）被終止：
+
+1. **以 detached 啟動工作**：前景 Bash 執行 `nohup node <工作腳本> > ./tmp/<案名>/run.log 2>&1 &`，立即返回；工作腳本開頭寫 PID 檔（`process.pid` → `./tmp/<案名>/node.pid`），結束時不論成敗都寫結果檔（`./tmp/<案名>/result.json`）。實測 detached 行程在工具呼叫結束、乃至啟動它的 Claude Code 行程結束後都照常跑完（§10.4）。
+2. **分段等待**：
+
+```
+Bash({ run_in_background: true, timeout: 7200000, description: '等待 <案名>（本段至多 115 分鐘）',
+  command: 'd=./tmp/<案名>; end=$(( $(date +%s) + 6900 )); while [ ! -f "$d/result.json" ] && node -e "process.kill(+process.argv[1],0)" "$(cat "$d/node.pid")" 2>/dev/null && [ "$(date +%s)" -lt "$end" ]; do sleep 30; done; if [ -f "$d/result.json" ]; then echo "DONE $(date +%H:%M:%S)"; elif [ "$(date +%s)" -ge "$end" ]; then echo "STILL-RUNNING $(date +%H:%M:%S)"; else echo "CRASHED $(date +%H:%M:%S)"; tail -20 "$d/run.log"; fi' })
+```
+
+`DONE` → 讀結果檔並驗產物；`STILL-RUNNING` → 原指令重掛下一段；`CRASHED`（行程已不在卻沒有結果檔）→ 讀 `run.log` 找原因，找到前不要重跑。存活判斷用 `process.kill(pid, 0)`，Windows 亦可用；PID 必須是工作自己寫的 Windows PID，Bash 的 `$!` 是 MSYS PID，`taskkill` 不認。**換了 session 先查結果檔與 PID，兩者皆無才重跑**——不因 session 中斷就重跑，那正是白燒時間與 token 的主因。要中止時以 `cmd //c "taskkill /F /T /PID <node.pid 之值>"` 連子行程一起結束，先徵詢使用者。派工外部 AI 的完整範本另見 dispatch-* 技能之〈逾時與等待〉。
 
 **寫法要點**：
 
-- 只用 `sleep`（Git Bash 可用），不用 `timeout` 指令；前景 `sleep` 會被工具政策擋下，一律 `run_in_background: true`。
+- 只用 `sleep`（Git Bash 可用），不用 `timeout` 指令；前景 `sleep` 會被工具政策擋下，一律 `run_in_background: true`，並明給 `timeout`（≤ 7200000），值大於該段最長秒數。
+- **每段一律在時限前自行結束**（≤ 6900 秒），不要靠被 harness 終止來叫醒：被終止的通知是 killed，附帶「已給最長 timeout 就不要重啟」之類提示，那是針對工作本身，容易讓人誤判成不該再掛。
 - 命令內印出設定時刻與到期時刻，通知的 `output-file` 會帶回這兩行，可算延遲。
 - 時刻用 `date -d "<絕對時刻>" +%s` 計算，不要心算秒數；`t ≤ 0` 時直接執行不 sleep。
-- 一個計時器只做一件事；要「到期後跑程式」就接在 `sleep` 之後（`sleep N; node x.mjs`），通知即代表程式已跑完。
+- 一個計時器只做一件事；要「到期後跑程式」就接在 `sleep` 之後（`sleep N; node x.mjs`），通知即代表程式已跑完——但 `sleep` 加程式的總時長同樣受 `timeout` 約束，程式可能跑很久就改用配方 E。
 - 通知抵達時你可能正忙於其他 turn，通知會排隊不會遺失；但 session 結束就全部消失。
 
 ### 6.3 Monitor（TUI 與外掛皆可）
 
-先做 §4.3 的最小實驗，通過後換正式版。**推薦事件驅動而非時間驅動**——監看巡檢紀錄檔的 mtime，一有更新即推送（那正代表管線剛跑完），並且**一定要有「太久沒更新」的告警分支**：
+先做 §4.3 的最小實驗，通過後換正式版。**Monitor 單次最長 30 分鐘**：正式版以 `timeout_ms: 1800000` 掛，到期通知抵達就原指令重掛；長期監看＝每 30 分鐘重掛一次，任務書寫明，忘記重掛就斷線。**推薦事件驅動而非時間驅動**——監看巡檢紀錄檔的 mtime，一有更新即推送（那正代表管線剛跑完），並且**一定要有「太久沒更新」的告警分支**：
 
 ```bash
 f='<紀錄檔絕對路徑>'
@@ -347,7 +363,7 @@ while true; do
 done
 ```
 
-那條 `elif` 不可省：只監看「有更新」的話，管線掛掉與一切安靜在使用者眼裡完全相同。Monitor 工具自己的說明也強調 *silence is not success*。`persistent: true` 仍綁 session。
+那條 `elif` 不可省：只監看「有更新」的話，管線掛掉與一切安靜在使用者眼裡完全相同。Monitor 工具自己的說明也強調 *silence is not success*。重掛時 `last` 會重新取一次 mtime，到期與重掛之間的更新會漏推一次，所以紀錄檔仍是唯一真相（§8）。Monitor 仍綁 session。
 
 ### 6.4 管線內建巡檢（不依賴 session）
 
@@ -449,9 +465,10 @@ CronList()            // 只列得出本 session 的任務；不透露上次／�
 CronDelete({ id })    // id 由 CronCreate 回傳
 ```
 
-- **每次重開 session 都要重建**（cron、計時器、Monitor 皆然），目前無法規避。
+- **每次重開 session 都要重建**（cron、計時器、Monitor 皆然），目前無法規避。detached 的工作不在此列（配方 E）：它照跑，重開後先查結果檔與 PID，重掛等待即可，不要重跑。
 - cron 7 天到期前若仍需要，重新建立。
-- 背景計時器的維護 ＝ 每次喚醒結尾重掛下一個，並把下次到期時刻寫進紀錄檔；忘記重掛即斷鏈。
+- 背景計時器的維護 ＝ 每次喚醒結尾重掛下一個（明給 `timeout`、單段 ≤ 6900 秒），並把下次到期時刻寫進紀錄檔；忘記重掛即斷鏈。
+- Monitor 每 30 分鐘到期，到期通知抵達即重掛；忘記重掛即斷線。
 - 外掛內已建的 cron 用 `CronDelete` 清掉，改掛計時器。
 
 **長時間沒有巡檢回報時的排查順序**：
@@ -459,8 +476,9 @@ CronDelete({ id })    // id 由 CronCreate 回傳
 1. 辨識模式（§2.1）——外掛模式下 cron 不會響，直接換機制。
 2. `CronList`——任務還在嗎？（只證明註冊在案，不證明會觸發）
 3. 紀錄檔覆蓋率（§4.4）——最後一筆是幾點？
-4. 重做一次探針或最小實驗（§4）——機制本身還通嗎？
-5. 以上都正常，才去查被巡檢的管線。
+4. 看最後一則通知的性質——計時器是 killed（撞到背景時限：沒給 `timeout` 或單段超過時限，改照 §6.2 明給並分段），或 Monitor 到期而沒重掛（§6.3）。
+5. 重做一次探針或最小實驗（§4）——機制本身還通嗎？
+6. 以上都正常，才去查被巡檢的管線。
 
 ---
 
@@ -500,6 +518,20 @@ CronDelete({ id })    // id 由 CronCreate 回傳
 | 背景計時器 3,600 秒 | 到期後 15 秒通知抵達 |
 | 外掛日誌 | 整段 session 無任何 `[ScheduledTasks] scheduled <id> for` 或 `firing` 行 |
 
+### 10.4 VS Code 外掛（2026-10-03）：背景指令與 Monitor 開始受時限約束
+
+| 觀測 | 結果 |
+|---|---|
+| 背景 `timeout: 60000` 執行 `echo start; sleep 100; echo end` | 60 秒被終止，通知 status 為 killed（stopped after reaching its background time limit），輸出只有 `start` |
+| 背景未給 `timeout` 執行 `sleep 2000` | 18:30:45 開始、19:00:45 被終止，即預設 30 分鐘 |
+| `Monitor` 工具說明 | `timeout_ms` 預設 300000，超過 1800000 一律夾回；說明與參數表已無 `persistent` |
+| `Monitor` 帶 `persistent: false` 呼叫 | 未被拒，照常執行並照 `timeout_ms` 計時——參數被忽略 |
+| 前景 Bash 以 `nohup node <150 秒工作> &` 啟動 | 該次工具呼叫結束後照常跑完、寫出完成檔 |
+| 巢狀 `claude -p` 的 Bash 以 `nohup` 啟動 90 秒工作 | 該 `claude` 行程 8 秒後結束，工作仍於第 90 秒寫出完成檔 |
+| 配方 E 之分段等待（結果檔／PID 存活／本段到期三判斷） | `DONE`、`STILL-RUNNING`（本段改 20 秒驗證）、`CRASHED`、重掛後 `DONE` 皆如預期；`process.kill(pid, 0)` 於 Windows 可判斷存活 |
+
+§10.3 的 3,600 秒計時器、以及早期背景工作連跑 89 分鐘未被砍的觀察，在此日的 harness 下不再成立（未給 `timeout` 即於 30 分鐘被終止）。harness 改版會改變這類行為，懷疑時照 §4.2 第 4 點重驗。
+
 ---
 
 ## 11. 完成前勾選清單
@@ -510,6 +542,7 @@ CronDelete({ id })    // id 由 CronCreate 回傳
 - [ ] 動手前已做 §2.0 自檢——包括「只是等一個背景工作再繼續」的情境——判定與依據寫在 ./tmp/sched_test/env.txt
 - [ ] 已辨識執行環境（TUI／外掛），並依 §2.3 選了該環境可用的機制；外掛內沒有建任何 cron／ScheduleWakeup
 - [ ] 已用 §4 對應的方式驗證機制真的會叫醒，證據在 ./tmp/sched_test/
+- [ ] 每個背景計時器／輪詢都明給 `timeout`（≤ 7200000）且大於其最長秒數、單段 ≤ 6900 秒；超過 115 分鐘的工作已 detached（配方 E）；Monitor 已安排每 30 分鐘重掛
 - [ ] 任務書含 §5 六項：絕對路徑、可機械判定之判準（含「沒有日誌檔」）、離開碼 0 不等於成功、授權與絕不可改清單、落檔、回報格式
 - [ ] 已知常態白名單已成套列出（同一種失敗的各變體一起列）
 - [ ] 被巡檢對象的日誌與排程路徑皆來自使用者指定或其自身設定（附來源），沒有任何自行假設的專案內路徑

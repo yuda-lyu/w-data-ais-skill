@@ -243,7 +243,7 @@ description: |
 ### 7.6 產製流程與交付門（順序不可調）
 
 1. spec 視覺項寫好每張「框住什麼」→ 程式碼每個截圖旁註解同一句。
-2. 重產：**同一時間只有一條鏈在跑**（重產與 mocha 共用後端與資料庫）；啟動前列出 `baseline|mocha|後端` 程序，殺乾淨或等完；多批次串成一條序列背景鏈；每次用**沒用過的 log 檔名**；等待用任務完成通知或本輪 log 的 EXIT。殷鑑：`until grep EXIT` 等到上一輪同名 log，第二條重產並行殺掉第一條的後端，剩餘案例逾時而圖仍是舊檔。異常結束以圖檔 mtime 對照本輪起訖判斷哪些真的重產了。
+2. 重產：**同一時間只有一條鏈在跑**（重產與 mocha 共用後端與資料庫）；啟動前列出 `baseline|mocha|後端` 程序，殺乾淨或等完；多批次串成一條序列背景鏈（明給 `timeout`；預估超過 115 分鐘改照 §11.1 以 detached 執行）；每次用**沒用過的 log 檔名**；等待用任務完成通知或本輪 log 的 EXIT。殷鑑：`until grep EXIT` 等到上一輪同名 log，第二條重產並行殺掉第一條的後端，剩餘案例逾時而圖仍是舊檔。異常結束以圖檔 mtime 對照本輪起訖判斷哪些真的重產了。
 3. 無框掃描：以「長段紅線（同色連續 ≥ 20 px）」判定有框；統計紅像素會被頁面紅字假陽性。
 4. **逐張目視**：每張對照 spec 那句「框住…」核對（reference §6.3 清單）。使用者退回一張＝退回一個類別，把同類別的每張圖翻出來查，不只修被點名那張；殷鑑：八輪退圖，每輪只修被點名那張。
 5. **交使用者審圖**：使用者難以逐張開圖檔時，產一份圖文對照之審圖報告（md→docx，非交付文件、放暫存區）交審——只收本輪新增／變動之案例，每案例先列操作描述與手冊敘述，每張圖之圖說為「圖名（圖鍵）」再附 spec 那句「框住…」，另附本輪變動摘要與重產抽樣（作法見 dispatch-and-review-workflow §6）。已有下游手冊者，手冊之圖名、敘述、md 與 docx 於**同一輪**更新後一起交審，不留到認可之後（殷鑑：補了收信之標準圖卻未同輪補手冊，使用者反問「為何手冊還是沒看到收信截圖」）。未認可前不跑 mocha 比對。**例外**：業主已明文委任 agent 審圖之專案（記於該專案 process，如 w-web-sso / perm / api / task 自 2026-09-28），由 agent 依該 process 之審圖程序逐張審畢即可跑 mocha，審圖紀錄照常落檔供業主隨時查閱；產圖本身仍須授權（§7.9）。
@@ -375,7 +375,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 
 ### 11.1 跑 mocha
 
-單獨跑某檔時指令自行編寫（如 `npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`）；`--reporter list` 且不接 pipe；長跑 `run_in_background` + Read output——**但背景任務可能有時長上限**（VS Code 外掛實測約 30 分鐘即中止，2026-10-01），中止後 runner 新開之 mocha／瀏覽器一律 exit 3221225794（0xC0000142）瞬間失敗、一案都沒跑卻像全部失敗；預估超過 25 分鐘之鏈改在獨立主控台執行（Windows：PowerShell `Start-Process cmd /c "node … > log 2>&1" -WindowStyle Hidden`），以短於 25 分鐘之等待迴圈分段盯，結果以實際跑完之檔為準；`--timeout` 依專案。`--grep` 過濾掉 outer `it` 時 nested `before` 會在 DB 未 setup 前執行（徵狀「找不到 user / 30s timeout」是 artifact 非 production bug）：`--grep` 涵蓋 outer 至少一個 case、或 nested 自己 setup、或 outer 改 `before`。標準圖尚未經使用者審圖認可前不跑比對（§7.6）。
+單獨跑某檔時指令自行編寫（如 `npx mocha test/e2e-<flow>.test.mjs --reporter list --timeout N`）；`--reporter list` 且不接 pipe；長跑 `run_in_background` + Read output，**`timeout` 一律明給**：背景指令沒給是 30 分鐘、最長 7200000（2 小時），到期即被終止（2026-10-01 觀察到約 30 分鐘中止，2026-10-03 實測確認那是未給 `timeout` 時的預設）；被終止後 runner 新開之 mocha／瀏覽器一律 exit 3221225794（0xC0000142）瞬間失敗、一案都沒跑卻像全部失敗。預估 ≤ 115 分鐘之鏈：`run_in_background` 並給大於預估時長之 `timeout`（≤ 7200000）。預估超過 115 分鐘之鏈：以 detached 執行——前景 Bash 下 `nohup bash -c '<鏈>; echo "EXIT $?"' > <本輪新 log> 2>&1 &`，立即返回，該行程不隨工具呼叫或 session 結束（`<鏈>` 內不可再含單引號，會截斷外層引號；複雜的鏈寫成腳本檔再呼叫）；再以背景等待迴圈分段盯（`timeout: 7200000`，每段至多 6900 秒）：`end=$(( $(date +%s) + 6900 )); until grep -q '^EXIT' <log> || [ "$(date +%s)" -ge "$end" ]; do sleep 30; done; grep '^EXIT' <log> || echo STILL-RUNNING`，`STILL-RUNNING` 時先查程序清單確認鏈還活著再重掛；結果以實際跑完之檔為準；`--timeout`（mocha 自己的逾時）依專案。`--grep` 過濾掉 outer `it` 時 nested `before` 會在 DB 未 setup 前執行（徵狀「找不到 user / 30s timeout」是 artifact 非 production bug）：`--grep` 涵蓋 outer 至少一個 case、或 nested 自己 setup、或 outer 改 `before`。標準圖尚未經使用者審圖認可前不跑比對（§7.6）。
 
 ### 11.2 Timing flake 自己修
 
@@ -390,7 +390,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 探測腳本的目的是取得計畫檔要的事實（§1.5、dispatch-and-review-workflow §2）。它跑在共用後端上，寫壞會拖垮後面所有工作：
 
 1. **收尾不可省**：`finally` 一律關瀏覽器、呼叫 cleanup、再 `process.exit`——失敗路徑沒關瀏覽器，node 就永遠不退出，串接在後面的等待迴圈與其他代理全部卡死（殷鑑：一支探測拋錯後掛了 40 分鐘，使用者問「怎麼這麼久」時才發現）。
-2. **等待條件以殼層寫入的行首標記為準**（`echo "EXIT $?" >> log`），不以腳本自己印的字樣為準；每次執行用沒用過的 log 名；等待迴圈要有上限，逾時就查程序清單（以命令列比對，只殺自己啟動的），不空等。
+2. **等待條件以殼層寫入的行首標記為準**（`echo "EXIT $?" >> log`），不以腳本自己印的字樣為準；每次執行用沒用過的 log 名；等待迴圈要有上限（背景執行時 `timeout` 明給且大於該上限，見 §11.1），逾時就查程序清單（以命令列比對，只殺自己啟動的），不空等。
 3. **只做使用者做得到的動作**：探測與正式案例一樣走 L1–L3（§4.1），用畫面既有的過濾把目標帶進視野（§4.4）；探測用捷徑（程式捲動、`locator.click` 自動捲入、直接呼叫元件方法）製造的現象不能寫進計畫檔當事實，也不能當產品缺陷回報。
 4. **「像缺陷」的現象先在真瀏覽器重現**：用不帶確定性旗標的有頭瀏覽器跑同一操作；只在 headless／旗標／全頁截圖（§8.5）之一才出現的是環境問題；此外先檢查語意（視野是否離開主體、資料本來就是空）再檢查渲染。
 5. 產物：腳本、log、截圖各自留在暫存區並由計畫檔引用；截圖用過即刪（Read 進 API 前先驗 magic number）。

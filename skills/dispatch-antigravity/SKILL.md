@@ -1,6 +1,6 @@
 ---
 name: dispatch-antigravity
-description: 當任務需要委派給 Antigravity，或需要使用其提供的 Gemini 模型時，透過 w-dispatch-ai 以非互動子程序方式執行 Google Antigravity CLI（agy）。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準：權限不足時會以 exit 0 交回看似正常卻沒做事的結果。派工逾時：審計／測試類一律 1 小時起跳，且必須背景執行，否則會被呼叫端在 10 分鐘內強制中斷。
+description: 當任務需要委派給 Antigravity，或需要使用其提供的 Gemini 模型時，透過 w-dispatch-ai 以非互動子程序方式執行 Google Antigravity CLI（agy）。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準：權限不足時會以 exit 0 交回看似正常卻沒做事的結果。派工逾時：正式派工一律 4 小時，派工腳本須以 detached 行程執行並分段等待——掛在工具呼叫上（前景最長 10 分鐘、背景最長 2 小時）必被中途終止。
 ---
 
 # dispatch-antigravity
@@ -61,7 +61,7 @@ import wda from 'w-dispatch-ai';
 const result = await wda.dispatchAntigravity('分析此專案並完成指定修改', {
     model: 'gemini-3.8-flash-high',
     cwd: '/absolute/path/to/project',
-    timeoutMs: 3_600_000,   // 審計／複審／測試類 1 小時起跳，見「逾時」一節
+    timeoutMs: 14_400_000,   // 正式派工一律 4 小時；須照〈逾時與等待〉以 detached 執行，不可在工具呼叫內直接 await
     validate: 'nonempty',
 });
 
@@ -102,53 +102,127 @@ Antigravity 也接受 `--effort low|medium|high`。若使用轉接器的 `effort
 
 輸入更長時，應先把內容寫入允許存取目錄內的檔案，再派送一段引用該路徑的短提示詞。
 
-## 逾時：審計、複審、測試類一律 1 小時起跳
+## 逾時與等待：正式派工一律 4 小時，以 detached 行程執行
 
-**轉接器預設 300000（5 分鐘）對這類任務一定不夠**：審計要把模組讀完、複審要逐格核對、寫測試還得把測試跑起來，而 agy 光是啟動就常吃掉數秒到二十幾秒。被逾時砍掉時 token 早就燒完卻拿不到任何結果——**逾時砍掉的不是等待時間，是整批已經付過錢的工作**。
+**轉接器預設 300000（5 分鐘）遠遠不夠**：審計要把模組讀完、複審要逐格核對、寫測試還得把測試跑起來，而 agy 光是啟動就常吃掉數秒到二十幾秒，單次派工超過 1 小時已是常態。被逾時砍掉時 token 早就燒完卻拿不到任何結果——**逾時砍掉的不是等待時間，是整批已經付過錢的工作**，重派還要再付一次。
 
-**下限：`timeoutMs: 3_600_000`（1 小時），寧可保守。逾時是上限不是固定等待**——提早做完就提早回，給大不吃虧；給小才會兩頭空。
+**正式派工一律 `timeoutMs: 14_400_000`（4 小時）。逾時是上限不是固定等待**——提早做完就提早回，給大不吃虧；給小才會兩頭空。適用於所有正式派工：審計、複審、調查、寫測試、跑測試、多檔重構、產長報告，以及任何要求逐項核對者。**唯一例外是能力探測與單問一句**：維持 1–3 分鐘、前景執行——探測本來就要快失敗。
 
-**五層都要放行，任一層先到就被截斷**（套件 README 之「Timeout 總覽」明訂這條階梯的數值須嚴格遞增）：
+### 為何不能在工具呼叫裡直接等
 
-| 層 | 誰在殺 | 預設 | 這類任務要怎麼設 |
+Claude Code 對每一種工具呼叫都有時限，到期即終止整個行程，`timeoutMs` 給多大都沒用：
+
+| 呼叫方式 | 預設 | 上限 |
+|---|---|---|
+| Bash 前景 | 120000（2 分鐘） | 600000（10 分鐘） |
+| Bash `run_in_background: true` | 1800000（30 分鐘） | 7200000（2 小時） |
+| `Monitor` | 300000（5 分鐘） | 1800000（30 分鐘） |
+
+2026-10-03 實測：`run_in_background` 設 `timeout: 60000` 的指令於 60 秒整被終止、沒給 `timeout` 的指令於 30 分鐘整被終止（通知皆為 stopped after reaching its background time limit）；同日以 `nohup … &` 自前景 Bash 啟動的 node 行程，在該次工具呼叫結束後照常跑完並寫出結果檔。所以 4 小時派工必須**脫離工具呼叫**：派工腳本以 detached 行程執行、過程與結果落檔，等待則用背景指令分段進行。
+
+### 執行步驟（正式派工一律照做）
+
+**步驟 1：寫派工腳本。** 提示詞先寫進 `./tmp/<案名>/prompt.md`，再寫 `./tmp/<案名>/dispatch.mjs`：
+
+```javascript
+// ./tmp/<案名>/dispatch.mjs —— 由步驟 2 以 detached 啟動；過程與結果一律落檔
+import fs from 'fs';
+import path from 'path';
+import { createRequire } from 'module';
+
+const dir = path.resolve('./tmp/<案名>');
+const out = (name) => path.join(dir, name);
+const skillsRoot = path.resolve('<本技能目錄之絕對路徑>', '..');
+const wda = createRequire(import.meta.url)(path.join(skillsRoot, 'node_modules', 'w-dispatch-ai'));
+
+fs.mkdirSync(dir, { recursive: true });
+fs.writeFileSync(out('node.pid'), String(process.pid));   //步驟 3 判斷存活、中止時樹狀終止都靠它
+let result;
+try {
+    result = await wda.dispatchAntigravity(fs.readFileSync(out('prompt.md'), 'utf8'), {
+        model: 'gemini-3.8-flash-high',
+        cwd: '<被派對象工作目錄之絕對路徑>',   //其他要讀的目錄以 addDirs 給（見〈權限〉）
+        timeoutMs: 14_400_000,   //printTimeout 由此自動推導為 14370 秒，不要另給
+        validate: 'nonempty',
+        onStdout: (chunk) => fs.appendFileSync(out('stdout.log'), chunk),   //失敗結果只留 500 字元，過程靠這份
+    });
+}
+catch (err) {
+    result = { ok: false, error: `dispatch.mjs 例外：${err?.stack || err}` };
+}
+fs.writeFileSync(out('result.json'), JSON.stringify(result, null, 2));
+```
+
+提示詞以 `--print` 傳入，上限 30,000 字元（見〈提示詞傳輸〉）；更長的內容寫成檔案，`prompt.md` 只放引用該路徑的短提示詞。走遞補鏈或工作流時，同樣用這支腳本包住整個呼叫（把 `dispatchAntigravity` 換成 `dispatchAiFallback` 或工作流函數），步驟 2、3 不變。
+
+**步驟 2：以 detached 啟動。** 用前景 Bash 執行，立即返回；**不要**用 `run_in_background` 跑派工本身，那會讓它受上表時限約束：
+
+```bash
+nohup node ./tmp/<案名>/dispatch.mjs > ./tmp/<案名>/run.log 2>&1 &
+sleep 3; cat ./tmp/<案名>/node.pid   # 印得出 PID 才算啟動成功；印不出來先讀 run.log
+```
+
+**步驟 3：分段等待。** 用背景 Bash，`timeout` 必須明給 `7200000`（不給就是 30 分鐘）；迴圈在第 6900 秒自行結束，趕在上限之前回報：
+
+```text
+Bash({ run_in_background: true, timeout: 7200000,
+  description: '等待派工 <案名>（本段至多 115 分鐘）',
+  command: 'd=./tmp/<案名>; end=$(( $(date +%s) + 6900 )); while [ ! -f "$d/result.json" ] && node -e "process.kill(+process.argv[1],0)" "$(cat "$d/node.pid")" 2>/dev/null && [ "$(date +%s)" -lt "$end" ]; do sleep 30; done; if [ -f "$d/result.json" ]; then echo "DONE $(date +%H:%M:%S)"; elif [ "$(date +%s)" -ge "$end" ]; then echo "STILL-RUNNING $(date +%H:%M:%S)"; else echo "CRASHED $(date +%H:%M:%S)"; tail -20 "$d/run.log"; fi' })
+```
+
+通知回來後依輸出的第一個字處置：
+
+| 輸出 | 意義 | 處置 |
+|---|---|---|
+| `DONE` | `result.json` 已寫出 | 讀它，**再驗產物**——exit 0 與非空輸出都不是成功判準，agy 內層逾時也是 exit 0（見〈權限〉與下節） |
+| `STILL-RUNNING` | 本段到期，派工仍在跑 | 原指令重掛下一段。累計超過派工應有的最長總時長（單次嘗試為 4 小時；遞補鏈與工作流依下節公式）仍未結束，才視為異常回報 |
+| `CRASHED` | 行程已結束卻沒有 `result.json`（被外力終止、機器休眠、node 崩潰） | 讀 `run.log` 與 `stdout.log` 找原因；**找到原因前不要重派** |
+
+**session 中斷或重開後**：派工照跑，不受影響（2026-10-03 實測：由 `claude -p` 的 Bash 工具以 `nohup` 啟動的行程，在該 `claude` 行程結束後照常跑完）；只有機器重開會中斷它。接手時先看 `./tmp/<案名>/`：有 `result.json` → 直接驗收；沒有、但 `node.pid` 的行程仍存活 → 重掛步驟 3；兩者皆無才考慮重派。**不要因為換了 session 就重派**——那正是浪費 token 的主因。
+
+**中止**：Windows 用 `cmd //c "taskkill /F /T /PID <node.pid 之值>"`（`/T` 連同 agy 子行程一起結束）；其他平台以 `kill` 終止該 PID 及其子行程。中止前先徵詢使用者。
+
+### 逾時分層：五層都要放行
+
+**任一層先到就被截斷**（套件 README 之「Timeout 總覽」明訂②～⑤的數值須嚴格遞增）：
+
+| 層 | 誰在殺 | 預設 | 正式派工怎麼設 |
 |---|---|---|---|
-| ①呼叫端（Claude Code 的 Bash 工具） | harness 砍掉整個 node 行程 | 前景 120000，**上限 600000（10 分鐘）** | **一定要 `run_in_background: true`**——前景不論 `timeoutMs` 給多大，最多 10 分鐘就被砍。**但背景行程掛在 session 之下**，數小時級或不可因 session 更替而中斷者，須改走 detached ＋ `Monitor` |
-| ②轉接器 `timeoutMs`（單次嘗試） | 逾時終止程序樹 | 300000 | `3_600_000` 起跳 |
-| ③agy 自身 `--print-timeout` | agy 自己結束並回報逾時 | `5m0s` | 由 `timeoutMs` 推導為 `timeoutMs − 30 秒`（給 1 小時即 3570 秒）；**不要另外傳一個小的 `printTimeout` 把它蓋掉** |
-| ④單一名額之遞補鏈 `budgetMs` | 預算用盡即停止遞補 | `null`（不限） | 要嘛不給，要嘛 ≥ `鏈組數 K × 3_600_000`；給小了會把第②③層一起壓下去 |
-| ⑤工作流總時長 | 無獨立參數，由結構推導 | 無（刻意） | `runRolePipeline` 最壞 ≈ M×K×`timeoutMs`。K=4、M=3 配 1 小時就是 **12 小時**——先算再決定要不要拆階段 |
+| ①呼叫端（Claude Code 的工具呼叫時限） | harness 終止整個行程 | 見上節表格，最長 2 小時 | 派工照〈執行步驟〉detached 執行，此層即不作用；只有等待受它約束，所以等待要分段 |
+| ②轉接器 `timeoutMs`（單次嘗試） | 逾時終止程序樹 | 300000 | `14_400_000` |
+| ③agy 自身 `--print-timeout` | agy 自己結束並回報逾時 | `5m0s` | 由 `timeoutMs` 推導為 `timeoutMs − 30 秒`（給 4 小時即 14370 秒）；**不要另外傳一個小的 `printTimeout` 把它蓋掉** |
+| ④單一名額之遞補鏈 `budgetMs` | 預算用盡即停止遞補 | `null`（不限） | 要嘛不給，要嘛 ≥ `鏈組數 K × 14_400_000`；給小了會把第②③層一起壓下去 |
+| ⑤工作流總時長 | 無獨立參數，由結構推導 | 無（刻意） | `runRolePipeline` 最壞 ≈ M×K×`timeoutMs`。K=4、M=3 配 4 小時就是 **48 小時**——先算再決定要不要拆階段 |
 
 第③層設計上比第②層早 30 秒到期，為的是讓 agy 回自己的逾時錯誤而不是被外層砍掉程序樹。**但此順序只在 `timeoutMs ≥ 60 秒`時成立**：`printTimeout` 有 30 秒下限，`timeoutMs` 低於 60 秒時會被鉗成 30 秒，反而可能晚於外層——走遞補鏈被 `budgetMs` 壓到 60 秒以下時就會出現這種反轉。
 
 **agy 的內層逾時同樣是「假成功」**（2026-09-10 實測）：`--print-timeout` 到期時 agy 回 **exit 0、`ok: true`、stdout 空**，stderr 只有 `[agy] print timeout after <t> with turn in progress; returning partial output`，**`errorType` 是空的**。也就是說第③層到期不會讓轉接器回失敗——一定要靠 `validate: 'nonempty'` 或自行驗產物才抓得到。
 
-**最常見的假象**：`timeoutMs` 明明給了 30 分鐘卻每次都在 2 分鐘斷——那是被第①層砍的，因為根本沒開背景。**只改 `timeoutMs` 沒用，三層要一起對齊**。
+**最常見的假象**：`timeoutMs` 明明給了 4 小時，派工卻在 2 分鐘、10 分鐘、30 分鐘或 2 小時整斷掉——全是第①層砍的：派工掛在前景，或掛在 `run_in_background` 上（沒給 `timeout` 是 30 分鐘，給滿也只有 2 小時）。**只改 `timeoutMs` 沒用：派工一定要照〈執行步驟〉detached 執行（第①層），第③層則交給轉接器由 `timeoutMs` 推導、不要另給小值**。
 
 **單次派工還會乘上去的**：`timeoutMs` 是**每次嘗試**的上限（`wsemi` 之 `execCli`），不是總時長——`maxRetries: N` 時總時長約 `timeoutMs × (1+N)`，再加重試間隔（`retryDelayMs` 預設 5000，實際間隔為 `retryDelayMs × 已重試次數`、單次上限 15000）。`ENOENT`（命令不存在）與 exit code 2（參數錯誤）視為不可重試，會立即中止。**`printTimeout` 於呼叫前依 `timeoutMs` 推導一次，重試沿用同一組旗標，故不會累加、也不會逐次重算**。
 
 **走遞補鏈或工作流時，三個值必須成套設，缺一即壞**（以下皆為 `w-dispatch-ai/src/dispatchAiFallback.mjs` 之實際行為）：
 
 ```javascript
-{ timeoutMs: 3_600_000, minAttemptMs: 3_600_000, budgetMs: K * 3_600_000 }  // K＝遞補鏈之組數
+{ timeoutMs: 14_400_000, minAttemptMs: 14_400_000, budgetMs: K * 14_400_000 }  // K＝遞補鏈之組數
 ```
 
 | 選項 | 預設 | 實際行為與陷阱 |
 |---|---|---|
-| `budgetMs` | `null`（不限） | 有給時**每次嘗試的逾時被壓成 `min(timeoutMs, 剩餘預算)`**（agy 的 `printTimeout` 也會跟著縮）；給得比 `timeoutMs` 小，1 小時等於白設 |
+| `budgetMs` | `null`（不限） | 有給時**每次嘗試的逾時被壓成 `min(timeoutMs, 剩餘預算)`**（agy 的 `printTimeout` 也會跟著縮）；給得比 `timeoutMs` 小，4 小時等於白設 |
 | `minAttemptMs` | 20000 | **只有給了 `budgetMs` 才作用**。與 `timeoutMs` 同值時，第一家跑完剩餘必然不足 → 第二家永遠不開工；若 `budgetMs` 又給小了，**連第一次嘗試都不會發生**，直接回 `budget exhausted`（`errorType: 'budget'`），極易被誤讀成「額度用完」 |
 | `cooldownMs` | `0`（關閉） | 內建觸發只有 HTTP 429 與逾時，而 **429 僅 REST 類偵測得到**；CLI 類的限流埋在 stderr 文字裡，內建規則抓不到 |
 | `coolDetect` | 無 | CLI 類限流的唯一入口（依賴注入），例：`(r) => /quota/i.test(r.stderr || '')` |
-| `shouldStop` | 無 | 1 小時派工中途要止損的唯一手段：於每次嘗試之間檢查，回 `ABORTED`／`errorType: 'aborted'`。它不會中斷進行中的那一次嘗試 |
+| `shouldStop` | 無 | 4 小時派工中途要止損的唯一手段：於每次嘗試之間檢查，回 `ABORTED`／`errorType: 'aborted'`。它不會中斷進行中的那一次嘗試 |
 
-**`budgetFor()` 有陷阱，不要照抄**：它**只累加條目自己的 `timeoutMs`**，讀不到你寫在 opt／`defaults` 的那一個；而套件內建的 providers 條目**刻意不帶 `timeoutMs`**，所以 `budgetFor(內建條目)` 恆為「條目數 × 300000」（9 條就是 45 分鐘）——比你的 1 小時還小，反而把它壓下去。要用它就得先把 `timeoutMs: 3_600_000` 逐條寫進每個條目，否則直接寫 `K × 3_600_000`。
+**`budgetFor()` 有陷阱，不要照抄**：它**只累加條目自己的 `timeoutMs`**，讀不到你寫在 opt／`defaults` 的那一個；而套件內建的 providers 條目**刻意不帶 `timeoutMs`**，所以 `budgetFor(內建條目)` 恆為「條目數 × 300000」（9 條就是 45 分鐘）——比你的 4 小時還小，反而把它壓下去。要用它就得先把 `timeoutMs: 14_400_000` 逐條寫進每個條目，否則直接寫 `K × 14_400_000`。
 
-**工作流層的覆寫順序**（細者覆蓋粗者）：`dispatchAiWkf` 的 `defaults` → 各工作流 `callOpt` → 階段／名額規格 → provider 條目。把 1 小時寫在 `defaults`、而某條目自帶較小的 `timeoutMs` 時，**條目會贏**。
+**工作流層的覆寫順序**（細者覆蓋粗者）：`dispatchAiWkf` 的 `defaults` → 各工作流 `callOpt` → 階段／名額規格 → provider 條目。把 4 小時寫在 `defaults`、而某條目自帶較小的 `timeoutMs` 時，**條目會贏**。
 
-**哪些任務屬於這一類**：審計、複審、調查、寫測試、跑測試、多檔重構，以及任何要求逐項核對或產長報告者。**能力探測與單問一句維持短逾時**（1–3 分鐘）——探測本來就要快失敗。
+**與套件內建規劃的關係**：`w-dispatch-ai/src/providers.mjs` 檔頭的 timeout 規劃以「單一 AI 工作約 15 分鐘」估出 `timeoutMs: 1_200_000`，那是一般複雜任務的估法；**正式派工以本節的 4 小時為準**，不要照抄 20 分鐘把它調回去。套件內部四層（②～⑤）的權威整合說明在套件 README 的「Timeout 總覽」一節；第①層是呼叫端的事，README 不涵蓋。
 
-**與套件內建規劃的關係**：`w-dispatch-ai/src/providers.mjs` 檔頭的 timeout 規劃以「單一 AI 工作約 15 分鐘」估出 `timeoutMs: 1_200_000`，那是一般複雜任務的估法；**審計／複審／測試類以本節的 1 小時為下限**，不要照抄 20 分鐘把它調回去。四層串起來的權威整合說明在套件 README 的「Timeout 總覽」一節。
-
-**被砍時要保住已完成的部分**：失敗結果的 `stdout` 只會留 500 字元（`wsemi/src/execCli.mjs`），所以 1 小時派工一律掛 `onStdout` 邊跑邊落檔，否則被砍就真的什麼都不剩。
+**被砍時要保住已完成的部分**：失敗結果的 `stdout` 只會留 500 字元（`wsemi/src/execCli.mjs`），所以正式派工一律掛 `onStdout` 邊跑邊落檔——〈執行步驟〉的範本已寫入 `stdout.log`，不要拿掉，否則被砍就真的什麼都不剩。
 
 **逾時與假成功是兩回事**：外層逾時被殺時 `errorType` 為 `timeout`；而**內層 print-timeout、權限不足、提示詞層被禁止寫檔三者都是 `ok: true`／exit 0，不會產生 `errorType`**。看到「沒有結果但也沒有錯誤」先分清是哪一種，別互相誤診。
 
@@ -203,7 +277,7 @@ const probe = await wda.dispatchAntigravity(
     '讀取工作區內 <目標檔絕對路徑> 並原文輸出第 1 行；'
     + '再於 <產出目錄絕對路徑> 建立 probe-out.txt，內容為 OK；'
     + '最後只回一行：READ=<第1行> WRITE=<DONE 或 FAILED>',
-    //timeoutMs 壓在呼叫端前景上限 120000 之內；再長就要背景執行
+    //探測維持短逾時、前景執行（壓在前景預設 120000 之內）；正式派工改走〈逾時與等待〉
     //注意 100_000 推導出的 printTimeout 只有 70 秒，agy 啟動就要數秒到二十幾秒，探測任務要夠小
     { model: 'gemini-3.8-flash-low', addDirs, cwd, timeoutMs: 100_000, validate: 'nonempty' },
 );
@@ -220,7 +294,7 @@ print 模式的輸出格式以 `extraArgs` 指定：
 await wda.dispatchAntigravity(prompt, {
     model: 'gemini-3.8-flash-high',
     extraArgs: ['--output-format', 'json'],
-    timeoutMs: 3_600_000,
+    timeoutMs: 14_400_000,
     validate: 'json',
 });
 ```

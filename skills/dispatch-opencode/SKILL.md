@@ -1,6 +1,6 @@
 ---
 name: dispatch-opencode
-description: 當任務需要委派給 OpenCode，或需要使用 OpenCode 支援的模型供應商時，透過 w-dispatch-ai 以非互動子程序方式執行 OpenCode CLI。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準，以及用 opencode agent list 實查有效權限的作法。派工逾時：審計／測試類一律 1 小時起跳，且必須背景執行，否則會被呼叫端在 10 分鐘內強制中斷。
+description: 當任務需要委派給 OpenCode，或需要使用 OpenCode 支援的模型供應商時，透過 w-dispatch-ai 以非互動子程序方式執行 OpenCode CLI。內含依任務性質（審計／複審／調查／寫測試）決定權限下限的判準，以及用 opencode agent list 實查有效權限的作法。派工逾時：正式派工一律 4 小時，派工腳本須以 detached 行程執行並分段等待——掛在工具呼叫上（前景最長 10 分鐘、背景最長 2 小時）必被中途終止。
 ---
 
 # dispatch-opencode
@@ -64,7 +64,7 @@ const result = await wda.dispatchOpencode('分析此專案並完成指定修改'
     model: 'opencode/muse-spark-1.3-contributor-free',
     extraArgs: ['--variant', 'xhigh'],
     cwd: '/absolute/path/to/project',
-    timeoutMs: 3_600_000,   // 審計／複審／測試類 1 小時起跳，見「逾時」一節
+    timeoutMs: 14_400_000,   // 正式派工一律 4 小時；須照〈逾時與等待〉以 detached 執行，不可在工具呼叫內直接 await
     validate: 'nonempty',
 });
 
@@ -209,7 +209,7 @@ let r = resolveProviders(providers, {
     exes: { opencode: '<opencode 執行檔絕對路徑>' },                  // 逐 kind 注入；條目自帶 exe 者不覆寫
     patch: {                                                          // 逐 id 淺合併，於 exes 之後施作
         'oc:opencode/muse-spark-1.3-contributor-free': {
-            timeoutMs: 3_600_000,
+            timeoutMs: 14_400_000,
             extraArgs: ['--variant', 'xhigh'],
             config: { permission: { edit: 'allow', write: 'allow', bash: 'allow' } },
         },
@@ -218,7 +218,7 @@ let r = resolveProviders(providers, {
 ```
 
 - **`exes` 解的是 `ENOENT`**：作業系統排程於 session 0 執行時 `PATH` 可能不含 npm 全域目錄，靠指令名會找不到執行檔。
-- **`patch` 是逐條覆寫任意欄位的正規入口**：本技能要的 `xhigh`、1 小時逾時、放開權限鎖，三件事都在這裡補，不必改套件也不必自建條目表。
+- **`patch` 是逐條覆寫任意欄位的正規入口**：本技能要的 `xhigh`、4 小時逾時、放開權限鎖，三件事都在這裡補，不必改套件也不必自建條目表。
 - **`config` 是整個覆寫不是深層合併**：`patch` 為淺合併，給了 `config` 就會整顆換掉——第三方條目的 `provider` 定義也在 `config` 內，覆寫時要連同定義一起寫回，否則注入的設定少了 provider 定義，會以 `UnknownError` 收場。
 
 ### 自帶條目與 id 命名
@@ -251,7 +251,7 @@ await wda.dispatchOpencode(prompt, {
         },
         permission: { edit: 'deny', bash: 'ask' },   // 見「權限」一節；bash 用 ask 不用 deny
     },
-    timeoutMs: 3_600_000,   // 審計／複審／測試類 1 小時起跳，見「逾時」一節
+    timeoutMs: 14_400_000,   // 正式派工一律 4 小時；須照〈逾時與等待〉以 detached 執行，不可在工具呼叫內直接 await
 });
 ```
 
@@ -360,58 +360,133 @@ const probe = await wda.dispatchOpencode(
     '讀取 <目標檔絕對路徑> 並原文輸出第 1 行；'
     + '再於 <產出目錄絕對路徑> 建立 probe-out.txt，內容為 OK；'
     + '最後只回一行：READ=<第1行> WRITE=<DONE 或 FAILED>',
-    { model, cwd, timeoutMs: 100_000, validate: 'nonempty' },   //壓在呼叫端前景上限 120000 之內；再長就要背景執行
+    { model, cwd, timeoutMs: 100_000, validate: 'nonempty' },   //探測維持短逾時、前景執行（壓在前景預設 120000 之內）；正式派工改走〈逾時與等待〉
 );
 // 只看 stdout 不算數：要確認 probe-out.txt 真的落地
 ```
 
 探測失敗時先修目錄範圍與代理權限，不要改提示詞重試。
 
-## 逾時：審計、複審、測試類一律 1 小時起跳
+## 逾時與等待：正式派工一律 4 小時，以 detached 行程執行
 
-**轉接器預設 300000（5 分鐘）對這類任務一定不夠**：審計要把模組讀完、複審要逐格核對、寫測試還得把測試跑起來；本供應商的免費模型實測快慢差距極大（同一句話有的數秒回、有的要數分鐘，名為 lightning 的那支實測反而最慢）。被逾時砍掉時 token 早就燒完卻拿不到任何結果——**逾時砍掉的不是等待時間，是整批已經付過錢的工作**。
+**轉接器預設 300000（5 分鐘）遠遠不夠**：審計要把模組讀完、複審要逐格核對、寫測試還得把測試跑起來；本供應商的免費模型實測快慢差距極大（同一句話有的數秒回、有的要數分鐘，名為 lightning 的那支實測反而最慢），單次派工超過 1 小時已是常態。被逾時砍掉時 token 早就燒完卻拿不到任何結果——**逾時砍掉的不是等待時間，是整批已經付過錢的工作**，重派還要再付一次。
 
-**下限：`timeoutMs: 3_600_000`（1 小時），寧可保守。逾時是上限不是固定等待**——提早做完就提早回，給大不吃虧；給小才會兩頭空。
+**正式派工一律 `timeoutMs: 14_400_000`（4 小時）。逾時是上限不是固定等待**——提早做完就提早回，給大不吃虧；給小才會兩頭空。適用於所有正式派工：審計、複審、調查、寫測試、跑測試、多檔重構、產長報告，以及任何要求逐項核對者。**唯一例外是能力探測與單問一句**：維持 1–3 分鐘、前景執行——探測本來就要快失敗。
 
-**五層都要放行，任一層先到就被截斷**（套件 README 之「Timeout 總覽」明訂這條階梯的數值須嚴格遞增）：
+### 為何不能在工具呼叫裡直接等
 
-| 層 | 誰在殺 | 預設 | 這類任務要怎麼設 |
+Claude Code 對每一種工具呼叫都有時限，到期即終止整個行程，`timeoutMs` 給多大都沒用：
+
+| 呼叫方式 | 預設 | 上限 |
+|---|---|---|
+| Bash 前景 | 120000（2 分鐘） | 600000（10 分鐘） |
+| Bash `run_in_background: true` | 1800000（30 分鐘） | 7200000（2 小時） |
+| `Monitor` | 300000（5 分鐘） | 1800000（30 分鐘） |
+
+2026-10-03 實測：`run_in_background` 設 `timeout: 60000` 的指令於 60 秒整被終止、沒給 `timeout` 的指令於 30 分鐘整被終止（通知皆為 stopped after reaching its background time limit）；同日以 `nohup … &` 自前景 Bash 啟動的 node 行程，在該次工具呼叫結束後照常跑完並寫出結果檔。所以 4 小時派工必須**脫離工具呼叫**：派工腳本以 detached 行程執行、過程與結果落檔，等待則用背景指令分段進行。
+
+### 執行步驟（正式派工一律照做）
+
+**步驟 1：寫派工腳本。** 提示詞先寫進 `./tmp/<案名>/prompt.md`，再寫 `./tmp/<案名>/dispatch.mjs`：
+
+```javascript
+// ./tmp/<案名>/dispatch.mjs —— 由步驟 2 以 detached 啟動；過程與結果一律落檔
+import fs from 'fs';
+import path from 'path';
+import { createRequire } from 'module';
+
+const dir = path.resolve('./tmp/<案名>');
+const out = (name) => path.join(dir, name);
+const skillsRoot = path.resolve('<本技能目錄之絕對路徑>', '..');
+const wda = createRequire(import.meta.url)(path.join(skillsRoot, 'node_modules', 'w-dispatch-ai'));
+
+fs.mkdirSync(dir, { recursive: true });
+fs.writeFileSync(out('node.pid'), String(process.pid));   //步驟 3 判斷存活、中止時樹狀終止都靠它
+let result;
+try {
+    result = await wda.dispatchOpencode(fs.readFileSync(out('prompt.md'), 'utf8'), {
+        model: 'opencode/muse-spark-1.3-contributor-free',
+        extraArgs: ['--variant', 'xhigh'],
+        cwd: '<被派對象工作目錄之絕對路徑>',   //權限依〈權限〉一節之能力下限以 config.permission 收斂
+        timeoutMs: 14_400_000,
+        validate: 'nonempty',
+        onStdout: (chunk) => fs.appendFileSync(out('stdout.log'), chunk),   //失敗結果只留 500 字元，過程靠這份
+    });
+}
+catch (err) {
+    result = { ok: false, error: `dispatch.mjs 例外：${err?.stack || err}` };
+}
+fs.writeFileSync(out('result.json'), JSON.stringify(result, null, 2));
+```
+
+走遞補鏈或工作流時，同樣用這支腳本包住整個呼叫（把 `dispatchOpencode` 換成 `dispatchAiFallback` 或工作流函數，`onEvent` 一併落檔，見下節「觀測點」），步驟 2、3 不變。
+
+**步驟 2：以 detached 啟動。** 用前景 Bash 執行，立即返回；**不要**用 `run_in_background` 跑派工本身，那會讓它受上表時限約束：
+
+```bash
+nohup node ./tmp/<案名>/dispatch.mjs > ./tmp/<案名>/run.log 2>&1 &
+sleep 3; cat ./tmp/<案名>/node.pid   # 印得出 PID 才算啟動成功；印不出來先讀 run.log
+```
+
+**步驟 3：分段等待。** 用背景 Bash，`timeout` 必須明給 `7200000`（不給就是 30 分鐘）；迴圈在第 6900 秒自行結束，趕在上限之前回報：
+
+```text
+Bash({ run_in_background: true, timeout: 7200000,
+  description: '等待派工 <案名>（本段至多 115 分鐘）',
+  command: 'd=./tmp/<案名>; end=$(( $(date +%s) + 6900 )); while [ ! -f "$d/result.json" ] && node -e "process.kill(+process.argv[1],0)" "$(cat "$d/node.pid")" 2>/dev/null && [ "$(date +%s)" -lt "$end" ]; do sleep 30; done; if [ -f "$d/result.json" ]; then echo "DONE $(date +%H:%M:%S)"; elif [ "$(date +%s)" -ge "$end" ]; then echo "STILL-RUNNING $(date +%H:%M:%S)"; else echo "CRASHED $(date +%H:%M:%S)"; tail -20 "$d/run.log"; fi' })
+```
+
+通知回來後依輸出的第一個字處置：
+
+| 輸出 | 意義 | 處置 |
+|---|---|---|
+| `DONE` | `result.json` 已寫出 | 讀它，**再驗產物**——exit 0、非空輸出、轉錄裡的勾都不是成功判準（見〈權限〉） |
+| `STILL-RUNNING` | 本段到期，派工仍在跑 | 原指令重掛下一段。累計超過派工應有的最長總時長（單次嘗試為 4 小時；遞補鏈與工作流依下節公式）仍未結束，才視為異常回報 |
+| `CRASHED` | 行程已結束卻沒有 `result.json`（被外力終止、機器休眠、node 崩潰） | 讀 `run.log` 與 `stdout.log` 找原因；**找到原因前不要重派** |
+
+**session 中斷或重開後**：派工照跑，不受影響（2026-10-03 實測：由 `claude -p` 的 Bash 工具以 `nohup` 啟動的行程，在該 `claude` 行程結束後照常跑完）；只有機器重開會中斷它。接手時先看 `./tmp/<案名>/`：有 `result.json` → 直接驗收；沒有、但 `node.pid` 的行程仍存活 → 重掛步驟 3；兩者皆無才考慮重派。**不要因為換了 session 就重派**——那正是浪費 token 的主因。
+
+**中止**：Windows 用 `cmd //c "taskkill /F /T /PID <node.pid 之值>"`（`/T` 連同 opencode 子行程一起結束）；其他平台以 `kill` 終止該 PID 及其子行程。中止前先徵詢使用者。
+
+### 逾時分層：五層都要放行
+
+**任一層先到就被截斷**（套件 README 之「Timeout 總覽」明訂②～⑤的數值須嚴格遞增）：
+
+| 層 | 誰在殺 | 預設 | 正式派工怎麼設 |
 |---|---|---|---|
-| ①呼叫端（Claude Code 的 Bash 工具） | harness 砍掉整個 node 行程 | 前景 120000，**上限 600000（10 分鐘）** | **一定要 `run_in_background: true`**——前景不論 `timeoutMs` 給多大，最多 10 分鐘就被砍。**但背景行程掛在 session 之下**，數小時級或不可因 session 更替而中斷者，須改走 detached ＋ `Monitor` |
-| ②轉接器 `timeoutMs`（單次嘗試） | 逾時終止程序樹 | 300000 | `3_600_000` 起跳 |
+| ①呼叫端（Claude Code 的工具呼叫時限） | harness 終止整個行程 | 見上節表格，最長 2 小時 | 派工照〈執行步驟〉detached 執行，此層即不作用；只有等待受它約束，所以等待要分段 |
+| ②轉接器 `timeoutMs`（單次嘗試） | 逾時終止程序樹 | 300000 | `14_400_000` |
 | ③CLI 自身內層逾時 | — | `opencode run` **旗標表上沒有**此類旗標 | 不適用（只有 agy 有 `--print-timeout`） |
-| ④單一名額之遞補鏈 `budgetMs` | 預算用盡即停止遞補 | `null`（不限） | 要嘛不給，要嘛 ≥ `鏈組數 K × 3_600_000`；給小了會把第②層壓下去 |
-| ⑤工作流總時長 | 無獨立參數，由結構推導 | 無（刻意） | `runRolePipeline` 最壞 ≈ M×K×`timeoutMs`。K=4、M=3 配 1 小時就是 **12 小時**——先算再決定要不要拆階段 |
+| ④單一名額之遞補鏈 `budgetMs` | 預算用盡即停止遞補 | `null`（不限） | 要嘛不給，要嘛 ≥ `鏈組數 K × 14_400_000`；給小了會把第②層壓下去 |
+| ⑤工作流總時長 | 無獨立參數，由結構推導 | 無（刻意） | `runRolePipeline` 最壞 ≈ M×K×`timeoutMs`。K=4、M=3 配 4 小時就是 **48 小時**——先算再決定要不要拆階段 |
 
-**最常見的假象**：`timeoutMs` 明明給了 30 分鐘卻每次都在 2 分鐘斷——那是被第①層砍的，因為根本沒開背景。**只改 `timeoutMs` 沒用，兩層要一起改**。
+**最常見的假象**：`timeoutMs` 明明給了 4 小時，派工卻在 2 分鐘、10 分鐘、30 分鐘或 2 小時整斷掉——全是第①層砍的：派工掛在前景，或掛在 `run_in_background` 上（沒給 `timeout` 是 30 分鐘，給滿也只有 2 小時）。**只改 `timeoutMs` 沒用，派工一定要照〈執行步驟〉detached 執行**。
 
 **單次派工還會乘上去的**：`timeoutMs` 是**每次嘗試**的上限（`wsemi` 之 `execCli`），不是總時長——`maxRetries: N` 時總時長約 `timeoutMs × (1+N)`，再加重試間隔（`retryDelayMs` 預設 5000，實際間隔為 `retryDelayMs × 已重試次數`、單次上限 15000）。`ENOENT`（命令不存在）與 exit code 2（參數錯誤）視為不可重試，會立即中止。
 
 **走遞補鏈或工作流時，三個值必須成套設，缺一即壞**（以下皆為 `w-dispatch-ai/src/dispatchAiFallback.mjs` 之實際行為）：
 
 ```javascript
-{ timeoutMs: 3_600_000, minAttemptMs: 3_600_000, budgetMs: K * 3_600_000 }  // K＝遞補鏈之組數
+{ timeoutMs: 14_400_000, minAttemptMs: 14_400_000, budgetMs: K * 14_400_000 }  // K＝遞補鏈之組數
 ```
 
 | 選項 | 預設 | 實際行為與陷阱 |
 |---|---|---|
-| `budgetMs` | `null`（不限） | 有給時**每次嘗試的逾時被壓成 `min(timeoutMs, 剩餘預算)`**；給得比 `timeoutMs` 小，1 小時等於白設 |
+| `budgetMs` | `null`（不限） | 有給時**每次嘗試的逾時被壓成 `min(timeoutMs, 剩餘預算)`**；給得比 `timeoutMs` 小，4 小時等於白設 |
 | `minAttemptMs` | 20000 | **只有給了 `budgetMs` 才作用**。與 `timeoutMs` 同值時，第一家跑完剩餘必然不足 → 第二家永遠不開工；若 `budgetMs` 又給小了，**連第一次嘗試都不會發生**，直接回 `budget exhausted`（`errorType: 'budget'`），極易被誤讀成「額度用完」 |
 | `cooldownMs` | `0`（關閉） | 內建觸發只有 HTTP 429 與逾時，**429 僅 REST 類（`zen:`／`agnes:`／`poolside:`）偵測得到**；`oc:` 這類 CLI 條目的限流埋在 stderr 文字裡，內建規則抓不到。觸發後該條目**只被移到鏈尾不被移除**（前面全敗時仍會被試到，任一次成功立即解除），啟用期間「providers 順序即優先序」會被暫時重排。套件記載之實測：一次 107 秒請求中 72 秒耗在重複踩同一家，開冷卻後降至 15 秒。**只對有明給 `id` 的條目生效** |
 | `coolDetect` | 無 | CLI 類限流的唯一入口（依賴注入），例：`(r) => /FreeUsageLimitError/i.test(r.stderr || '')` |
-| `shouldStop` | 無 | 1 小時派工中途要止損的唯一手段：於每次嘗試之間檢查，回 `ABORTED`／`errorType: 'aborted'`。它不會中斷進行中的那一次嘗試 |
+| `shouldStop` | 無 | 4 小時派工中途要止損的唯一手段：於每次嘗試之間檢查，回 `ABORTED`／`errorType: 'aborted'`。它不會中斷進行中的那一次嘗試 |
 
-**`budgetFor()` 有陷阱，不要照抄**：它**只累加條目自己的 `timeoutMs`**（未帶者以統一預設 300000 計），讀不到你寫在 opt／`defaults` 的那一個；而套件內建的 providers 條目**刻意一條都不帶 `timeoutMs`**（1.0.40 實查 17 條皆無），所以 `budgetFor(內建條目)` 恆為「條目數 × 300000」——比你的 1 小時還小，反而把它壓下去。**本技能教的「直接引用 `providers.mjs`」正好踩中這一點**：要用 `budgetFor()` 就得先把 `timeoutMs: 3_600_000` 逐條寫進每個條目（用 `resolveProviders` 的 `patch` 逐 id 覆寫，別自己 map 回傳值），否則直接寫 `K × 3_600_000`。
+**`budgetFor()` 有陷阱，不要照抄**：它**只累加條目自己的 `timeoutMs`**（未帶者以統一預設 300000 計），讀不到你寫在 opt／`defaults` 的那一個；而套件內建的 providers 條目**刻意一條都不帶 `timeoutMs`**（1.0.40 實查 17 條皆無），所以 `budgetFor(內建條目)` 恆為「條目數 × 300000」——比你的 4 小時還小，反而把它壓下去。**本技能教的「直接引用 `providers.mjs`」正好踩中這一點**：要用 `budgetFor()` 就得先把 `timeoutMs: 14_400_000` 逐條寫進每個條目（用 `resolveProviders` 的 `patch` 逐 id 覆寫，別自己 map 回傳值），否則直接寫 `K × 14_400_000`。
 
-**1 小時派工要留觀測點**：`dispatchAiFallback` 的 `onEvent` 會逐步回報 `'try'`／`'ok'`／`'next-key'`／`'skip-group'`／`'budget-out'`／`'aborted'`／`'cooled'`，失敗事件另帶 `errorType`、被拒回覆與 stderr。沒掛它的話，一小時內看不出是卡在哪一家、還是早就跳完整條鏈在空轉。
+**4 小時派工要留觀測點**：`dispatchAiFallback` 的 `onEvent` 會逐步回報 `'try'`／`'ok'`／`'next-key'`／`'skip-group'`／`'budget-out'`／`'aborted'`／`'cooled'`，失敗事件另帶 `errorType`、被拒回覆與 stderr。沒掛它的話，四小時內看不出是卡在哪一家、還是早就跳完整條鏈在空轉。detached 執行時把事件一併落檔，等待期間隨時可讀：`onEvent: (ev) => fs.appendFileSync(out('events.log'), JSON.stringify(ev) + '\n')`（事件皆為純欄位物件；回呼拋出例外不影響主流程）。
 
-**工作流層的覆寫順序**（細者覆蓋粗者）：`dispatchAiWkf` 的 `defaults` → 各工作流 `callOpt` → 階段／名額規格 → provider 條目。把 1 小時寫在 `defaults`、而某條目自帶較小的 `timeoutMs` 時，**條目會贏**。
+**工作流層的覆寫順序**（細者覆蓋粗者）：`dispatchAiWkf` 的 `defaults` → 各工作流 `callOpt` → 階段／名額規格 → provider 條目。把 4 小時寫在 `defaults`、而某條目自帶較小的 `timeoutMs` 時，**條目會贏**。
 
-**哪些任務屬於這一類**：審計、複審、調查、寫測試、跑測試、多檔重構，以及任何要求逐項核對或產長報告者。**能力探測與單問一句維持短逾時**（1–3 分鐘）——探測本來就要快失敗。
+**與套件內建規劃的關係**：`w-dispatch-ai/src/providers.mjs` 檔頭的 timeout 規劃以「單一 AI 工作約 15 分鐘」估出 `timeoutMs: 1_200_000`，那是一般複雜任務的估法；**正式派工以本節的 4 小時為準**，不要照抄 20 分鐘把它調回去。套件內部四層（②～⑤）的權威整合說明在套件 README 的「Timeout 總覽」一節；第①層是呼叫端的事，README 不涵蓋。
 
-**與套件內建規劃的關係**：`w-dispatch-ai/src/providers.mjs` 檔頭的 timeout 規劃以「單一 AI 工作約 15 分鐘」估出 `timeoutMs: 1_200_000`，那是一般複雜任務的估法；**審計／複審／測試類以本節的 1 小時為下限**，不要照抄 20 分鐘把它調回去。四層串起來的權威整合說明在套件 README 的「Timeout 總覽」一節。
-
-**被砍時要保住已完成的部分**：失敗結果的 `stdout` 只會留 500 字元（`wsemi/src/execCli.mjs`），所以 1 小時派工一律掛 `onStdout` 邊跑邊落檔，否則被砍就真的什麼都不剩。
+**被砍時要保住已完成的部分**：失敗結果的 `stdout` 只會留 500 字元（`wsemi/src/execCli.mjs`），所以正式派工一律掛 `onStdout` 邊跑邊落檔——〈執行步驟〉的範本已寫入 `stdout.log`，不要拿掉，否則被砍就真的什麼都不剩。
 
 **逾時與假成功是兩回事**：逾時被殺時 `errorType` 為 `timeout`；權限被擋、或提示詞層被禁止寫檔則是 `ok: true`／exit 0，**根本不會產生 `errorType`**。看到「沒有結果但也沒有錯誤」先分清是哪一種，別互相誤診。
 
@@ -419,7 +494,7 @@ const probe = await wda.dispatchOpencode(
 
 套件自 `src/quota/` 提供三支額度查詢函數：`getQuotaClaude`、`getQuotaCodex`、`getQuotaAntigravity`。**沒有 `getQuotaOpencode`，也不該期待有**——那三家查的是「本機該 CLI 當前登入帳號」的訂閱額度窗口（5 小時／7 天等），而 OpenCode 這條路走的是免費型錄與 API 金鑰，不是訂閱窗口，沒有對應的可查端點。
 
-所以 opencode 的限流只能事後從失敗結果判讀：CLI 類的限流字樣埋在 stderr，`errorType` 一律是 `exec`（不細分），要偵測就自己給 `coolDetect`（見「逾時」一節）。**不要為了「先查額度再決定派不派」去翻 `src/quota/`**，那裡沒有你要的東西。
+所以 opencode 的限流只能事後從失敗結果判讀：CLI 類的限流字樣埋在 stderr，`errorType` 一律是 `exec`（不細分），要偵測就自己給 `coolDetect`（見〈逾時與等待〉）。**不要為了「先查額度再決定派不派」去翻 `src/quota/`**，那裡沒有你要的東西。
 
 ## 轉接器契約（w-dispatch-ai 1.0.40）
 
