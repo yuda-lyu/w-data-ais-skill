@@ -1,5 +1,5 @@
 ---
-name: role-officecli-xlsx
+name: role-operator-xlsx
 description: 凡涉及 .xlsx 檔案之任務皆須使用本技能——不論該檔為輸入,輸出,或兩者皆是.包含:建立試算表,財務模型,儀表板或追蹤表;讀取,解析或擷取任何 .xlsx 之資料;編輯,修改或更新既有活頁簿;處理公式,圖表,樞紐分析表或模板;將 CSV/TSV 匯入 Excel 格式.凡使用者提及[試算表][活頁簿][Excel][財務模型][追蹤表][儀表板],或指名任一 .xlsx/.csv 檔名時即觸發.
 ---
 
@@ -652,8 +652,8 @@ officecli set "$FILE" / --find draft --replace final
 
 | 名稱 | 使用時機 |
 |------|-------------|
-| `role-officecli-xlsx`(別名 `excel`) | 本技能——一般活頁簿, 公式, 樞紐, 追蹤表 |
+| `role-operator-xlsx`(別名 `excel`) | 本技能——一般活頁簿, 公式, 樞紐, 追蹤表 |
 | `financial-model` | 財務模型, 情境分析, 預測.一般資料分析不適用 |
 | `data-dashboard` | CSV/表格資料 → KPI / 分析 / 高階儀表板, 含圖表與走勢圖.純資料追蹤不適用 |
 
-`.docx` 或 `.pptx` 產出物請改載入 `role-officecli-docx` / `role-officecli-pptx`——各自皆為自足.
+`.docx` 或 `.pptx` 產出物請改載入 `role-operator-docx` / `role-operator-pptx`——各自皆為自足.

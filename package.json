@@ -1,0 +1,19 @@
+{
+  "name": "w-data-ais-skill",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yuda-lyu/w-data-ais-skill.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/yuda-lyu/w-data-ais-skill/issues"
+  },
+  "homepage": "https://github.com/yuda-lyu/w-data-ais-skill#readme"
+}

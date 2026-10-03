@@ -357,40 +357,35 @@ kill 與 rm 皆**不保證成功**,執行後必回頭驗證,不可假設已成�
 
 **觸發**:以 gcloud 對遠端執行個體傳檔時.遠端目的一律用絕對路徑 `/home/<user>/...`,**絕不用 `~`**(底層 pscp 不展開 `~`,會 `unable to open`;但 `ssh --command` 內的 `~` 正常展開,別搞混).中文來源路徑、Unicode 檔名、磁碟機代號實測全支援,不需 ASCII 中轉.二進位一律走 scp,不要用 `cat | ssh "cat > file"`(Windows 下 stdin 串流不可靠).
 
-### 12.8 長任務:`run_in_background` 不受 timeout 限制,長任務一律掛監聽不輪詢
+### 12.8 長任務:背景指令與 `Monitor` 皆有時限,逾 115 分鐘之工作一律 detached＋分段等待
 
 **觸發**:任何預估超過 2 分鐘之作業(測試全跑,批次重產,派工外部 CLI AI,下載/爬取,建置).
 
-**凡要「現在停下,之後被叫醒再繼續」——定時任務,延後執行,等背景指令/外部程序/排程輪次完成,等檔案或日誌變化,或用到 `Monitor`/`sleep`/`CronCreate`/`ScheduleWakeup` 任一者,不論使用者要求或 agent 自發——必先調用 skill[role-setup-scheduler-for-session],其第一步是自檢是否位於 VS Code 外掛:外掛內 `CronCreate`/`ScheduleWakeup` 永遠不觸發,只有背景行程(`run_in_background` 之 `sleep`/`until` 輪詢)與 `Monitor` 會叫醒;等待須有上限出口,醒來要做的事先落檔.**
+**凡要「現在停下,之後被叫醒再繼續」——定時任務,延後執行,等背景指令/外部程序/排程輪次完成,等檔案或日誌變化,或用到 `Monitor`/`sleep`/`CronCreate`/`ScheduleWakeup` 任一者,不論使用者要求或 agent 自發——必先調用 skill[role-setup-scheduler-for-session],其第一步是自檢是否位於 VS Code 外掛:外掛內 `CronCreate`/`ScheduleWakeup` 永遠不觸發,只有背景行程(`run_in_background` 之 `sleep`/`until` 輪詢)與 `Monitor` 會叫醒,且兩者皆有時限(鐵則一);等待須有上限出口,醒來要做的事先落檔.**
 
-#### 鐵則一:`timeout` 只約束前景,`run_in_background: true` 不受其限,亦無 10 分鐘上限
+#### 鐵則一:每一種工具呼叫都有時限,到期即被終止
 
-**2026-08-15 實測**(Windows/Git Bash):
-
-| 測試 | `timeout` 參數 | 實際耗時 | 結果 |
+| 方式 | 預設 | 上限 | 到期後 |
 |---|---|---|---|
-| A | `60000`(60 秒) | 120 秒 | 完整跑完 exit 0, 正常送通知 |
-| B | `600000`(10 分鐘) | 11 分 04 秒 | 完整跑完 exit 0, 正常送通知 |
+| Bash 前景 | 120000(2 分鐘) | 600000(10 分鐘) | 被終止 |
+| Bash `run_in_background: true` | 1800000(30 分鐘) | 7200000(2 小時) | 被終止,通知為 `status: killed`(stopped after reaching its background time limit) |
+| `Monitor` | 300000(5 分鐘) | 1800000(30 分鐘;給更大值一律夾回) | 被終止並送一則到期通知,須重掛;已無 `persistent` 參數(給了也被忽略) |
 
-即 `timeout` 之上限(600000)僅為**前景阻塞**之上限;帶 `run_in_background: true` 時該值不生效,任務跑多久都不會被截斷.
+**2026-10-03 實測**(Windows/Git Bash,VS Code 外掛):背景 `timeout: 60000` 之 `sleep 100` 於 60 秒被終止;未給 `timeout` 之 `sleep 2000` 於 30 分鐘整被終止.2026-08-15 曾測得[背景不受 `timeout` 約束],係舊版 harness 之行為,已不成立.
 
-**故:長任務不需要 `nohup`/`&`/`disown`,不需要自寫輪詢迴圈**.直接:
+故:**背景指令一律明給 `timeout`**,且大於該指令之最長執行時間;**預估超過 115 分鐘者不得掛在任何工具呼叫上**,改走鐵則三.
 
-```
-Bash({ command: 'node ./tmp/dispatch.mjs', run_in_background: true })
-```
-
-harness 全程追蹤該行程,**結束時主動送出 `<task-notification>`**(含 `output-file` 絕對路徑,內含 stdout+stderr);期間隨時可 `Read` 該檔看中途進度;要中止用 `TaskStop`(帶 task id),不必再撈 PID.
+**典型錯誤形狀**:長批次直接 `run_in_background` 而未給 `timeout`,於 30 分鐘整被終止;其後該批次新開之子程序一律瞬間失敗,事後看像整批全部失敗,於是整批重跑,token 與時間白付.
 
 #### 鐵則二:要[逐事件通知]用 `Monitor`,要[單次完成通知]用 `run_in_background`
 
 | 需求 | 工具 | 寫法 |
 |---|---|---|
-| 只要一次[做完了] | Bash `run_in_background` | 直接跑該任務;若任務已在他處跑,則跑 `until ! ps -p $(cat tmp/run.pid) >/dev/null 2>&1;do sleep 2;done` |
+| 只要一次[做完了] | Bash `run_in_background`(明給 `timeout`) | ≤ 115 分鐘之任務直接跑;已在他處跑或 detached 者,改跑自帶出口之分段 `until` 迴圈(見鐵則三) |
 | 每次發生都要通知(進度,錯誤,CI 各步驟) | `Monitor` | `tail -f tmp/run.log \| grep -E --line-buffered "<成功\|失敗訊號>"` |
-| 整個 session 都要盯(常駐服務 log) | `Monitor` + `persistent: true` | 無 timeout,以 `TaskStop` 收 |
+| 整個 session 都要盯(常駐服務 log) | `Monitor`,`timeout_ms: 1800000` | 每次到期通知抵達即重掛同一指令 |
 
-`Monitor` 之 `timeout_ms` 上限 3600000(1 小時),`persistent: true` 則為 session 長度.**stdout 每行 = 一則通知**,故 filter 要選擇性;但——
+harness 全程追蹤背景任務,**結束時主動送出 `<task-notification>`**(含 `output-file` 絕對路徑,內含 stdout+stderr);期間隨時可 `Read` 該檔看中途進度;要中止用 `TaskStop`(帶 task id).**stdout 每行 = 一則通知**,故 `Monitor` 之 filter 要選擇性;但——
 
 **`Monitor` 覆蓋率鐵則:沉默不等於成功**.filter 只抓成功字樣時,崩潰/卡死/非預期退出全都靜默,而[靜默]與[還在跑]長得一模一樣.掛之前自問[此刻若它崩了,我的 filter 會吐出東西嗎?]不會就放寬:
 
@@ -403,21 +398,21 @@ tail -f tmp/run.log | grep -E --line-buffered "done|Traceback|Error|FAILED|Kille
 
 管線每一段都要逐行 flush:`grep` 要 `--line-buffered`,`awk` 要 `fflush()`;`head` 無法 flush,`| head -N` 會整段吞掉.stderr 不進事件流,自己跑的指令要 `2>&1` 併入.
 
-#### 鐵則三:仍須 detached(`nohup` / `Start-Process`)的唯一理由是[跨 session 存活]
+#### 鐵則三:逾 115 分鐘或須跨 session 之工作,一律 detached 執行＋分段等待
 
-`run_in_background` 之行程**掛在 Claude Code session 之下**;session 更替/重啟(API 529,連線中斷,session 逾時)時會被一併終止(**已觀察**:一次全量重產在 session UUID 更替時被一併終止,992 項只完成 239 項).
+`run_in_background` 之行程**掛在 Claude Code 之下**:到 `timeout` 即被終止,session 更替/重啟(API 529,連線中斷,session 逾時)時亦被一併終止(**已觀察**:一次全量重產在 session UUID 更替時被一併終止,992 項只完成 239 項).自**前景** Bash 以 `nohup ... &` 啟動之行程則兩者皆不受影響——發出它的工具呼叫結束、乃至啟動它的 Claude Code 行程結束後,皆照常跑完(2026-10-03 實測).
 
-故判準是[會不會跨 session],不是[跑多久]:
+故判準是[跑多久]與[會不會跨 session]兩者:
 
 | 情境 | 用法 |
 |---|---|
 | < 2 分鐘 | 前景 Bash |
-| 任意時長,可接受隨 session 結束 | `run_in_background: true`(**不設** nohup,**不設**時長上限) |
-| 數小時級,或不可因 session 更替而中斷 | detached(`nohup ...& disown`;Windows 用 `Start-Process`)**再另掛 `Monitor` 盯 log** |
+| ≤ 115 分鐘,可接受隨 session 結束 | `run_in_background: true`,明給 `timeout`(≤ 7200000) |
+| > 115 分鐘,或不可因 session 更替而中斷 | detached:前景 Bash 執行 `nohup node x.mjs > log 2>&1 &`,程式自寫 PID 檔(`process.pid`)與結果檔;等待改跑分段 `until` 迴圈(下述) |
 
-detached 之情形下,監聽仍走 `Monitor`(逐事件)或 `run_in_background` 包 `until ! ps -p ...` 迴圈(單次完成),**不要人工輪詢,不要留無通知之空窗期**.
+**分段等待**:背景 Bash 明給 `timeout: 7200000`,迴圈每 30 秒判斷三件事——結果檔出現(完成)/PID 已不存在而無結果檔(崩潰:讀 log 找因,找到前不重跑)/本段滿 6900 秒(自行結束,未完成即重掛下一段).存活以 `node -e "process.kill(<pid>,0)"` 判斷(Windows 可用).**換了 session 先查結果檔與 PID,兩者皆無才重跑**——不因 session 中斷就整批重跑.逐事件監看則用 `Monitor`,每 30 分鐘到期即重掛;**不要人工輪詢,不要留無通知之空窗期**.
 
-**中斷 detached 任務(關鍵陷阱)**:`$!` 是 **MSYS2 PID**——`ps -p` 認,`taskkill` 不認(永遠回找不到).必須先用 wmic 撈 Windows PID 再殺:
+**中斷 detached 任務(關鍵陷阱)**:以程式自寫之 Windows PID 直接 `cmd //c "taskkill /F /T /PID <pid>"`(`/T` 連同子程序).Bash 之 `$!` 是 **MSYS2 PID**——`ps -p` 認,`taskkill` 不認(永遠回找不到).沒有 PID 檔時才以 CommandLine 比對撈 Windows PID:
 
 ```bash
 WPID=$(cmd //c "wmic process where \"name='node.exe'\" get commandline,processid" 2>/dev/null | grep -i '<script-name>' | grep -oE '[0-9]+ *$' | tr -d ' \r')

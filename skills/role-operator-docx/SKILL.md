@@ -1,5 +1,5 @@
 ---
-name: role-officecli-docx
+name: role-operator-docx
 description: 凡涉及 .docx 檔案之任務皆須使用本技能——不論該檔為輸入,輸出,或兩者皆是.包含:建立 Word 文件,報告,信函,備忘錄或提案;讀取,解析或擷取任何 .docx 之文字;編輯,修改或更新既有文件;處理模板,追蹤修訂,註解,頁首頁尾或目錄.凡使用者提及[Word 文件][文件][報告][信函][備忘錄],或指名任一 .docx 檔名時即觸發.
 ---
 
@@ -728,8 +728,8 @@ paragraph(direction/font.latin/ea/cs, bold.cs/italic.cs/size.cs, lang.latin/ea/c
 
 | 名稱 | 使用時機 |
 |------|-------------|
-| `role-officecli-docx`(別名 `word`) | 本技能——報告, 信函, 備忘錄, 提案, 一般文件 |
+| `role-operator-docx`(別名 `word`) | 本技能——報告, 信函, 備忘錄, 提案, 一般文件 |
 | `academic-paper` | 期刊 / 研討會 / 學位論文:APA / Chicago / IEEE / MLA 引用, 方程式, SEQ + PAGEREF 交叉參照, 多欄期刊版面, 參考書目 |
 | `officecli-word-form` | 資料蒐集型文件:可填寫表單, 含使用者填寫欄位之合約, 問卷, 郵件合併模板 |
 
-`.pptx` 或 `.xlsx` 產出物請改載入 `role-officecli-pptx` / `role-officecli-xlsx`——各自皆為自足.
+`.pptx` 或 `.xlsx` 產出物請改載入 `role-operator-pptx` / `role-operator-xlsx`——各自皆為自足.

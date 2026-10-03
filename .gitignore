@@ -1,7 +1,7 @@
 node_modules
-.env
 .opencode
 .claude
+.env
 
 script.txt
 g_mem*.md

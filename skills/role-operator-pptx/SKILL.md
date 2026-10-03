@@ -1,5 +1,5 @@
 ---
-name: role-officecli-pptx
+name: role-operator-pptx
 description: 凡涉及 .pptx 檔案之任務皆須使用本技能——不論該檔為輸入,輸出,或兩者皆是.包含:製作簡報,投影片組或提案簡報;讀取,解析或擷取任何 .pptx 之文字;編輯,修改或更新既有簡報;合併或拆分投影片檔;處理模板,版面配置,備忘稿或註解.凡使用者提及[簡報][投影片][deck][pitch],或指名任一 .pptx 檔名時即觸發.
 ---
 
@@ -734,9 +734,9 @@ slide(含隱藏頁), shape(font.latin/ea/cs, direction=rtl, underline.color, hig
 
 | 名稱 | 使用時機 |
 |------|-------------|
-| `role-officecli-pptx`(別名 `pptx`) | 本技能——董事會檢討, 業務簡報, 全員大會, 產品發表 |
+| `role-operator-pptx`(別名 `pptx`) | 本技能——董事會檢討, 業務簡報, 全員大會, 產品發表 |
 | `pitch-deck` | **僅限募資**——種子 / A-C 輪 / SAFE / 可轉債 / 策略性募資.業務 / 產品 / 董事會簡報不適用 |
 | `morph-ppt` | 電影感 Morph 動畫簡報.靜態簡報不適用 |
 | `morph-ppt-3d` | 3D Morph:GLB 模型, 鏡頭運動, 景深.純 2D Morph 不適用 |
 
-`.docx` 或 `.xlsx` 產出物請改載入 `role-officecli-docx` / `role-officecli-xlsx`——各自皆為自足.
+`.docx` 或 `.xlsx` 產出物請改載入 `role-operator-docx` / `role-operator-xlsx`——各自皆為自足.
