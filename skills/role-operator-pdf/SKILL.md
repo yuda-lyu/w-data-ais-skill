@@ -1,6 +1,6 @@
 ---
 name: role-operator-pdf
-description: 凡涉及 .pdf 檔案之任務皆須使用本技能——讀取或擷取文字（含座標、搜尋）、建立新 PDF（含中文長文自動換行與分頁）、在既有頁面加字／浮水印／頁碼／圖片、合併／拆頁／刪頁／插頁／旋轉／重排、表單之列出／填寫中文／扁平化、加密與解密、真塗銷與替換文字、頁面轉圖片。一律以技能根之 npm 套件（pdf-lib、fontkit、mupdf、unpdf）在 Node 中處理，不改用 Python（pypdf、pdfplumber、PyMuPDF）或以 Python 為主之 PDF 技能，以免各機套件版本不一。中文字型預設微軟正黑體；標楷體在 pdf.js 系檢視器會畫成破字，禁用。凡使用者提及［PDF］［pdf 檔］，或指名任一 .pdf 檔名時即觸發。
+description: 凡涉及 .pdf 檔案之任務皆須使用本技能——讀取或擷取文字（含座標、搜尋）、建立新 PDF（含中文長文自動換行與分頁）、在既有頁面加字／浮水印／頁碼／圖片、合併／拆頁／刪頁／插頁／旋轉／重排、表單之列出／填寫中文／扁平化、加密與解密、真塗銷與替換文字、頁面轉圖片。一律以技能根之 npm 套件（pdf-lib、fontkit、mupdf、unpdf）在 Node 中處理，不改用 Python（pypdf、pdfplumber、PyMuPDF）；與 anthropic-skills:pdf 或其他須另裝 Python 套件之 PDF 技能同時可用時，一律優先使用本技能，以免各機套件與版本不一。中文字型預設微軟正黑體；標楷體在 pdf.js 系檢視器會畫成破字，禁用。凡使用者提及［PDF］［pdf 檔］，或指名任一 .pdf 檔名時即觸發。
 ---
 
 # role-operator-pdf — 以 npm 套件讀寫 PDF
