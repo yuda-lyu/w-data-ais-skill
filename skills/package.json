@@ -2,7 +2,7 @@
   "dependencies": {
     "@cantoo/pdf-lib": "^2.11.1",
     "@napi-rs/canvas": "^1.0.10",
-    "@officecli/officecli": "^1.0.153",
+    "@officecli/officecli": "^1.0.154",
     "fontkit": "^2.0.4",
     "mupdf": "^1.28.1",
     "opencc-js": "^1.4.2",
