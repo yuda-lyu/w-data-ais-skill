@@ -33,7 +33,7 @@ npx mocha test/e2e-hello.test.mjs --reporter list --timeout 60000              #
 | C5 | `openCasePage(browser, { contextOptions, onDialog })` | viewport 等確定性參數 |
 | C6 | `captureStable`（`settle[]`、`beforeShots[]`、`strict`／`strictDefault`、`maskImgSmil`、`imgSmilFill:'static'｜'black'`（`<img>` 內 SVG 動畫區貼去動畫之靜態影格，預設 static；black 僅供等價對照）、`smilRectBasis`、`shotOpts`）、`waitColResizeOverlay`、`waitDrawerReady`、`resetAgGridScroll`、`probeStuckTooltip(page, { rootSel, createError })`（1.0.3 起；`beforeShots` 掛鉤：游標已移開後仍顯示之 hover 型提示框（w-component-vue WTooltip `mode='tooltip'`）即拋錯，SKILL §10〈提示框／hover 殘留〉） | settle 組合、strict 來源、殘留時之錯誤訊息 |
 | C7 | `captureStableWithBox`（`clampTo:'buffer'｜'viewport'`、`guardSmall`、`mask`、`capture` 注入；目標找不到／尺寸 0／夾邊後過小即**拋錯**，`allowNoBox:true` 才容許無框；**被蓋住檢查** `coverCheck:'throw'｜'warn'｜'off'`（預設讀 `E2E_COVER_CHECK`，未設為 throw）；target 另接受**量測型目標** `{ scroll, measure(page), label, probe }`，`probe` 供被蓋住檢查）、`gridContentBox(表格外框, { noRowsSel, noRowsPad })`（標頭∪可見資料列，空表為標頭∪「無資料」訊息；訊息為無邊界文字，1.0.3 起其矩形外擴 `noRowsPad`＝`INK_PAD` 後取聯集（原以元素矩形為界，字形距框內緣僅 3–4px，低於 SKILL §7.3-8 約 5px 之要求；空表截圖之框底因此下移 4px，`noRowsPad:0` 為舊行為））、`itemsUnionBox(項目選擇器或 Locator, { within, scroll, fit, inkPad })`（可見項目聯集；fit 依元素有無可見邊界：有者量元素本身，無者量可見內容（有邊界之子元素與文字）並整體外擴 inkPad＝4（恰為單一有邊界元素者視同框該元素），免紅框壓字，SKILL §7.3-8；fit 另使框線不蓋框外內容——框線置於與相鄰項目**可見範圍**之間隙正中（鄰項有邊界者取元素框，否則取子元素與文字之聯集；空白間隔不算鄰項；四向各取最近一層）；position:fixed 浮層外之內容以命中測試找，框線置於浮層內容與浮層外內容之間隙正中（四周空白照常外擴），SKILL §7.3-9）、`inkRect(矩形, { pad, neighbors })`／`INK_PAD`（canvas 等無 DOM 之緊貼墨跡矩形外擴；neighbors 為鄰項之可見矩形，框線不越過間隙正中）、`canvasInkRects(page, 矩形陣列, { canvas, alpha, bg, trimY })`（讀 canvas 像素把圖表庫回報之寬鬆矩形收斂到實際墨跡，無墨跡回 null；交 inkRect 前用）、`composeBox` 匯出 `BOX_PAD`／`BOX_STROKE`（框幾何常數，量測端據以置中框線）、`composeBox`（`onSkip` 回呼）、`rowBoxSel(i, { order, scope })`、`stepShots`（每步兩張之單步：框目標 → 操作 → 等反應 → 框反應；`before:null`＝兼任） | 夾邊方式（映射表登錄偏離）、整列容器順序 |
-| C8 | `maskRegions`、`overlayRegions`、`overlayImageAt`、`cropRegion` | — |
+| C8 | `maskRegions`、`overlayRegions`、`overlayImageAt`、`cropRegion` | 不可固定之值（產製時間、耗時等）之矩形量測與比對端覆蓋函式（下方 C8 之 `coverUnfixableForCompare`，放專案共用層一處） |
 | C9 | `assertBaselineMatch`（只比對不寫檔：原 `regen` 旁路 2026-09-28 移除、傳入即拋錯；計數逾上限 `headroomRatio`（0.5）印 `[baseline-headroom]`） | — |
 | C10 / C11 | `typeIntoInput`、`typeIntoNthInput`、`waitUntilExist` | 預設逾時 |
 | C12 | `waitGridIdle`（ag-grid：列內容＋容器／標頭／列幾何＋捲動量簽章連續穩定） | 範圍、必要選擇器 |
@@ -246,7 +246,27 @@ export async function overlayRegions(buf, rects, refBuf) {   //貼圖覆蓋：re
     return await sharp(buf).composite(parts).png().toBuffer()
 }
 //per-item ref：test/pics/<flow>/_staref-<lang>-<case>-<key>.png。只在 REGEN 自舉（不存在 → 裁切存 ref）；非 REGEN 缺檔 → throw，不得靜默自舉
+
+//比對端覆蓋不可固定之值（建置時寫入之產製時間、耗時；unfixable-values-masking.md）：以「標準圖自身」同座標之內容蓋上當次截圖再比對；
+//產製端不呼叫（原樣寫出，標準圖保留真實畫面供手冊）。rectFns 各回傳該值於頁面座標之矩形（外擴數 px）或 null（不在畫面），
+//與截圖同一畫面狀態下量；集中於共用層一處，各流程之比對端呼叫同一個，被覆蓋之值另以語意斷言驗證
+export async function coverUnfixableForCompare(page, buf, baselinePath, rectFns) {
+    const { width: W, height: H } = await sharp(buf).metadata()
+    const rects = []
+    for (const fn of rectFns) {
+        const r = await fn(page); if (!r) continue
+        const x = Math.max(0, Math.floor(r.x)), y = Math.max(0, Math.floor(r.y))
+        const w = Math.min(Math.ceil(r.w), W - x), h = Math.min(Math.ceil(r.h), H - y)
+        if (w > 0 && h > 0) rects.push({ x, y, w, h })
+    }
+    if (rects.length === 0 || !fs.existsSync(baselinePath)) return buf   //首次產製尚無標準圖：原樣
+    const refBuf = fs.readFileSync(baselinePath), ref = await sharp(refBuf).metadata()
+    if (ref.width !== W || ref.height !== H) return buf                   //尺寸不同交由比對報錯，不在此遮掩
+    return await overlayRegions(buf, rects, refBuf)
+}
 ```
+
+不可固定之值之差異不得以重產吸收：重產只把問題延到下一次建置或執行（SKILL §7.9）。
 
 ## C9 assertBaselineMatch
 

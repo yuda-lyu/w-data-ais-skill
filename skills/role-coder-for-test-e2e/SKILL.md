@@ -1,7 +1,7 @@
 ---
 name: role-coder-for-test-e2e
 description: |
-  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；作業模式（單人 vs 主代理派工：探測先行、計畫檔、單鏈排程與旗標閘門、逐張審圖）；從 spec 推導 case（完整度 rubric 含資料與內容變體覆蓋、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕與鍵盤 affordance 全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖同時是操作手冊用圖（每步兩張、一圖一框、框反應內容本身、已知缺陷不凍結、產完逐張目視並以圖文對照之審圖報告交審才跑 mocha、下游手冊同輪更新）；截圖穩定性（settle 訊號、mouse park、假時鐘、確定性渲染旗標、非決定性畫布之「標準圖覆蓋＋DOM 貼回」、全頁 vs 視窗截圖）；lifecycle 對稱性與逐檔隔離；場景手冊（含地圖／三維畫布、全畫面圖片瀏覽器、編輯器鍵盤觸發之提示區、彈窗多分頁、以真實收件匣驗證信件往返與模板改版之三處同步）；mocha 執行慣例；探測腳本紀律與 w-screenctl 探索；完成前勾選。深入內容在 references/：baseline-as-manual（紅框決定表、量測 helper 設計、已知缺陷協定、假時鐘樣板、產製與目視紀律）、e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案規則帳本 `CLAUDE_rulebook.md` 之 e2e 映射表範本）、dispatch-and-review-workflow（多系統批量產製：主代理探測、計畫檔、單鏈排程與旗標閘門、逐張審圖與退件、審圖報告與回報）、mail-roundtrip-verification（寄信點盤點、收件匣服務、假時鐘與 Date 標頭、逐行純文字斷言、模板設計與檢視器頁、改版三處同步）。
+  E2E 測試建構與審查規範。主要適用 Playwright 驅動真瀏覽器 + mocha runner + pixel baseline 之專案（Vue / React 皆可）；其他 runner（Cypress、Playwright Test）只採通用原則（§2 case 推導、§4 act、§5 assert、§6 隔離）。內容：專案勘查與契約選型；作業模式（單人 vs 主代理派工：探測先行、計畫檔、單鏈排程與旗標閘門、逐張審圖）；從 spec 推導 case（完整度 rubric 含資料與內容變體覆蓋、獨立情境 vs 承接式 journey、6 步真實 user path、按鈕與鍵盤 affordance 全清單比對）；落地契約分「核心必備」與「條件式 adapter」（launch wrapper、server lifecycle、captureStable、紅框後合成、遮罩、baseline 比對、真人輸入、偵測等待、regen 入口）；act 走 L1–L3 與 Pattern A–D；assert 走使用者觀察；每 case fresh browser + DB 重置；標準圖同時是操作手冊用圖（每步兩張、一圖一框、框反應內容本身、已知缺陷不凍結、產完逐張目視並以圖文對照之審圖報告交審才跑 mocha、下游手冊同輪更新）；截圖穩定性（settle 訊號、mouse park、假時鐘、確定性渲染旗標、非決定性畫布之「標準圖覆蓋＋DOM 貼回」、建置時寫入之產製時間與耗時等不可固定之值之比對端覆蓋——標準圖只因有效內容改變而重產、全頁 vs 視窗截圖）；lifecycle 對稱性與逐檔隔離；場景手冊（含地圖／三維畫布、全畫面圖片瀏覽器、編輯器鍵盤觸發之提示區、彈窗多分頁、以真實收件匣驗證信件往返與模板改版之三處同步）；mocha 執行慣例；探測腳本紀律與 w-screenctl 探索；完成前勾選。深入內容在 references/：baseline-as-manual（紅框決定表、量測 helper 設計、已知缺陷協定、假時鐘樣板、產製與目視紀律）、e2e-setup-contract（參考實作 + 最小可執行骨架 + audit）、pixel-mismatch-diagnosis（超容差七步、守門、認證）、research-review-discipline（調研紀律、外部複審、業主裁示、反模式）、spec-case-format（spec E2E-NNN 寫法：description 為使用者操作手冊敘述、flow 為實作契約、事實來源與可達性、副作用清理表）、project-mapping-template（專案規則帳本 `CLAUDE_rulebook.md` 之 e2e 映射表範本）、dispatch-and-review-workflow（多系統批量產製：主代理探測、計畫檔、單鏈排程與旗標閘門、逐張審圖與退件、審圖報告與回報）、mail-roundtrip-verification（寄信點盤點、收件匣服務、假時鐘與 Date 標頭、逐行純文字斷言、模板設計與檢視器頁、改版三處同步）、unfixable-values-masking（不可固定之值之分類、盤點、比對端覆蓋、差異分流與重產門檻）。
   觸發條件：凡接觸 e2e 測試檔（檔名含 `e2e-`）的任務——寫/改/審/拆/移除/重構/完整度盤查/flake 排查/標準圖產製或重產——必先調用本技能，整篇入 context 逐項比對；看到 e2e 工件即觸發。亦適用於撰寫或複審 spec「重要流程」之 E2E-NNN case（含 description——其受眾為使用者操作手冊，不是測試撰寫者）。
 ---
 
@@ -9,7 +9,7 @@ description: |
 
 本技能只寫**跨專案不變的規則與能力契約**；各專案的落地映射（函式實名、port、regen 模式、旗標組、服務模式、偏離與依據）屬規則帳本之一環，寫在該專案 `CLAUDE_rulebook.md` 的 e2e 映射節（範本：[references/project-mapping-template.md](references/project-mapping-template.md)）。**規則以本技能為準，落地細節以專案映射為準；映射表寫了「偏離與依據」的項目才算合法偏離，沒寫的視為缺口。** 正文中的 `$vo` / `csLogin` / WDrawer / ag-grid / eng-cht 等字樣皆為姊妹專案（Vue 2 + 同一套組件庫）**範例**，不是規則。
 
-**閱讀順序**：§0 勘查 → §1 交付物 → §1.5 作業模式（單人或派工）→ §2 從 spec 到 case → §3 契約 → §4 act → §5 assert → §6 隔離 → §7 標準圖（操作手冊用圖）→ §8 穩定性 → §9 lifecycle → §10 場景 → §11 執行、探索與探測腳本 → §12 勾選。深入：[references/baseline-as-manual.md](references/baseline-as-manual.md)、[references/dispatch-and-review-workflow.md](references/dispatch-and-review-workflow.md)、[references/e2e-setup-contract.md](references/e2e-setup-contract.md)、[references/pixel-mismatch-diagnosis.md](references/pixel-mismatch-diagnosis.md)、[references/research-review-discipline.md](references/research-review-discipline.md)。
+**閱讀順序**：§0 勘查 → §1 交付物 → §1.5 作業模式（單人或派工）→ §2 從 spec 到 case → §3 契約 → §4 act → §5 assert → §6 隔離 → §7 標準圖（操作手冊用圖）→ §8 穩定性 → §9 lifecycle → §10 場景 → §11 執行、探索與探測腳本 → §12 勾選。深入：[references/baseline-as-manual.md](references/baseline-as-manual.md)、[references/dispatch-and-review-workflow.md](references/dispatch-and-review-workflow.md)、[references/e2e-setup-contract.md](references/e2e-setup-contract.md)、[references/pixel-mismatch-diagnosis.md](references/pixel-mismatch-diagnosis.md)、[references/unfixable-values-masking.md](references/unfixable-values-masking.md)、[references/research-review-discipline.md](references/research-review-discipline.md)。
 
 ## 0. 動手前的專案勘查（5 分鐘，寫進回報）
 
@@ -18,7 +18,7 @@ description: |
 | runner 與比對方式？ | `package.json` scripts、`test/tools/e2e-setup.mjs` 有無 `pixelmatch` | 本技能全量適用 / 只採通用原則 |
 | 服務拓撲？ | setup 內 spawn 什麼：前端 dev server + 後端，或後端 serve build；port 是否與他專案錯開 | 契約 C2 模式 |
 | 語系與資料來源？ | 有無 i18n（語系迴圈）；seed 腳本、mock 開關、fixture log | C4 / C5 是否需要、§10 場景 |
-| 時間戳從哪層寫入？ | grep schema 預設值、ORM 服務層、Worker、前端暫態 | 假時鐘錨點放哪層（§8.2） |
+| 時間戳從哪層寫入？ | grep schema 預設值、ORM 服務層、Worker、前端暫態；另 grep 產製／打包腳本寫入之時間與畫面上之耗時、即時數值 | 執行期寫入者：假時鐘錨點放哪層（§8.2）；建置時寫入、耗時、即時數值：列入不可固定之值盤點（unfixable-values-masking §1～§2） |
 | 專案映射表存在嗎？ | `CLAUDE_rulebook.md` 之 e2e 映射節 | 缺 → 先依範本補，再寫 case |
 | 姊妹專案有先例嗎？ | Grep 同組織其他專案 `test/` 之 helper 名與註解 | 沿用，不自創 |
 
@@ -33,7 +33,7 @@ description: |
 | 5 | 執行紀錄 | mocha passing / failing / pending（已知缺陷）/ 耗時；regen 時 `git diff --stat test/pics` |
 | 6 | 使用者視角驗收 | 至少一個 case `--grep` 單跑與全跑各一次，結果一致 |
 
-完成四件缺一不可：①既有 e2e 全綠（已知缺陷為 pending 且各附〈已知落差〉）②rubric 六維無缺 ③標準圖經逐張目視並**經使用者審圖認可** ④baseline 變更經授權且 diff 僅限預期。沒有對照表不得寫「全覆蓋 / 完成」；標準圖產完先交審、未認可前不跑 mocha 比對（§7.6）。勾選清單見 §12。
+完成四件缺一不可：①既有 e2e 全綠（已知缺陷為 pending 且各附〈已知落差〉）②rubric 六維無缺 ③標準圖經逐張目視並**經使用者審圖認可** ④baseline 變更經授權且 diff 僅限預期——差異只落在不可固定之值者不是 baseline 變更，是遮蔽缺口（§7.9）。沒有對照表不得寫「全覆蓋 / 完成」；標準圖產完先交審、未認可前不跑 mocha 比對（§7.6）。勾選清單見 §12。
 
 ## 1.5 作業模式：單人做完，或主代理派工
 
@@ -111,7 +111,7 @@ description: |
 | C3 | `restartBackend(settingsPath, envOverride?)` + `genTempSettings(overrides)` | 有 case 需不同 server 設定（語系注入、mock 開關、SMTP 失敗） |
 | C4 | DB 重置（直接 DB API 或 throwaway page） | 有持久資料 |
 | C5 | `openApp(browser)` / `setLang(page, lang)` | 需登入態 / i18n |
-| C8 | 遮罩：填黑 / 貼圖覆蓋 / 錨右緣 | 有動態內容凍不到（時間戳不在此列，用假時鐘 §8.2） |
+| C8 | 遮罩：比對端覆蓋 / 填黑 / 錨右緣 | 有凍不到之值：建置時寫入之產製時間、耗時、即時使用率、非決定性畫布等（執行期由程式取當下時間寫入之時間戳不在此列，用假時鐘 §8.2；分類見 unfixable-values-masking §1） |
 | C12 | settle 訊號 helper（抽屜 `[state]`、mutation 簽章） | 有動畫式容器 / 表格 mutation |
 | C15 | 程序級假時鐘（preload 模組 + 種子 / 執行期兩個錨點） | 畫面含由程式取當下時間寫入的欄位 |
 | — | 逐檔隔離 runner、in-memory 計數清除 API、fixture log | 後端跨檔留狀態 / rate limit / 統計頁 |
@@ -196,7 +196,7 @@ description: |
 - **「一步」之粒度**（2026-09-28 定案）：一個使用者操作＝一步——點擊（按鈕、選單項、列、勾選框、下拉觸發區、清單項、分頁、圖例項、樹節點）、**輸入一個欄位**、拖曳、上傳（點上傳鈕＋選檔算一步）。
 - **相鄰兼任**（§7.3-1「相鄰兩物取聯集為一框」）：前一步之反應與本步之目標相鄰（同一面板內、框其聯集不致使讀者誤認焦點）時，以一張框兩者聯集之圖兼任「前步之後圖」與「本步之前圖」。典型：成功／確認 modal（反應）＋其「確定」鈕（下一步目標）→ 框 modal 面板一張；同一表單相鄰欄位連續輸入→「前欄已填＋次欄待填」框兩欄聯集一張。不相鄰（反應在表格、下一步目標在頂部工具列）不得兼任。
 - **共通進場路徑**（登入、切左選單至本流程頁）每專案以一個專用案例完整記錄一次，其餘案例不重複截圖，spec 與程式註明「進場路徑見 E2E-xxx」（§2.4）。被測主體就是登入／註冊者（登入流程本身）不適用此豁免。
-- **非決定性不是不拍之理由**：系統時間戳用程序級假時鐘（§8.2、契約 C15），動態識別碼／耗時以遮罩或貼圖覆蓋；§7.8 三型以外之「不拍」＝缺口（殷鑑：四專案多處 spec 寫「因即時時間戳故只做語意斷言」而整段操作無圖）。
+- **非決定性不是不拍之理由**：執行期寫入之系統時間戳用程序級假時鐘（§8.2、契約 C15），建置時寫入之產製時間、耗時、動態識別碼以比對端覆蓋或遮罩（§8.2）；§7.8 三型以外之「不拍」＝缺口（殷鑑：四專案多處 spec 寫「因即時時間戳故只做語意斷言」而整段操作無圖）。
 - 單步之共用實作：套件 `stepShots(page, { capture, before, act, ready, after })`（框目標 → 操作 → 等反應 → 框反應）；`before` 省略即拋錯、傳 `null` 表示由前一步之後圖兼任——強制每步明確決定。
 - 檔名 **`<flow>-<lang>-E2E-NNN-<序>-<kebab>.png`**，放 `test/pics/<flow>/`；`NNN` 錨定 spec bullet 順序；spec 視覺項、regen 的 cases 陣列、寫檔名、mocha 比對名四處一致。貼圖覆蓋參考片段以 `_` 前綴同夾但不是 baseline。
 
@@ -254,7 +254,7 @@ description: |
 - 反鋸齒感知容差非 byte-exact：pixelmatch `includeAA:false` + `threshold:0.1` + 差異 ≤ `maxDiffPixels`（100）。why：SVG icon / 字型邊緣次像素跨 session 不決定性；真 regression 動輒數百 px 仍被抓。
 - 勿混淆：`captureStable` 內 `curr.equals(prev)` 是 settle 偵測的真 byte 比較。
 - 測試當次截圖以 Buffer 比對不落地；只有 regen 寫檔，且**只經同一案例管線**（套件 `runBaselineCase`，全部斷言通過才寫）——比對函式不得兼寫檔（套件 `assertBaselineMatch` 之 `regen` 旁路 2026-09-28 移除）。fail-dump `./testPending/<label>__<ms 時間戳>__{capture,baseline,diff}.png`，撞檔 `-N`，永不覆蓋，gitignore。
-- **餘裕**：通過但計數逾 `maxDiffPixels` 一半＝零餘裕之 flake 源（套件印 `[baseline-headroom]` 告警），應查因或重產，不是「通過就好」。殷鑑：07-23 之舊標準圖紅框為 DOM 注入之 CSS 框，改 sharp 合成後四角被計為真差異，每張耗用 2～100，兩張恰為 100。
+- **餘裕**：通過但計數逾 `maxDiffPixels` 一半＝零餘裕之 flake 源（套件印 `[baseline-headroom]` 告警），應查因，不是「通過就好」：差異只落在不可固定之值者補遮蔽（重產只會在下次建置或執行時再耗用容差，unfixable-values-masking §5），其餘依 pixel-mismatch-diagnosis 查成因後才談重產。殷鑑：07-23 之舊標準圖紅框為 DOM 注入之 CSS 框，改 sharp 合成後四角被計為真差異，每張耗用 2～100，兩張恰為 100。
 - 下「本專案沒有 pixelmatch」結論前先 grep，不憑他專案函式名落空即斷言。
 
 ### 7.8 三種合法 gap
@@ -263,8 +263,9 @@ description: |
 
 ### 7.9 重產政策
 
+- **重產之前提是有效內容改變**（業主裁示：「前提是隨機或確認為不可固定之時間戳已遮蔽；有遮蔽就代表有效內容不變，自然不用重產，e2e 也依然能過」）。任何差異——比對失敗、`[baseline-headroom]` 告警、`--write-mode changed` 自動寫出——先量差異範圍並對應到元素：只落在隨機或無法固定之值（建置時寫入之產製時間、耗時、即時使用率）者是遮蔽缺口，補遮蔽（同畫面同性質之值一併）、以版控取回原標準圖、以 changed 模式重跑須零寫出；**不重產，也不問使用者要不要重產**。不只落在該等值者才談授權與受影響範圍。流程文件、spec、規則帳本或記憶中寫著「X 之後重產 N 張」者是待根治之補丁，不當慣例照做。分類、盤點、作法與失敗形狀見 [references/unfixable-values-masking.md](references/unfixable-values-masking.md)。
 - UI 變更後重產先取得使用者授權；只產受影響者（`--names` / `--langs` 在截圖前 gate）；每語系都涵蓋。無差別重產＝把 bug 凍結為真理。
-- 篩選語意統一（套件 `createBaselineGate`，contract C13）：`--names` 之項為階段圖鍵→只寫該張；為案例鍵或其**邊界**前綴（`E2E-005` 不命中 `E2E-0051-x`）→寫該案全部階段；不符任何鍵、命中只比對之案例、旗標缺值一律於截圖前報錯並列可用鍵（不靜默略過）；`--langs` 完全比對；`--write-mode missing`（追加案例只補缺圖）／`changed`（只寫超過容差者，不重寫已審過之圖）；`E2E_BASELINE_OUT_DIR` 把寫檔導到暫存目錄（改共用層或管線時之等價驗證，不動正式標準圖）。各檔手寫 `startsWith` 之篩選＝缺口。
+- 篩選語意統一（套件 `createBaselineGate`，contract C13）：`--names` 之項為階段圖鍵→只寫該張；為案例鍵或其**邊界**前綴（`E2E-005` 不命中 `E2E-0051-x`）→寫該案全部階段；不符任何鍵、命中只比對之案例、旗標缺值一律於截圖前報錯並列可用鍵（不靜默略過）；`--langs` 完全比對；`--write-mode missing`（追加案例只補缺圖）／`changed`（只寫超過容差者，不重寫已審過之圖；其寫出之圖仍須逐張過上條之差異分流，自動寫出不等於應寫出）；`E2E_BASELINE_OUT_DIR` 把寫檔導到暫存目錄（改共用層或管線時之等價驗證，不動正式標準圖）。各檔手寫 `startsWith` 之篩選＝缺口。
 - 兩案共用一張圖（§7.8 ①）者，另一案宣告 `compareOnly`：產製時照跑流程與語意斷言但不寫圖，否則同一張被兩案輪流重寫。只比對案例**直接宣告其比對之共用圖鍵為 stages**、run 回傳 `{ 共用圖鍵: buf }`；篩選器於全部案例模式須把它交給產製端執行（套件 2026-09-28 修正前直跑型專案之產製端從不執行只比對案例，與 mocha REGEN 型不對稱）。
 - **孤兒**：改名後重產只寫新名、從不刪舊名，舊圖成為無人產出亦無人比對之孤兒（殷鑑：PERM 12 張活了 11 天）。套件 `findOrphanBaselines` 依案例宣告靜態比對標準圖目錄（與執行了哪些案例無關，`_` 開頭參考片段自然排除），`createBaselineGate().finalize()` 有孤兒即拋錯並列出；等價驗證之 `onlyInB`（去 `_` 前綴）須為 0。
 - 改了量測 helper、紅框合成、launch 旗標、假時鐘錨點＝受影響範圍重產，先授權；加 / 改 launch 旗標＝全量。**「交叉比對在容差內」不是免重產之判準**：pixelmatch 計數 > 0 者（耗用容差，見 §7.7 餘裕）應重產；計數 0 而 RGBA 不同者，以「登錄漂移點」（座標＋通道差上限＋成因證據，套件 `compareImageDirs` 之 `drift`）歸等價——不以「計數 0」本身為等價（threshold 0.1 下整片均勻 ≤ 約 26 級之亮度差不計，會掩蓋肉眼可見之全域變化）。
@@ -294,6 +295,8 @@ regen 與 mocha 的 browser 取得、per-case fresh、DB 重置、假時鐘、`s
 
 ### 8.2 動態內容：先讓資料確定性，再談遮罩
 
+**先分類再處置**：問「這個值由誰、在什麼時候寫入？假時鐘、mock、fixture 管得到嗎？」——執行期由程式取當下時間寫入者固定它（下段）；建置時寫入（產物之產製時間、版本戳）、兩時間點之差（耗時）、即時量測、隨機字串、非決定性畫布管不到，走下表之覆蓋。分類表與盤點見 [references/unfixable-values-masking.md](references/unfixable-values-masking.md) §1～§2。
+
 優先順序：**讓資料確定性（假時鐘 / mock / fixture log / 固定 seed）> 貼圖覆蓋 > 填黑**。絕不遮該被偵測的靜態 UI。
 
 **系統時間戳（建立 / 更新 / 上傳 / 登入時間）不遮，用程序級假時鐘固定**：先追寫入點到底（schema 預設值、ORM 服務層的欄位補齊、批次 Worker、前端暫態）——決定性的那層常在**後端**，錨點放錯層整個推論不成立。作法：preload 模組只攔**無參數**的 `new Date()`（保留 `Date.now()`，否則靠差值的 debounce 永不觸發）；建庫程序給種子錨點、e2e 自行啟動的後端與瀏覽器給較晚的執行期錨點（使測試中新增的資料排序正確且一眼可辨）；瀏覽器端只在需要時掛，用 `+new Date()` 算動畫時間的圖表頁不掛；否決 Playwright `clock.setFixedTime`（管不到後端且連 `Date.now()` 一起凍）。樣板見 [references/baseline-as-manual.md](references/baseline-as-manual.md) §5。
@@ -302,6 +305,7 @@ regen 與 mocha 的 browser 取得、per-case fresh、DB 重置、假時鐘、`s
 |---|---|---|
 | `<img>` 內 SVG SMIL（spinner） | 偵測 bbox → 截圖後貼「去掉動畫元素（`<animate…>`、`<set>`）之同一 SVG」算繪之靜態影格（底色取區外像素）；舊作法填黑 | `<img>` 內 SVG 不暴露 DOM；輸入固定故輸出決定，且手冊看得到圖示（填黑使「連線中」畫面之主體成黑方塊） |
 | canvas 圖表 / 無法固定之統計區 | 貼圖覆蓋（REGEN 自舉 `_ref`，之後貼回同座標；兩端貼同一張） | 保留真實視覺、語系區仍 live 比對；**自舉前等完成訊號**（圖表 canvas 出現且無「載入中／等待數據」字樣），不用固定秒數——殷鑑：參考片凍結了圖表之載入轉圈；自舉後目視確認一次 |
+| 建置／打包時寫入之產製時間、版本戳；執行耗時（「耗時 N 秒」） | **比對端以標準圖同座標內容覆蓋**該值之矩形（與截圖同一畫面狀態下量、外擴數 px），產製端原樣寫出；被覆蓋之值另以語意斷言驗（等於產物 meta 之產製時間、訊息其餘文字逐字） | 假時鐘管不到（寫入在測試之外，或為兩時間點之差）；不覆蓋則每次重建、每次執行都改寫標準圖。標準圖保留真實版本供手冊——「手冊要看得到」不是「比對要計入」之理由 |
 | 右對齊且寬度隨位數浮動的值 | `{ sel, fixedWidth }` 錨右緣；或正規化（asset hash → `HASH`） | 依元素尺寸遮，邊界隨位數浮動 |
 | 範圍 | 整個動態 block 一起遮 | 只遮圖表漏了同 block 的表 → diff 307px |
 | 地圖／三維場景等 WebGL 畫布（外部瓦片、軟體渲染，而手冊必須看得到畫面） | **比對端以標準圖自身覆蓋畫布矩形，再把疊在畫布上的 DOM 層自當次截圖貼回**；產製端原樣寫檔 | 畫布像素不參與比對但圖保留真實畫面；popup／四角面板／工具列／抽屜／全畫面覆蓋層仍逐像素比對 |
@@ -313,6 +317,7 @@ regen 與 mocha 的 browser 取得、per-case fresh、DB 重置、假時鐘、`s
 1. **每個覆蓋／貼回目標都要有命中數自測**：選擇器或正規式寫錯（位數算錯、class 猜錯）會讓該分支永不命中、功能形同未實作而測試照樣綠。上線前用兩張真圖跑一次覆蓋函式，斷言各目標命中 ≥ 1，並取樣驗證來源（畫布內取標準圖、DOM 層與畫布外取當次）。
 2. **半透明層的殘餘風險寫明**：貼回的圓鈕、面板、圖片瀏覽器背景若半透明，其下畫布像素會透出；先接受並列為觀察項，出現 flake 時把該層改為隨畫布一併覆蓋，不放寬容差。
 3. **跨流程共有的動態區域集中一處**：所有流程首圖都拍到的主頁即時數值（資源監控百分比、在線人數）由共用層一個函式在比對端覆蓋，所有流程呼叫同一個；各流程各寫一份或漏一份都是缺口，跑 mocha 時整批首圖超容差。
+4. **同畫面同性質之值一併處理**：覆蓋了一個不可固定之值，就逐一檢查同畫面之兄弟值（耗時旁之產製時間、版本、計數）是否同性質；只處理撞到的那一個，下次重建又被改寫（殷鑑：同頁之耗時早已覆蓋、標頭之產製時間沒比照，連續數次重建各重產十餘張後才被點破）。
 
 ### 8.3 紅框：截圖後合成
 
@@ -362,7 +367,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 | 按鈕視覺鎖 | 有副作用之按鈕鎖交給送出流程（`runSubmit`），於請求結束（`updateLoading(false)`）釋放、結果訊息框出現時按鈕已恢復——不是在 handler 第一行 `pm.resolve()`（2026-09-29 實測：第一行解鎖使鍵盤連按送出 2 次）；寫法見 skill[role-coder-for-vue-ui] §3。截到 loading 態表示該流程漏了「開訊息框前先 `updateLoading(false)`」 |
 | 雙擊 / 並發防護 | 前端：真瀏覽器對「焦點在按鈕／輸入框連按 Enter」量測（間隔 5ms；全頁 loading 只擋滑鼠、不搶焦點，只測滑鼠雙擊會漏），請求數以後端日誌計數；後端以 `api-` 測試 `Promise.allSettled` 並行 2 次，只斷言時序無關之不變式（至少 1 成功、被拒者只能是占位 key、資料終態），契約依專案（同一操作者 reject 不排隊／不同操作者序列化皆成功）；占位核心以受控 deferred 單元測試 |
 | 提示框／hover 殘留（游標下節點被移除） | 徵狀：點擊後 park、或關閉訊息框再移動，提示框或按鈕 hover 底色仍在。成因：點擊使游標正下方之節點被移除或替換（`v-if` 換成載入圖示、停用遮罩移除），其後第一次命中落在觸發區外（同一輪出現之全頁遮罩，或點擊後立即移開）時，未採「命中節點被移除後以最近仍在 DOM 之祖先為目標」之瀏覽器不對觸發區派發 mouseleave。Chrome 144 起預設採用（`BoundaryEventDispatchTracksNodeRemoval`），真 Chrome 使用者不會遇到；**Playwright ≤1.62 之預設啟動參數停用此功能**（1.63.0 起不再停用），故 e2e 重現而使用者畫面不會。判別：以同版 Chromium 解除停用重跑（`ignoreDefaultArgs` 移除預設之 `--disable-features=…` 整串、`args` 補回不含該項之清單；只加 `--enable-features` 無效），不殘留即屬環境差異。w-component-vue 已於 2026-09-29 修正 WButtonCircle（圖示容器與停用遮罩 `pointer-events:none`，命中恆為按鈕層，不依瀏覽器語意；WDialog 標題列儲存鈕隨之修正），以已安裝之 `WButtonCircle.vue` 圖示容器是否帶 `pointer-events:none` 判斷是否已含修正。處置：元件未升版前，截圖前（游標已移開）偵測**任何**仍可見之 hover 型提示框即拋 knownDefect 標 pending（§7.5），不限特定語系鍵；元件升版（w-component-vue 2.5.24，2026-09-29 發布）後恢復比對，已凍結殘留之既有標準圖以產製端 `--write-mode changed` 只重產超出容差者並逐張審（實例：PERM 11 案兩語系共 22 張，每案只有訊息框那一張、差異全落在提示框範圍），偵測保留為回歸守門並改為**直接判失敗**——已修正之缺陷再現是回歸，標 pending 會被當成略過而漏看。辨識 hover 型提示框依元件設定（WTooltip `mode='tooltip'`；`mode='popup'` 之 WPopup／下拉清單為刻意開啟），不以 `.WPopperFix` 或提示文字判斷：兩者同用 `.WPopperFix`，只認某語系鍵會漏掉對話框標題列 Save、刪除鈕等其他文字；WTooltip 未宣告 name，以結構辨識（`$refs` 含 `divTrigger` 與 `divContent`、`props.mode`、`data.valueTrans`），根實例取應用掛之全域實例，無則取 body 直屬元素之 `__vue__`。共用實作為 w-package-tools-e2e 之 `probeStuckTooltip(page, { rootSel, createError })`（1.0.3 起）：專案以 `captureStable` 之 `beforeShots` 掛上、只以 `createError` 注入專案訊息，不另寫頁內判斷；它依 WTooltip 內部欄位辨識，元件改名或改寫會找不到提示框而一律通過（靜默失效），升級 w-component-vue 時以真元件頁複驗（hover 中偵測得到、移開後為空、已開之 WPopup 不誤判）。升 Playwright 至 1.63+ 亦使徵狀消失，但同時換 Chromium 版本並改變全部邊界事件語意（如節點移除後不再重複 mouseenter），須全量重跑並審差異（實例 2026-10-01：四專案隨 w-package-tools-e2e 1.0.6 升 1.63，Chromium 151 → 153，e2e 全跑未見邊界事件或繪製造成之失敗，只有 textarea 原生拖拉把手之繪製每個差約 20px，逼近容差者重產）。自寫元件同理：游標下會被移除替換之內層（圖示、載入圖示、純視覺遮罩）設 `pointer-events:none`；勿改用 `v-show`——元件根元素 `:style` 含 display 者，元件一重繪就把 v-show 之 none 蓋掉 |
-| 回應含 build hash / 日期 | 正規化或遮 header 區塊 |
+| 回應或畫面含 build hash / 產製日期 | 正規化或比對端覆蓋（§8.2）；不因其變動而重產標準圖（§7.9） |
 | 檔案上傳 | fixture 入版控；`filechooser` 事件接真檔；上傳模式選單等文字出現再點 |
 | 另開分頁 | `context.waitForEvent('page')` 先掛再點；新分頁以頁面內容斷言（網址常帶不透明 hash）；新分頁自動開的彈窗才是要框的東西 |
 | 拖曳調整寬度 | 把手取「最高的 `cursor: col-resize` 元素」；真滑鼠分段移動；拖前框把手（外擴使其可辨識）、拖後框整個變寬的面板 |
@@ -412,6 +417,7 @@ headless Chromium 預設 GPU 光柵化 + subpixel AA 非決定性（拉丁字偶
 - [ ] 產品缺陷步驟走 knownDefect → pending，已以無 hook 環境重現並寫入已知落差；無 allowPageErrors 放行
 - [ ] 重產：同時只有一條鏈；log 檔名未重用；長段紅線**像素**掃描無框為 0（不以讀碼判定有框）；每張逐張目視並對照 spec；退回類別已全掃；已交使用者審圖並取得認可後才跑 mocha（已委任 agent 審圖之專案依其 process）
 - [ ] 孤兒檢查為 0（gate.finalize／等價驗證 onlyInB 去 `_` 前綴）；`[baseline-headroom]` 告警為 0 或已查因；等價以 RGBA／登錄漂移點判定，不以 pixelmatch 計數 0 判定
+- [ ] 不可固定之值已分類並登錄映射表，比對端覆蓋集中一處、有命中數自測與語意斷言；本輪標準圖差異（含 changed 模式自動寫出）已逐張分流，只落在該等值者已補遮蔽、取回原圖並零寫出重跑，未以重產處理，也未問使用者要不要重產
 - [ ] 每步兩張依 §7.1 粒度（一個操作一步、相鄰兼任、共通進場路徑一案記錄）；spec 以「非決定性」為由不拍者已改以假時鐘／遮罩處理
 - [ ] 交審形式：圖文對照之審圖報告只收本輪新增／變動案例、每圖附圖鍵與框住對象；下游手冊已同輪更新；涉信流程之寄信點已全盤點，模板／〈信件對照〉／測試期望三處一致
 - [ ] baseline 命名 <flow>-<lang>-E2E-NNN-<序>-…；regen 有授權；--names 截圖前 gate；strict settle；git diff --stat 僅預期；certify 通過

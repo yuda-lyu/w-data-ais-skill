@@ -2,13 +2,14 @@
 
 本篇是 SKILL.md §7–§8 的深入層：baseline 比對超過容差（真差異）時怎麼查、查到什麼程度才算查完、根因修不了時怎麼守門、重產後怎麼認證。**先量後猜**——任何讀碼推測都不得先於量測公布（殷鑑：讀到 `barSize/2` 就公布「奇數 px 造成半像素」，量 6 輪 DOM 全整數，推測作廢）。調研方法、外部複審、業主裁示、反模式見 [research-review-discipline.md](research-review-discipline.md)。
 
-## 1. 先分流：三種差異、三種處置
+## 1. 先分流：四種差異、四種處置
 
 | 種類 | 徵狀 | 處置 |
 |---|---|---|
 | ① 反鋸齒次像素 noise | SVG icon / 字型邊緣，肉眼等同；色差分布集中 01–08 | pixelmatch `includeAA:false` + `maxDiffPixels` 自動吸收；不 chase、不遮罩、不做旗標體操 |
 | ② 真會動的動態內容 | 資料 / 動畫 / canvas，怎麼等都不穩 | 遮罩該動態 block（SKILL §8.2）；優先讓資料確定性 |
-| ③ 超容差真差異 | 差異像素 > `maxDiffPixels`；大量色差 > 100 | 照 §2 成因表 + §3 七步查具體成因；禁止放寬容差將就 |
+| ③ 不可固定之值 | 同一執行內穩定、跨執行或跨建置必變：差異外接矩形恰為一段產製時間、耗時、使用率等文字；同一位置每次都出現，常在容差內默默耗用餘裕，某次才超出 | 補遮蔽（比對端覆蓋）、取回被改寫之圖、零寫出重跑；**不重產、不放寬容差**，見 [unfixable-values-masking.md](unfixable-values-masking.md) §4 |
+| ④ 超容差真差異 | 差異像素 > `maxDiffPixels`；大量色差 > 100 | 照 §2 成因表 + §3 七步查具體成因；禁止放寬容差將就 |
 
 ## 2. 超容差真差異的五類成因（歷次逐一 diff 命中率 100%）
 
@@ -24,7 +25,7 @@
 
 ## 3. 七步診斷流程（依序，不可跳號）
 
-1. **diff 幾何特徵**：pngjs 逐像素比 RGB，輸出 `差異數 / inclusive bbox / maxΔ / avgΔ / 色差分布`。同簽名跨 case 跨日出現＝同一根因。逐欄 / 逐列直方圖可看出「五個垂直段恰對應五個選單項」＝整個子樹在動。
+1. **diff 幾何特徵**：pngjs 逐像素比 RGB，輸出 `差異數 / inclusive bbox / maxΔ / avgΔ / 色差分布`。同簽名跨 case 跨日出現＝同一根因。bbox 恰為一段時間或數字文字者，先依 §1 ③ 判是否不可固定之值，是則補遮蔽，不進後續步驟。逐欄 / 逐列直方圖可看出「五個垂直段恰對應五個選單項」＝整個子樹在動。
 2. **是否剛性平移（shift 驗證器）**：掃 `d(dx,0)`，dx∈[-2,2]；對最佳 dx 做 `capture(x,y)==baseline(x+dx,y)` **零失配驗證**。驟降＋零失配＝同一份已光柵化 bitmap 被合成到偏移位置；位移後仍大量不符＝重新光柵化，機制不同。效力最強的單一實驗，第一天就做。
 3. **位移量對應哪個幾何量（位移量＝懸出量方程式）**：量該層與裁切容器的寬度差（`scrollWidth / clientWidth / offsetWidth / getBoundingClientRect().width`、裁切祖先的 `overflowX`），`overhang = shell.w - wrap.w`，非零懸出都是嫌疑。機制：比裁切框寬 N px 的合成層有兩個合法對齊解（左緣貼齊＝正常；右緣貼齊＝整層左移 N px），軟體合成器於 launch 初始化二選一後鎖死。殷鑑：捲軸面板為藏原生捲軸把捲動殼做寬 `calc(100% + (nativeBarWidth+1)px)`，headless 下 overlay 捲軸 `nativeBarWidth=0`，懸出恰 1 = 位移 1（上游 2.5.4 起移除 `+1`，逐版 tarball 比對確認）；樹狀組件 6px 溢出 → ~6px 位移。推廣：「加寬藏捲軸 / 負 margin 藏邊界 / +1px fudge」在 headless 都退化成純懸出；原始碼註解自陳「因瀏覽器計算誤差需 +1px」是最強嫌疑訊號。bbox 邊界精確對應某一層的邊界，用 bbox 反推層級比讀碼快。
 4. **骰子擲在什麼粒度**：「同 launch 連拍 N 張 hash」×「N 次 fresh launch 各拍 1 張」。同 launch 全同、跨 launch 分歧＝launch 級 → 所有 launch 內治癒（開合、重繪、語系重繪、scrollTop 微擾）注定無效；同 launch 就分歧＝每拍級 → 往 settle / 時序修。統計單位：launch 級一 launch = 一樣本，連拍 10 張只算 n=1。
