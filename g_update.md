@@ -13,6 +13,12 @@ npm install -g --allow-scripts=opencode-ai opencode-ai@latest
 
 ----
 
+cd skills
+ncu -u
+npm i
+
+----
+
 請針對技能[dispatch-claude], 調研最新版claude cli最新版之參數設定, 與套件[w-dispatch-ai]之封裝設定, 須預設使用fable5.1模型, 與選最深的思考程度, 若有需要更新就更新
 
 請針對技能[dispatch-codex], 調研最新版codex cli最新版之參數設定, 與套件[w-dispatch-ai]之封裝設定, 須預設使用gpt6.1 sol模型, 與選最深的思考程度, 若有需要更新就更新
