@@ -356,7 +356,7 @@ export async function waitMutationSettled(page, { n = 10, timeout = 15000 } = {}
 
 **原則**：產製端與比對端呼叫**同一個函數**（套件 `runBaselineCase`），順序固定為 prepare（開瀏覽器前，DB 重置、換設定）→ launch（每案 fresh）→ openPage → beforeRun → run（流程中每階段截圖後**當場**語意斷言，狀態仍在畫面上）→ 正規化截圖 → stages 檢查（產出圖鍵＝宣告）→ semantic → verify（DB／端到端不變式）→ 產製端逐張依篩選寫檔（**全部斷言通過才寫、任一失敗一張不寫**）／比對端逐張比對 → finally 關瀏覽器 → afterCase。只能在 mocha 行程內執行之檢查（例如會拖住事件迴圈之 node 端 API client）以 `ctx.mode === 'compare'` 分流並於檔頭註明依據。手寫兩份流程（產製一份、比對一份）＝補丁；「產製端不跑語意斷言」＝缺陷。
 
-(a) 直跑（sso／perm／task 慣例）：
+(a) 直跑：
 
 ```js
 let cases = [   //順序＝mocha it 順序；title＝it 標題（--grep 依之）；stages＝該案產出之全部圖鍵
@@ -382,7 +382,7 @@ if (process.argv.includes('--baseline')) { generateBaseline().catch((err) => { c
 else { for (let lang of langs) describe(`<flow> [${lang}]`, function() { for (let c of cases) it(c.title, async function() { await runCase('compare', lang, c, { onKnownDefect: () => this.skip() }) }) }) }
 ```
 
-(b) mocha REGEN（api 慣例：同一個 `it()` 在 `--baseline`／`E2E_REGEN=1` 時寫圖）：`it()` 內同樣呼叫 `runBaselineCase({ mode: REGEN ? 'regen' : 'compare', gate: REGEN ? createBaselineGate({ langs, cases }) : null, ... })`——**不可**在流程中逐階段「比對函式兼寫檔」（先寫圖後斷言，後面斷言失敗時已寫入半套新圖）；兩案共用同一張圖者其一宣告 `compareOnly`（否則同一張被兩案重寫）。個別檔不得自行 spawn / 判讀 REGEN。
+(b) mocha REGEN（同一個 `it()` 在 `--baseline`／`E2E_REGEN=1` 時寫圖）：`it()` 內同樣呼叫 `runBaselineCase({ mode: REGEN ? 'regen' : 'compare', gate: REGEN ? createBaselineGate({ langs, cases }) : null, ... })`——**不可**在流程中逐階段「比對函式兼寫檔」（先寫圖後斷言，後面斷言失敗時已寫入半套新圖）；兩案共用同一張圖者其一宣告 `compareOnly`（否則同一張被兩案重寫）。個別檔不得自行 spawn / 判讀 REGEN。
 
 **篩選語意（`createBaselineGate`）**：`--names` 每項可帶 `<語系>-` 前綴；解析順序①完全等於已宣告之階段圖鍵→只寫該張 ②案例鍵之完全或**邊界**前綴（`E2E-005` 命中 `E2E-005-x`、不命中 `E2E-0051-x`）→該案全部階段 ③階段圖鍵之邊界前綴 ④案例未宣告 stages 時依編號執行、執行後未產出由 `finalize()` 拋錯；命中只比對之案例、不符任何鍵、旗標缺值或值以 `--` 開頭一律拋錯並列出可用鍵；`--langs` 完全比對；`--write-mode all｜missing｜changed`（missing＝追加案例只補缺圖；changed＝只寫超過容差或尺寸不同者，機械化「不重寫已審過之圖」）；`E2E_BASELINE_OUT_DIR` 只改寫出路徑（等價驗證用），比對端讀取不受影響。自檢：`node test/e2e-<flow>.test.mjs --baseline --names __none__` 須於啟動任何服務之前報錯並列出可用鍵。
 

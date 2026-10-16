@@ -12,7 +12,7 @@ description: 繁體中文與簡體中文互轉技能，基於 opencc-js。支援
 **典型用途**：
 - 抓取大陸網站文章（簡體）→ 轉成台灣讀者習慣的繁體
 - 抓取台灣／香港網站內容 → 轉成簡體供大陸場景使用
-- 對接 fetch-aisixiang／fetch-guancha 等只接受簡體查詢的站點
+- 對接愛思想（aisixiang.com）、觀察者網（guancha.cn）等只接受簡體查詢的站點
 
 ## locale 代碼
 

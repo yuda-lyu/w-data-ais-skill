@@ -472,7 +472,7 @@ officecli add "$FILE" "/body/p[3]" --type footnote --prop text="See Appendix A f
 2. `officecli view "$FILE" outline`——標題層級(不可 H1 → H3 跳級), 目錄是否存在, 節數.
 3. `officecli view "$FILE" text --max-lines 400`——錯字, 殘留的 `\$`/`\t`/`\n` 字面, 佔位符標記.
 4. `officecli validate "$FILE"`——綱要檢查(交付關卡會對已關閉, 落地之檔案再跑一次).
-5. **視覺檢查——整份文件當成一張聯絡表**(僅限具視覺能力之代理——若你無法解讀影像請跳過此步:步驟 1–4 就是你的上限, 且交付時須註明[未經視覺驗證]).`officecli view "$FILE" screenshot --grid auto -o /tmp/sheet.png`, 然後讀取它.`--grid auto` 把**每一頁**拼成一張圖(自動決定欄數;`--grid 4` 可強制)——你會*看見*分頁, 空白頁, 標題節奏, 左右失衡的邊界, 以及目錄/封面的落點, 而不只是 DOM.Windows+Word 環境會用真正的 Word 逐頁渲染, 其他環境用 HTML.截圖失敗時退回 `view html`, 並註明跨頁分頁 / 對齊 / 節奏[未經視覺驗證].縮圖只用來**定位**:任何細判(欄位對齊, 行距, 縮排, 深色疊深色, 圖說位置)須以 `screenshot --page N` 對該頁全解析度確認(不加 `--grid`;Windows 上為真正的 Word).[validate 通過]不等於可交付;[看起來像一份真實文件]才是.
+5. **視覺檢查——整份文件當成一張聯絡表**(僅限具視覺能力之代理——若你無法解讀影像請跳過此步:步驟 1–4 就是你的上限, 且交付時須註明[未經視覺驗證]).`officecli view "$FILE" screenshot --grid auto -o ./tmp/<案名>/sheet.png`, 先以 `file ./tmp/<案名>/sheet.png` 確認是 PNG(`PNG image data`)再讀取它——內容不是合法圖片時讀進來會讓整個 session 永久壞掉.`--grid auto` 把**每一頁**拼成一張圖(自動決定欄數;`--grid 4` 可強制)——你會*看見*分頁, 空白頁, 標題節奏, 左右失衡的邊界, 以及目錄/封面的落點, 而不只是 DOM.Windows+Word 環境會用真正的 Word 逐頁渲染, 其他環境用 HTML.截圖失敗時退回 `view html`, 並註明跨頁分頁 / 對齊 / 節奏[未經視覺驗證].縮圖只用來**定位**:任何細判(欄位對齊, 行距, 縮排, 深色疊深色, 圖說位置)須以 `screenshot --page N` 對該頁全解析度確認(不加 `--grid`;Windows 上為真正的 Word).[validate 通過]不等於可交付;[看起來像一份真實文件]才是.
 6. 若任一項失敗, 修正後**重跑整個循環**——一個修正常會引發另一個問題.
 
 ### 交付關卡(交件前執行——任一項失敗即 REJECT, 不得交付)

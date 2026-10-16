@@ -300,6 +300,16 @@ CronCreate({
 
 原理：`run_in_background: true` 的行程結束時 harness 送通知叫醒主 agent。**但背景指令自己有時限**：`timeout` 沒給是 1800000（30 分鐘）、最長 7200000（2 小時），到期即被終止、通知為 killed（2026-10-03 實測，§10.4；早期曾觀察到背景工作連跑 89 分鐘未被砍，那是舊版 harness 的行為，已不成立）。所以**每個計時器都明給 `timeout`，且大於該指令最長會跑的秒數**：單段 `sleep` 或迴圈一律 ≤ 6900 秒、搭 `timeout: 7200000`，留 5 分鐘餘裕；更長的等待分段，每段醒來再掛下一段。
 
+**依預估時長選執行方式**（判準是「跑多久」與「會不會跨 session」兩者）：
+
+| 情境 | 用法 |
+|---|---|
+| < 2 分鐘 | 前景 Bash（預設 120000、最長 600000，到期即被終止） |
+| ≤ 115 分鐘，可接受隨 session 結束 | `run_in_background: true`，明給 `timeout`（≤ 7200000） |
+| > 115 分鐘，或不可因 session 更替而中斷 | detached 執行並分段等待（配方 E） |
+
+**典型錯誤形狀**：長批次直接 `run_in_background` 而未給 `timeout`，於 30 分鐘整被終止；其後該批次新開之子程序一律瞬間失敗，事後看像整批全部失敗，於是整批重跑，token 與時間白付。
+
 **配方 A：一次性，指定牆鐘時刻**（超過 115 分鐘自動分段）
 
 ```
@@ -339,6 +349,7 @@ Bash({ run_in_background: true, timeout: 7200000, description: '等待 <案名>�
 - 只用 `sleep`（Git Bash 可用），不用 `timeout` 指令；前景 `sleep` 會被工具政策擋下，一律 `run_in_background: true`，並明給 `timeout`（≤ 7200000），值大於該段最長秒數。
 - **每段一律在時限前自行結束**（≤ 6900 秒），不要靠被 harness 終止來叫醒：被終止的通知是 killed，附帶「已給最長 timeout 就不要重啟」之類提示，那是針對工作本身，容易讓人誤判成不該再掛。
 - 命令內印出設定時刻與到期時刻，通知的 `output-file` 會帶回這兩行，可算延遲。
+- 背景工作的 `output-file`（通知內附其絕對路徑，內含 stdout＋stderr）期間隨時可 `Read` 看中途進度；要提前中止用 `TaskStop`（帶 task id），不必撈 PID。
 - 時刻用 `date -d "<絕對時刻>" +%s` 計算，不要心算秒數；`t ≤ 0` 時直接執行不 sleep。
 - 一個計時器只做一件事；要「到期後跑程式」就接在 `sleep` 之後（`sleep N; node x.mjs`），通知即代表程式已跑完——但 `sleep` 加程式的總時長同樣受 `timeout` 約束，程式可能跑很久就改用配方 E。
 - 通知抵達時你可能正忙於其他 turn，通知會排隊不會遺失；但 session 結束就全部消失。
@@ -364,6 +375,8 @@ done
 ```
 
 那條 `elif` 不可省：只監看「有更新」的話，管線掛掉與一切安靜在使用者眼裡完全相同。Monitor 工具自己的說明也強調 *silence is not success*。重掛時 `last` 會重新取一次 mtime，到期與重掛之間的更新會漏推一次，所以紀錄檔仍是唯一真相（§8）。Monitor 仍綁 session。
+
+監看日誌（`tail -f <日誌> | grep …`）同理：stdout 每一行就是一則通知，所以 filter 要有選擇性，但必須同時涵蓋成功與失敗訊號——只抓成功字樣時，崩潰、卡死與非預期退出全都靜默。掛之前自問「此刻它若崩了，filter 會吐出東西嗎？」不會就放寬，例如 `grep -E --line-buffered "done|Traceback|Error|FAILED|Killed|OOM|exit code [1-9]"`。管線每一段都要逐行 flush：`grep` 加 `--line-buffered`、`awk` 用 `fflush()`；`head` 無法 flush，`| head -N` 會整段吞掉。stderr 不進事件流，自己跑的指令要 `2>&1` 併入。
 
 ### 6.4 管線內建巡檢（不依賴 session）
 

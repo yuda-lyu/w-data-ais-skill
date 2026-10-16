@@ -143,7 +143,7 @@ description: |
 
 1. 用 Step 0 的需求編號做矩陣：每條需求對到報告的哪一節。
 2. 每條需求的狀態只有三種：**已回應**（寫章節）、**刻意不回應**（必須附理由）、**漏列**（必須補寫或標記處置）。
-3. 同時檢查：章節結構是否符合該文類的規範（標案文件看 skill[role-writer-report]，流程或呼叫鏈文件看 skill[role-writer-flow-doc]）；同一個東西全篇是否用同一個名字；日期是否為絕對日期（`2026-08-30`，不用「昨日」「上週」）。
+3. 同時檢查：章節結構是否符合該文類的規範（標案文件看 skill[role-writer-report]，流程或呼叫鏈文件看 skill[role-coder-for-spec]）；同一個東西全篇是否用同一個名字；日期是否為絕對日期（`2026-08-30`，不用「昨日」「上週」）。
 4. 寫進 `./tmp/validate-requirements.md`。
 
 ### Step 3：主張溯源（L1）
@@ -258,4 +258,4 @@ description: |
 - [references/產物範本.md](references/產物範本.md)：六問卡、實體帳冊、需求對齊矩陣、主張帳冊與執行紀錄、盤點對照表、同類掃描表、覆蓋聲明的欄位與範例列。
 - [references/完整範例.md](references/完整範例.md)：一份真實的短報告從 Step 0 走到 Step 8 的完整示範。
 - [references/驗證框架摘要.md](references/驗證框架摘要.md)：原文框架摘要、兩張原始分層表與出處。
-- 相關技能：skill[role-writer-report]（標案／技術服務文件怎麼寫）、skill[role-writer-flow-doc]（流程／呼叫鏈文件怎麼寫）——它們管「怎麼寫」，本技能管「怎麼驗」；skill[role-coder-for-validate]（程式側自檢）——報告若描述自己剛寫的程式，先用它驗程式，再用本技能驗報告；skill[dispatch-claude]、skill[dispatch-codex]、skill[dispatch-opencode]（外部複審）——被派去複審的對象必須能自行讀檔，派長任務前先用「讀某檔並引用第 N 行」探測；請它審的是盤點表與帳冊，不是方案。
+- 相關技能：skill[role-writer-report]（標案／技術服務文件怎麼寫）、skill[role-coder-for-spec]（流程／呼叫鏈文件怎麼寫）——它們管「怎麼寫」，本技能管「怎麼驗」；skill[role-coder-for-validate]（程式側自檢）——報告若描述自己剛寫的程式，先用它驗程式，再用本技能驗報告；skill[dispatch-claude]、skill[dispatch-codex]、skill[dispatch-opencode]（外部複審）——被派去複審的對象必須能自行讀檔，派長任務前先用「讀某檔並引用第 N 行」探測；請它審的是盤點表與帳冊，不是方案。

@@ -44,7 +44,7 @@ submitXxx: function(opt = {}) {                                   //opt.pm: 按�
 
 ## 2. Vue 2 template 內 `@event` handler 一律用 method 名,禁用 `async` 開頭 inline arrow
 
-Vue 2 compiler 對 `@event="async (args)=>{...}"` 會靜默編錯(fnExpRE 不匹配 `async` 開頭 → 整段被包進 `function($event){}` 後 Babel 轉成只定義不呼叫的 IIFE)→ handler 永不執行且無 warning.規則:`@event` 一律用 method 名;需 slot scope / v-for 動態 args 時用 **non-async** arrow bridge 到 method(`@click="(msg) => onClickX(msg,id)"`).偵測:`grep -rn '@\w\+="async' src/` 命中即 bug.搭 `:promiseUnlock="true"` 時此 bug 會讓按鈕鎖永不釋放 → button 永久卡鎖,災難組合.殷鑑:w-web-sso 4 顆按鈕用 inline async arrow 致全 e2e 61 fail.
+Vue 2 compiler 對 `@event="async (args)=>{...}"` 會靜默編錯(fnExpRE 不匹配 `async` 開頭 → 整段被包進 `function($event){}` 後 Babel 轉成只定義不呼叫的 IIFE)→ handler 永不執行且無 warning.規則:`@event` 一律用 method 名;需 slot scope / v-for 動態 args 時用 **non-async** arrow bridge 到 method(`@click="(msg) => onClickX(msg,id)"`).偵測:`grep -rn '@\w\+="async' src/` 命中即 bug.搭 `:promiseUnlock="true"` 時此 bug 會讓按鈕鎖永不釋放 → button 永久卡鎖,災難組合.殷鑑:曾有專案 4 顆按鈕用 inline async arrow 致全 e2e 61 fail.
 
 ## 3. 有副作用按鈕之雙擊防護:鎖交給 `runSubmit` 至請求結束,handler 不解鎖
 
@@ -59,7 +59,7 @@ Vue 2 compiler 對 `@event="async (args)=>{...}"` 會靜默編錯(fnExpRE 不匹
     },
     ```
 
-2. **送出流程狀態(`$ui.runSubmit(key, fn, opt)`)**:核心為純邏輯模組 `src/plugins/submitGuard.mjs`(可單元測試;新專案自 w-web-sso 複製),`mUI` 匯出 `runSubmit`,並於 `updateLoading(false)` 呼叫 `releaseBtnLocks()`.規則:
+2. **送出流程狀態(`$ui.runSubmit(key, fn, opt)`)**:核心為純邏輯模組 `src/plugins/submitGuard.mjs`(可單元測試;新專案自已實作之既有專案複製),`mUI` 匯出 `runSubmit`,並於 `updateLoading(false)` 呼叫 `releaseBtnLocks()`.規則:
     - 同 key 之流程進行中(自觸發至流程結束,**含結果訊息框開啟期間**)再觸發即略過,被略過之觸發立即釋放其按鈕鎖.
     - **同一操作之所有入口共用一個 key**:按鈕滑鼠 / 鍵盤、輸入框 Enter(不帶 pm)、快捷鍵.
     - `fn` 收到 `unlockBtn`:未打 API 即開訊息框之早退路徑、**先開確認框之流程**(自開確認框起整段包進 runSubmit)於開框前呼叫,按鈕鎖只涵蓋請求期間;重入仍由流程狀態擋.
